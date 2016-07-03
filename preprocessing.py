@@ -37,7 +37,7 @@ class Preprocess(object):
 
 class Standardize(Preprocess):
 
-    def __init__(self, axis = 0):
+    def __init__(self, axis=0):
         assert axis >= 0
         self.axis_ = axis
         self.mean_ = None

@@ -133,7 +133,7 @@ class Matrix(object):
                np.array_equal(self.__columnlabels, other.__columnlabels)
                
     def __str__(self):
-        return ("DATA:\n{}\nROWLABELS:\n{}\nCOLUMNLABELS:\n{}\n"
+        return ("\nDATA:\n{}\n\nROWLABELS:\n{}\n\nCOLUMNLABELS:\n{}\n"
                 .format(self.__data, self.__rowlabels, self.__columnlabels))
     
     def copy(self):
@@ -141,6 +141,44 @@ class Matrix(object):
         return Matrix(self.__data.copy(),
                       self.__rowlabels.copy(),
                       self.__columnlabels.copy())
+
+    @staticmethod
+    def load_matrix(path):
+        with np.load(path) as mtx:
+            data = mtx['data']
+            rowlabels = mtx['rowlabels']
+            columnlabels = mtx['columnlabels']
+        return Matrix(data, rowlabels, columnlabels)
+    
+
+    def save_matrix(self, path):
+        with open(path, 'w') as f:
+            np.savez_compressed(f,
+                                data=self.__data,
+                                rowlabels=self.__rowlabels,
+                                columnlabels=self.__columnlabels)
+    
+    def filter(self, labels, rows_or_columns):
+        """Returns a new matrix filtered by either the rows or
+           columns given in 'labels'"""
+        assert rows_or_columns in ['rows', 'columns']
+        if rows_or_columns == "rows":
+            filter_labels = self.rowlabels
+        else:
+            filter_labels = self.columnlabels
+        
+        logical_filter = np.in1d(filter_labels.ravel(),
+                                 labels).reshape(filter_labels.shape)
+        
+        if rows_or_columns == "rows":
+            return Matrix(self.__data[logical_filter],
+                          self.__rowlabels[logical_filter],
+                          self.__columnlabels)
+        else:
+            return Matrix(self.__data[:, logical_filter],
+                          self.__rowlabels,
+                          self.__columnlabels[logical_filter])        
+        
                 
 def matrix_tests():
     A = np.array([[2,7,6],
