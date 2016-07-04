@@ -158,17 +158,21 @@ class Matrix(object):
                                 rowlabels=self.__rowlabels,
                                 columnlabels=self.__columnlabels)
     
-    def filter(self, labels, rows_or_columns):
-        """Returns a new matrix filtered by either the rows or
-           columns given in 'labels'"""
+    def get_membership_mask(self, labels, rows_or_columns):
         assert rows_or_columns in ['rows', 'columns']
         if rows_or_columns == "rows":
             filter_labels = self.rowlabels
         else:
             filter_labels = self.columnlabels
         
-        logical_filter = np.in1d(filter_labels.ravel(),
-                                 labels).reshape(filter_labels.shape)
+        return np.in1d(filter_labels.ravel(),
+                       labels).reshape(filter_labels.shape)
+    
+    def filter(self, labels, rows_or_columns):
+        """Returns a new matrix filtered by either the rows or
+           columns given in 'labels'"""
+        assert rows_or_columns in ['rows', 'columns']
+        logical_filter = self.get_membership_mask(labels, rows_or_columns)
         
         if rows_or_columns == "rows":
             return Matrix(self.__data[logical_filter],
