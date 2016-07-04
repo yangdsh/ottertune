@@ -2,9 +2,8 @@ import numpy as np
 from itertools import chain, combinations, combinations_with_replacement
 from abc import ABCMeta, abstractmethod
 
+from .util import NEARZERO
 from common.typeutil import is_numeric_matrix, is_lexical_matrix
-
-NEARZERO = 1.e-8
 
 ##==========================================================
 ##  Preprocessing Base Class
@@ -67,9 +66,9 @@ def get_mean_and_std(matrix, axis):
     #mstd[:] += NEARZERO # Protect against div0 errors
     #mstd[mstd == 0.] = 1.
     if np.any(np.abs(mstd) < NEARZERO):
-        raise Exception("Matrix has near zero values.")
+        raise Exception("Standard deviation calculation has near zero values.")
     
-    return mmean, mstd
+    return mmean.squeeze(), mstd.squeeze()
     
 def standardize(matrix, mmean, mstd, axis, copy=True):
     if not copy and matrix.dtype != np.dtype("float64"):

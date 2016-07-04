@@ -47,32 +47,44 @@ class Matrix(object):
     
     columnlabels = property(get_columnlabels, set_columnlabels)
 
-    def vstack(self, other, require_equal_columnlabels=True):
+    @staticmethod
+    def vstack(matrices, require_equal_columnlabels=True):
         """Returns a new matrix equal to the row-wise
-        concatenation of this matrix and the other matrix"""
-        assert isinstance(other, Matrix)
-        numrows = self.__data.shape[0]
-        assert numrows == other.__data.shape[0]
-        assert numrows == other.__rowlabels.shape[0]
-        if require_equal_columnlabels:
-            assert np.array_equal(self.__columnlabels, other.__columnlabels)
-        data = np.vstack([self.__data, other.__data])
-        rowlabels = np.append(self.__rowlabels, other.__rowlabels)
-        return Matrix(data, rowlabels, self.__columnlabels.copy())
+        concatenation of the given matrices"""
+        assert len(matrices) > 0
+        if len(matrices) == 1:
+            return matrices[0].copy()
+        
+        for matrix in matrices:
+            assert isinstance(matrix, Matrix)
+            assert matrix.columnlabels.shape == matrices[0].columnlabels.shape
+            assert matrix.data.shape[1] == matrices[0].data.shape[1]
+            if require_equal_columnlabels:
+                assert np.array_equal(matrix.columnlabels, matrices[0].columnlabels)
+
+        data = np.vstack([mtx.data for mtx in matrices])
+        rowlabels = np.hstack([mtx.rowlabels for mtx in matrices])
+        return Matrix(data, rowlabels, matrices[0].columnlabels.copy())
         
     
-    def hstack(self, other, require_equal_rowlabels=True):
+    @staticmethod
+    def hstack(matrices, require_equal_rowlabels=True):
         """Returns a new matrix equal to the column-wise
-        concatenation of this matrix and the other matrix"""
-        assert isinstance(other, Matrix)
-        numcolumns = self.__data.shape[1]
-        assert numcolumns == other.__data.shape[1]
-        assert numcolumns == other.__columnlabels.shape[0]
-        if require_equal_rowlabels:
-            assert np.array_equal(self.__rowlabels, other.__rowlabels)
-        data = np.hstack([self.__data, other.__data])
-        columnlabels = np.append(self.__columnlabels, other.__columnlabels)
-        return Matrix(data, self.__rowlabels.copy(), columnlabels)
+        concatenation of the given matrices"""
+        assert len(matrices) > 0
+        if len(matrices) == 1:
+            return matrices[0].copy()
+        
+        for matrix in matrices:
+            assert isinstance(matrix, Matrix)
+            assert matrix.data.shape[0] == matrices[0].data.shape[0]
+            assert matrix.rowlabels.shape == matrices[0].rowlabels.shape
+            if require_equal_rowlabels:
+                assert np.array_equal(matrix.rowlabels, matrices[0].rowlabels)
+
+        data = np.hstack([mtx.data for mtx in matrices])
+        columnlabels = np.hstack([mtx.columnlabels for mtx in matrices])
+        return Matrix(data, matrices[0].rowlabels.copy(), columnlabels)
     
     def _unique_helper(self, data):
         cdata = np.ascontiguousarray(data).view(np.dtype(
@@ -206,10 +218,10 @@ def matrix_tests():
                                    [0,2,4,0,2,4]])
     A_cl_B_cl_exp = np.array(['Ac1', 'Ac2', 'Ac3', 'Bc1', 'Bc2', 'Bc3'])
     AB_hstack_exp = Matrix(AB_hstack_data_exp, A_rl, A_cl_B_cl_exp)
-    AB_hstack = matrix_A.hstack(matrix_B, require_equal_rowlabels=False)
+    AB_hstack = Matrix.hstack([matrix_A, matrix_B], require_equal_rowlabels=False)
     assert AB_hstack_exp == AB_hstack
     try:
-        matrix_A.hstack(matrix_B, require_equal_rowlabels=True)
+        Matrix.hstack([matrix_A, matrix_B], require_equal_rowlabels=True)
         print "Failed hstack require equal columns test"
     except AssertionError:
         print "Passed hstack require equal columns test"
@@ -225,10 +237,10 @@ def matrix_tests():
                                    [0,2,4]])
     A_rl_B_rl_exp = np.array(['Ar1', 'Ar2', 'Ar3', 'Br1', 'Br2', 'Br3'])
     AB_vstack_exp = Matrix(AB_vstack_data_exp, A_rl_B_rl_exp, A_cl)
-    AB_vstack = matrix_A.vstack(matrix_B, require_equal_columnlabels=False)
+    AB_vstack = Matrix.vstack([matrix_A, matrix_B], require_equal_columnlabels=False)
     assert AB_vstack_exp == AB_vstack
     try:
-        matrix_A.vstack(matrix_B, require_equal_columnlabels=True)
+        Matrix.vstack([matrix_A, matrix_B], require_equal_columnlabels=True)
         print "Failed vstack require equal columns test"
     except AssertionError:
         print "Passed vstack require equal columns test"
