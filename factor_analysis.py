@@ -12,12 +12,13 @@ from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from sklearn.decomposition import FactorAnalysis
 
+from .cluster import gap_statistic
 from .matrix import Matrix
 from .preprocessing import Standardize
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
-FACTOR_CUTOFF = 10
+FACTOR_CUTOFF = 5
 
 
 def run_factor_analysis(paths, savedir):
@@ -57,6 +58,16 @@ def run_factor_analysis(paths, savedir):
         fa = FactorAnalysis()
         fa.fit(matrix.data)
     components = fa.components_[:FACTOR_CUTOFF].T
+ 
+    ks, Wks, Wkbs, sk = gap_statistic(components)
+    G = []
+    
+    Wds = Wkbs - Wks
+    for i in range(len(ks) - 1):
+        G.append(Wds[i] - (Wds[i+1]-sk[i+1]))
+    G = np.array(G)
+    print G
+    return
 
     # Run kmeans for different cluster sizes
     cluster_info = {}
