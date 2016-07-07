@@ -41,8 +41,10 @@ class KMeansHelper(object):
 #         self.functs_ = KMeansHelper.compute_eval_function(self.weights_,
 #                                                           self.distortions_,
 #                                                           clusters)
-        self.functs_ = np.empty()
-        self.functs_, self.distortions_ = KMeansHelper.fK(X, thisk, cluster_centers, cluster_labels, Skm1)
+        self.functs_ = np.empty(len(clusters))
+        self.distortions_ = np.empty(len(clusters))
+        for i,(k,items) in enumerate(self.cluster_map_.iteritems()):
+            self.functs_[i], self.distortions_[i] = KMeansHelper.fK(X, k, items[0], items[1])
         print "optimal cluster: {} (f = {})".format(clusters[np.argmin(self.functs_).squeeze()],
                                                     X.shape[1])
  
