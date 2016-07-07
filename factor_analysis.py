@@ -48,15 +48,23 @@ def run_factor_analysis(paths, savedir, factor_cutoff=5):
         matrix.data = standardizer.fit_transform(matrix.data)
         
         # TODO: shuffle the data
-#         n_rows = matrix.data.shape[0]
-#         shuffle_indices = np.random.choice(n_rows, n_rows, replace=False)
-#         matrix.data = matrix.data[shuffle_indices]
+        n_rows = matrix.data.shape[0]
+        exp_shuffle_indices = np.random.choice(n_rows, n_rows, replace=False)
+        matrix.data = matrix.data[exp_shuffle_indices]
 
     with stopwatch("fit factor analysis model"):
         # Fit the model to calculate the components
         fa = FactorAnalysis()
         fa.fit(matrix.data)
     components = fa.components_[:factor_cutoff].T
+    standardizer = Standardize()
+    components = standardizer.fit_transform(components)
+    
+    # Shuffle metrics
+    n_metrics = components.shape[0]
+    metric_shuffle_indices = np.random.choice(n_metrics, n_metrics, replace=False)
+    components = components[metric_shuffle_indices]
+    component_columnlabels = matrix.columnlabels[metric_shuffle_indices]
  
     clusterer = KMeansHelper(components)
     clusterer.plot(savedir)
@@ -68,7 +76,8 @@ def run_factor_analysis(paths, savedir, factor_cutoff=5):
         # cluster center. We use the metric closest to the cluster center.
         mclusters = []
         for i in range(n_clusters):
-            metric_labels = matrix.columnlabels[labels == i]
+            #metric_labels = matrix.columnlabels[labels == i]
+            metric_labels = component_columnlabels[labels == i]
             component_rows = components[labels == i]
             centroid = np.expand_dims(cluster_centers[i], axis=0)
             dists = np.empty(component_rows.shape[0])
