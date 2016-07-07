@@ -10,43 +10,43 @@ from sklearn.cluster import KMeans
 
 class KMeansHelper(object):
     
-    def __init__(self, X, cluster_range=(1,21)):
+    def __init__(self, X, cluster_range=(1,21), algorithm="gap_statistic"):
         self.cluster_range_ = cluster_range
+        self.algorithm_ = algorithm
         self.cluster_map_ = {}
         clusters = range(*self.cluster_range_)
         for k in clusters:
             model = KMeansHelper.fit_model(X, k)
             self.cluster_map_[k] = KMeansHelper.get_model_attributes(model)
         
-#         ks, logWks, logWkbs, sk = KMeansHelper.gap_statistic(X,
-#                                                              self.cluster_map_,
-#                                                              self.cluster_range_)
-#         self.ks_      = ks
-#         self.logWks_  = logWks
-#         self.logWkbs_ = logWkbs
-#         self.sk_      = sk
-#         self.khats_   = KMeansHelper.compute_khats(self.ks_, self.logWks_,
-#                                                    self.logWkbs_, self.sk_)
-#         self.opt_cluster_ = ks[:-1][self.khats_ > 0]
-#         self.opt_cluster_ = self.opt_cluster_[self.opt_cluster_ > 4]
-#         if len(self.opt_cluster_) > 0:
-#             self.opt_cluster_ = self.opt_cluster_[0]
-#         else:
-#             self.opt_cluster_ = -1.0
-#         print "optimal cluster: {} (f = {})".format(self.opt_cluster_, X.shape[1])
-#         self.distortions_ = np.array([KMeansHelper.compute_distortion(c, X, item[0], item[1]) \
-#                                       for c,item in self.cluster_map_.iteritems()])
-#         self.weights_ = KMeansHelper.compute_weights(clusters,
-#                                                      X.shape[1])
-#         self.functs_ = KMeansHelper.compute_eval_function(self.weights_,
-#                                                           self.distortions_,
-#                                                           clusters)
-        self.functs_ = np.empty(len(clusters))
-        self.distortions_ = np.empty(len(clusters))
-        for i,(k,items) in enumerate(self.cluster_map_.iteritems()):
-            self.functs_[i], self.distortions_[i] = KMeansHelper.fK(X, k, items[0], items[1])
-        print "optimal cluster: {} (f = {})".format(clusters[np.argmin(self.functs_).squeeze()],
-                                                    X.shape[1])
+        if self.algorithm_ == "gap_statistic": 
+            ks, logWks, logWkbs, sk = KMeansHelper.gap_statistic(X,
+                                                                 self.cluster_map_,
+                                                                 self.cluster_range_)
+            self.ks_      = ks
+            self.logWks_  = logWks
+            self.logWkbs_ = logWkbs
+            self.sk_      = sk
+            self.khats_   = KMeansHelper.compute_khats(self.ks_, self.logWks_,
+                                                       self.logWkbs_, self.sk_)
+            self.opt_cluster_ = ks[:-1][self.khats_ > 0]
+            self.opt_cluster_ = self.opt_cluster_[self.opt_cluster_ > 4]
+            if len(self.opt_cluster_) > 0:
+                self.opt_cluster_ = self.opt_cluster_[0]
+            else:
+                self.opt_cluster_ = -1.0
+            print "optimal cluster: {} (f = {})".format(self.opt_cluster_, X.shape[1])
+
+        elif self.algorithm_ == "det_k":
+            self.functs_ = np.empty(len(clusters))
+            self.distortions_ = np.empty(len(clusters))
+            for i,(k,items) in enumerate(self.cluster_map_.iteritems()):
+                self.functs_[i], self.distortions_[i] = KMeansHelper.fK(X, k, items[0], items[1])
+                self.opt_cluster_ = clusters[np.argmin(self.functs_).squeeze()]
+            print "optimal cluster: {} (f = {})".format(self.opt_cluster_,
+                                                        X.shape[1])
+        else:
+            raise Exception("Unknown algorithm: {}".format(self.algorithm_))
  
     @staticmethod
     def bounding_box(X):
@@ -75,9 +75,7 @@ class KMeansHelper(object):
     
     @staticmethod
     def gap_statistic(X, cluster_map, cluster_range, B=100):
-        #(xmin,xmax), (ymin,ymax) = KMeansHelper.bounding_box(X)
         mins, maxs = KMeansHelper.bounding_box(X)
-        #ranges = KMeansHelper.bounding_box(X)
         
         # Dispersion for real distribution
         ks = np.arange(*cluster_range)
@@ -93,13 +91,7 @@ class KMeansHelper(object):
             for i in range(B):
                 Xb = np.empty(X.shape)
                 for j in range(X.shape[1]):
-                    #Xb[:,j] = np.random.uniform(ranges[j][0], ranges[j][1], size=X.shape[0])
                     Xb[:,j] = np.random.uniform(mins[j], maxs[j], size=X.shape[0])
-#                 Xb = []
-#                 for _ in range(X.shape[0]):
-#                     Xb.append([random.uniform(xmin,xmax),
-#                               random.uniform(ymin,ymax)])
-#                 Xb = np.array(Xb)
                 Xb_model = KMeansHelper.fit_model(Xb, k)
                 mu,cluster_labels,_ = KMeansHelper.get_model_attributes(Xb_model)
                 logBWkbs[i] = np.log(KMeansHelper.Wk(Xb, mu, cluster_labels))
@@ -113,13 +105,17 @@ class KMeansHelper(object):
         inertias = np.empty(len(clusters))
         for i,(_,entry) in enumerate(sorted(self.cluster_map_.iteritems())):
             inertias[i] = entry[2] 
-#         KMeansHelper.plot_gaps(self.ks_, self.logWks_,
-#                                self.logWkbs_, self.khats_,
-#                                inertias, savedir)
-        KMeansHelper.plot_functs(clusters,
-                                 self.functs_,
-                                 inertias,
-                                 savedir)
+        if self.algorithm_ == "gap_statistic":
+            KMeansHelper.plot_gaps(self.ks_, self.logWks_,
+                                   self.logWkbs_, self.khats_,
+                                   inertias, savedir)
+        elif self.algorithm_ == "det_k":
+            KMeansHelper.plot_functs(clusters,
+                                     self.functs_,
+                                     inertias,
+                                     savedir)
+        else:
+            assert False
 
     @staticmethod
     def get_model_attributes(model):
@@ -216,15 +212,9 @@ class KMeansHelper(object):
     
     @staticmethod
     def compute_distortion(k, X, cluster_centers, cluster_labels):
-#         Is = np.empty(k)
-#         for i in range(k):
-#             Xk = X[cluster_labels == i]
-#             #Is[i] = [euclidean(x, cluster_centers[i])**2 for x in Xk]
-#             Is[i] = [np.linalg.norm(cluster_centers[i]-x)**2 for x in Xk]
         return sum([np.linalg.norm(cluster_centers[i]-x)**2 \
                     for i in range(k) \
                     for x in X[cluster_labels == i]])
-        #return np.sum(Is)
     
     @staticmethod
     def compute_weights(cluster_range, n_dimensions):
