@@ -53,11 +53,17 @@ def run_lasso(basepaths, savedir, featured_metrics):
         gc.collect()
     
     with stopwatch("preprocessing"):
-        # Filter out columns from y with near zero standard
+        # Filter out columns with near zero standard
         # deviation (i.e., constant columns)
         column_mask = ~stdev_zero(y.data, axis=0)
         filtered_columns = y.columnlabels[column_mask]
         y = y.filter(filtered_columns, 'columns')
+        column_mask = ~stdev_zero(X.data, axis=0)
+        removed_columns = X.columnlabels[~column_mask]
+        print "removed columns = {}".format(removed_columns)
+        filtered_columns = X.columnlabels[column_mask]
+        X = X.filter(filtered_columns, 'columns')
+        print "\nbefore columnlabels:",X.columnlabels
         
         # Scale the data
         X_standardizer = Standardize()
@@ -70,9 +76,9 @@ def run_lasso(basepaths, savedir, featured_metrics):
         X = shuffler.fit_transform(X, copy=False)
         y = shuffler.transform(y, copy=False)
         assert np.array_equal(X.rowlabels, y.rowlabels)
+        print "\nafter columnlabels:",X.columnlabels
         
-    print X.columnlabels
-    print y.columnlabels
+    print "\nfeatured_metrics:",featured_metrics
 
     with stopwatch("lasso paths"):
         # Fit the model to calculate the components
@@ -81,6 +87,7 @@ def run_lasso(basepaths, savedir, featured_metrics):
     with stopwatch("lasso processing"):
         lasso = Lasso(alphas, X.columnlabels, coefs)
         top_knobs = lasso.get_top_features(X.data.shape[1])
+        top_knobs.extend(removed_columns.tolist())
     with open(os.path.join(savedir, "featured_knobs.txt"), "w") as f:
         f.write("\n".join(top_knobs))
 
