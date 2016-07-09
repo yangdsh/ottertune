@@ -15,9 +15,14 @@ class Matrix(object):
     """
     
     def __init__(self, data, rowlabels, columnlabels, copy=False):
-        self.__data = data
-        self.__rowlabels = rowlabels
-        self.__columnlabels = columnlabels
+        if copy:
+            self.__data = data.copy()
+            self.__rowlabels = rowlabels.copy()
+            self.__columnlabels = columnlabels.copy()
+        else:
+            self.__data = data
+            self.__rowlabels = rowlabels
+            self.__columnlabels = columnlabels
         self._check_invariants()
     
     def get_data(self):

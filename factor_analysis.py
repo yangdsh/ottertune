@@ -4,20 +4,22 @@ Created on Jul 4, 2016
 @author: dvanaken
 '''
 
-import os.path
-import cPickle as pickle
 import numpy as np
+import os.path
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import FactorAnalysis
 
-from .cluster import KMeansHelper
+from .cluster import KMeans_, KSelection
 from .matrix import Matrix
-from .preprocessing import Standardize
+from .preprocessing import Standardize, get_shuffle_indices
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
+OPT_METRICS = ["99th_lat_ms", "throughput_req_per_sec"]
 
-def run_factor_analysis(paths, savedir, factor_cutoff=5):
+REQUIRED_VARIANCE_EXPLAINED = 80
+
+def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     import gc
 
     # Load matrices
@@ -47,36 +49,59 @@ def run_factor_analysis(paths, savedir, factor_cutoff=5):
         standardizer = Standardize()
         matrix.data = standardizer.fit_transform(matrix.data)
         
-        # TODO: shuffle the data
-        n_rows = matrix.data.shape[0]
-        exp_shuffle_indices = np.random.choice(n_rows, n_rows, replace=False)
+        # Shuffle the data rows (experiments x metrics)
+        exp_shuffle_indices = get_shuffle_indices(matrix.data.shape[0])
         matrix.data = matrix.data[exp_shuffle_indices]
 
-    with stopwatch("fit factor analysis model"):
+    with stopwatch("factor analysis"):
         # Fit the model to calculate the components
         fa = FactorAnalysis()
         fa.fit(matrix.data)
-    components = fa.components_[:factor_cutoff].T
+    fa_mask = np.sum(fa.components_ != 0.0, axis=1) > 0.0
+    print fa_mask
+    print fa_mask.shape
+    variances = np.sum(np.abs(fa.components_[fa_mask]), axis=1)
+    total_variance = np.sum(variances).squeeze()
+    print "total variance: {}".format(total_variance)
+    var_exp = np.array([np.sum(variances[:i+1]) / total_variance * 100 \
+                        for i in range(variances.shape[0])])
+    factor_cutoff = np.count_nonzero(var_exp < REQUIRED_VARIANCE_EXPLAINED) + 1
+    print "factor cutoff: {}".format(factor_cutoff)
+    for i,var in enumerate(variances):
+        print i, var, np.sum(variances[:i+1]), np.sum(variances[:i+1]) / total_variance
+
+    components = np.transpose(fa.components_[:factor_cutoff]).copy()
+    print "components shape: {}".format(components.shape)
     standardizer = Standardize()
     components = standardizer.fit_transform(components)
     
-    # Shuffle metrics
-    n_metrics = components.shape[0]
-    metric_shuffle_indices = np.random.choice(n_metrics, n_metrics, replace=False)
+    # Shuffle factor analysis matrix rows (metrics x factors)
+    metric_shuffle_indices = get_shuffle_indices(components.shape[0])
     components = components[metric_shuffle_indices]
-    component_columnlabels = matrix.columnlabels[metric_shuffle_indices]
- 
-    clusterer = KMeansHelper(components)
-    clusterer.plot(savedir)
+    component_columnlabels = matrix.columnlabels[metric_shuffle_indices].copy()
+    
+    kmeans = KMeans_(components, cluster_range)
+    kmeans.plot_results(savedir, components, component_columnlabels)
+    
+    # Compute optimal number of clusters K
+    for algorithm in algorithms:
+        with stopwatch("compute {} (factors={})".format(algorithm,
+                                                        factor_cutoff)):
+            kselection = KSelection.new(components, cluster_range,
+                                        kmeans.cluster_map_, algorithm)
+        print "{} optimal # of clusters: {}".format(algorithm,
+                                                    kselection.optimal_num_clusters_)
+        kselection.plot_results(savedir)
     
     metric_clusters = {}
-    for n_clusters, (cluster_centers,labels,_) in clusterer.cluster_map_.iteritems():
-         
+    featured_metrics = {}
+    for n_clusters, (cluster_centers,labels,_) in kmeans.cluster_map_.iteritems():
+          
         # For each cluster, calculate the distances of each metric from the
         # cluster center. We use the metric closest to the cluster center.
         mclusters = []
+        mfeat_list = []
         for i in range(n_clusters):
-            #metric_labels = matrix.columnlabels[labels == i]
             metric_labels = component_columnlabels[labels == i]
             component_rows = components[labels == i]
             centroid = np.expand_dims(cluster_centers[i], axis=0)
@@ -88,11 +113,22 @@ def run_factor_analysis(paths, savedir, factor_cutoff=5):
             metric_labels = metric_labels[order_by]
             dists = dists[order_by]
             mclusters.append((i,metric_labels, dists))
+            assert len(OPT_METRICS) > 0
+            label_mask = np.zeros(metric_labels.shape[0])
+            for opt_metric in OPT_METRICS:
+                label_mask = np.logical_or(label_mask, metric_labels == opt_metric)
+            if np.count_nonzero(label_mask) > 0:
+                mfeat_list.extend(metric_labels[label_mask].tolist())
+            elif len(metric_labels) > 0:
+                mfeat_list.append(metric_labels[0])
         metric_clusters[n_clusters] = mclusters
+        featured_metrics[n_clusters] = mfeat_list
     
-    with open(os.path.join(savedir, "metric_clusters.p"), "w") as f:
-        pickle.dump(clusterer.cluster_map_, f)
-    
+    for n_clusters, mlist in sorted(featured_metrics.iteritems()):
+        savepath = os.path.join(savedir, "featured_metrics_{}.txt".format(n_clusters))
+        with open(savepath, "w") as f:
+            f.write("\n".join(sorted(mlist)))
+
     for n_clusters, memberships in sorted(metric_clusters.iteritems()):
         cstr = ""
         for i,(cnum, lab, dist) in enumerate(memberships):
@@ -100,11 +136,11 @@ def run_factor_analysis(paths, savedir, factor_cutoff=5):
             cstr += "---------------------------------------------\n"
             cstr += "CLUSTERS {}\n".format(i)
             cstr += "---------------------------------------------\n\n"
-            
+             
             for l,d in zip(lab,dist):
                 cstr += "{}\t({})\n".format(l,d)
             cstr += "\n\n"
-
+ 
         savepath = os.path.join(savedir, "membership_{}.txt".format(n_clusters))
         with open(savepath, "w") as f:
             f.write(cstr)

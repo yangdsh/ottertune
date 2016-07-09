@@ -156,6 +156,68 @@ def bin_by_decile(matrix, deciles, bin_start, axis=None):
     return binned_matrix
 
 ##==========================================================
+##  Shuffle Indices
+##==========================================================
+class Shuffler(Preprocess):
+    
+    def __init__(self, shuffle_rows=True, shuffle_columns=False, 
+                 row_indices=None, column_indices=None, seed=0):
+        self.shuffle_rows_ = shuffle_rows
+        self.shuffle_columns_ = shuffle_columns
+        self.row_indices_ = row_indices
+        self.column_indices_ = column_indices
+        np.random.seed(seed)
+        self.fitted_ = False
+    
+    def fit(self, matrix):
+        if self.shuffle_rows_ and self.row_indices_ is None:
+            self.row_indices_ = get_shuffle_indices(matrix.data.shape[0])
+        if self.shuffle_columns_ and self.column_indices_ is None:
+            self.column_indices_ = get_shuffle_indices(matrix.data.shape[1])
+        self.fitted_ = True
+
+    def transform(self, matrix, copy):
+        if not self.fitted_:
+            raise Exception("The fit() function must be called before transform()")
+        if copy:
+            matrix = matrix.copy()
+
+        if self.shuffle_rows_:
+            matrix.data = matrix.data[self.row_indices_]
+            matrix.rowlabels = matrix.rowlabels[self.row_indices_]
+        if self.shuffle_columns_:
+            matrix.data = matrix.data[:, self.column_indices_]
+            matrix.columnlabels = matrix.columnlabels[self.column_indices_]
+        return matrix
+
+    def reverse_transform(self, matrix, copy):
+        if copy:
+            matrix = matrix.copy()
+        
+        if self.shuffle_rows_:
+            inverse_row_indices = np.argsort(self.row_indices_)
+            matrix.data = matrix.data[inverse_row_indices]
+            matrix.rowlabels = matrix.rowlabels[inverse_row_indices]
+        if self.shuffle_columns_:
+            reverse_column_indices = np.argsort(self.column_indices_)
+            matrix.data = matrix.data[:, reverse_column_indices]
+            matrix.columnlabels = matrix.columnlabels[reverse_column_indices]
+        return matrix
+
+def get_shuffle_indices(size, seed=None):
+    if seed is not None:
+        assert isinstance(seed, int)
+        np.random.seed(seed)
+    if isinstance(size, int):
+        return np.random.choice(size, size, replace=False)
+    else:
+        indices = []
+        for d in size:
+            indices.append(np.random.choice(d, d, replace=False))
+        return indices
+    
+
+##==========================================================
 ##  Polynomial Features
 ##==========================================================
 
