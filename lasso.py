@@ -63,7 +63,7 @@ def run_lasso(basepaths, savedir, featured_metrics):
         print "removed columns = {}".format(removed_columns)
         filtered_columns = X.columnlabels[column_mask]
         X = X.filter(filtered_columns, 'columns')
-        print "\nbefore columnlabels:",X.columnlabels
+        print "\ncolumnlabels:",X.columnlabels
         
         # Scale the data
         X_standardizer = Standardize()
@@ -76,7 +76,6 @@ def run_lasso(basepaths, savedir, featured_metrics):
         X = shuffler.fit_transform(X, copy=False)
         y = shuffler.transform(y, copy=False)
         assert np.array_equal(X.rowlabels, y.rowlabels)
-        print "\nafter columnlabels:",X.columnlabels
         
     print "\nfeatured_metrics:",featured_metrics
 
