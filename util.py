@@ -35,3 +35,23 @@ def get_featured_metrics(dbms, benchmark=None):
     with open(os.path.join(datadir, "featured_metrics_{}.txt".format(opt_num_clusters)), "r") as f:
         metrics = np.array(sorted([l.strip() for l in f.readlines()]))
     return metrics
+
+def get_featured_knobs(dbms, benchmark=None):
+    from globals import Paths
+    
+    if dbms == "mysql":
+        path = "{}_5.6".format(dbms)
+    elif dbms == "postgres":
+        path = "{}_9.3".format(dbms)
+    else:
+        raise Exception("Unknown DBMS: {}".format(dbms))
+
+    if benchmark is not None:
+        path  += "_{}".format(benchmark)
+    
+    datadir = os.path.join(Paths.DATADIR,
+                           "lasso",
+                           path)
+    with open(os.path.join(datadir, "featured_knobs.txt"), "r") as f:
+        knobs = np.array([l.strip() for l in f.readlines()])
+    return knobs
