@@ -18,7 +18,7 @@ def get_coef_range(X, y):
     print "starting experiment"
     with stopwatch("lasso paths"):
         alphas, coefs, dual_gaps = enet_path(X.data, y.data, l1_ratio=1.0, verbose=True,
-                return_models=False, positive=False, max_iter=1000)#max_iter=5000)
+                return_models=False, positive=False, max_iter=1000)
 
     print alphas.shape
     print coefs.shape
