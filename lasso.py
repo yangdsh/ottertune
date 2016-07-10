@@ -87,7 +87,7 @@ def run_lasso(basepaths, savedir, featured_metrics):
     with stopwatch("lasso processing"):
         lasso = Lasso(alphas, X.columnlabels, coefs)
         top_knobs = lasso.get_top_features(X.data.shape[1])
-        top_knobs.extend(removed_columns.tolist())
+        top_knobs = np.append(top_knobs, removed_columns)
     with open(os.path.join(savedir, "featured_knobs.txt"), "w") as f:
         f.write("\n".join(top_knobs))
 
