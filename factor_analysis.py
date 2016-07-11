@@ -8,6 +8,7 @@ import numpy as np
 import os.path
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import FactorAnalysis
+from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
 from .matrix import Matrix
@@ -41,12 +42,14 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     with stopwatch("preprocessing"):
         # Filter out columns with near zero standard deviation
         # i.e., constant columns
-        column_mask = ~stdev_zero(matrix.data, axis=0)
-        filtered_columns = matrix.columnlabels[column_mask]
-        matrix = matrix.filter(filtered_columns, 'columns')
+#         column_mask = ~stdev_zero(matrix.data, axis=0)
+#         filtered_columns = matrix.columnlabels[column_mask]
+#         matrix = matrix.filter(filtered_columns, 'columns')
         
         # Scale the data
-        standardizer = Standardize()
+#         standardizer = Standardize()
+#         matrix.data = standardizer.fit_transform(matrix.data)
+        standardizer = StandardScaler()
         matrix.data = standardizer.fit_transform(matrix.data)
         
         # Shuffle the data rows (experiments x metrics)
@@ -72,7 +75,7 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
 
     components = np.transpose(fa.components_[:factor_cutoff]).copy()
     print "components shape: {}".format(components.shape)
-    standardizer = Standardize()
+    standardizer = StandardScaler() #Standardize()
     components = standardizer.fit_transform(components)
     
     # Shuffle factor analysis matrix rows (metrics x factors)

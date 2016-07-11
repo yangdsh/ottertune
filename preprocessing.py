@@ -134,19 +134,22 @@ class Bin(Preprocess):
     def transform(self, matrix, copy=True):
         assert self.deciles_ is not None
         if self.axis_ is None:
-            return bin_by_decile(matrix, self.deciles_,
+            res = bin_by_decile(matrix, self.deciles_,
                                  self.bin_start_, self.axis_)
         elif self.axis_ == 0: # Transform columns
             columns = []
             for col, decile in zip(matrix.T, self.deciles_):
                 columns.append(bin_by_decile(col, decile,
                                              self.bin_start_, axis=None))
-            return np.hstack(columns).T
+            res = np.hstack(columns).T
         elif self.axis_ == 1: # Transform rows
             rows = []
             for row, decile in zip(matrix, self.deciles_):
                 rows.append(bin_by_decile(row, decile,
                                           self.bin_start_, axis=None))
+            res = np.hstack(row)
+        assert res.shape == matrix.shape
+        return res
 
     def reverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
