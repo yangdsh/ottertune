@@ -105,11 +105,11 @@ class Matrix(object):
         unique_indices = self._unique_helper(self.__data)
         if unique_indices.size == self.__data.shape[0]:
             # Rows are already unique
-            return self.copy()
-        
-        newmatrix = Matrix(self.__data[unique_indices],
-                           self.__rowlabels[unique_indices],
-                           self.__columnlabels.copy())
+            newmatrix = self.copy()
+        else:
+            newmatrix = Matrix(self.__data[unique_indices],
+                               self.__rowlabels[unique_indices],
+                               self.__columnlabels.copy())
         if return_index:
             return newmatrix, unique_indices
         else:
@@ -122,11 +122,11 @@ class Matrix(object):
         unique_indices = self._unique_helper(self.__data.T)
         if unique_indices.size == self.__data.shape[1]:
             # Columns are already unique
-            return self.copy()
-
-        newmatrix = Matrix(self.__data[:, unique_indices],
-                           self.__rowlabels.copy(),
-                           self.__columnlabels[unique_indices])
+            newmatrix = self.copy()
+        else:
+            newmatrix = Matrix(self.__data[:, unique_indices],
+                               self.__rowlabels.copy(),
+                               self.__columnlabels[unique_indices])
         if return_index:
             return newmatrix, unique_indices
         else:
