@@ -8,10 +8,10 @@ from collections import Counter
 import numpy as np
 import os.path
 from sklearn.linear_model import enet_path
-from sklearn.preprocessing import StandardScaler
+#from sklearn.preprocessing import StandardScaler
 
 from .matrix import Matrix
-from .preprocessing import Shuffler, Standardize
+from .preprocessing import PolynomialFeatures, Shuffler, Standardize
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
@@ -56,25 +56,30 @@ def run_lasso(basepaths, savedir, featured_metrics):
     with stopwatch("preprocessing"):
         # Filter out columns with near zero standard
         # deviation (i.e., constant columns)
-#         column_mask = ~stdev_zero(y.data, axis=0)
-#         filtered_columns = y.columnlabels[column_mask]
-#         y = y.filter(filtered_columns, 'columns')
-#         column_mask = ~stdev_zero(X.data, axis=0)
-#         removed_columns = X.columnlabels[~column_mask]
-#         print "removed columns = {}".format(removed_columns)
-#         filtered_columns = X.columnlabels[column_mask]
-#         X = X.filter(filtered_columns, 'columns')
-#         print "\ncolumnlabels:",X.columnlabels
+        column_mask = ~stdev_zero(y.data, axis=0)
+        filtered_columns = y.columnlabels[column_mask]
+        y = y.filter(filtered_columns, 'columns')
+        column_mask = ~stdev_zero(X.data, axis=0)
+        removed_columns = X.columnlabels[~column_mask]
+        print "removed columns = {}".format(removed_columns)
+        filtered_columns = X.columnlabels[column_mask]
+        X = X.filter(filtered_columns, 'columns')
+        print "\ncolumnlabels:",X.columnlabels
         
         # Scale the data
-#         X_standardizer = Standardize()
-#         X.data = X_standardizer.fit_transform(X.data)
-        X_standardizer = StandardScaler()
+        X_standardizer = Standardize()
         X.data = X_standardizer.fit_transform(X.data)
-#         y_standardizer = Standardize()
-#         y.data = y_standardizer.fit_transform(y.data)
-        y_standardizer = StandardScaler()
+        X_poly = PolynomialFeatures()
+        X_data = X_poly.fit_transform(X.data)
+        X_columnlabels = np.expand_dims(np.array(X.columnlabels, dtype=str), axis=0)
+        X_columnlabels = X_poly.fit_transform(X_columnlabels).squeeze()
+        X = Matrix(X_data, X.rowlabels, X_columnlabels)
+#         X_standardizer = StandardScaler()
+#         X.data = X_standardizer.fit_transform(X.data)
+        y_standardizer = Standardize()
         y.data = y_standardizer.fit_transform(y.data)
+#         y_standardizer = StandardScaler()
+#         y.data = y_standardizer.fit_transform(y.data)
 
         
         # Shuffle the data rows (experiments x metrics)
@@ -92,7 +97,7 @@ def run_lasso(basepaths, savedir, featured_metrics):
     with stopwatch("lasso processing"):
         lasso = Lasso(alphas, X.columnlabels, coefs)
         top_knobs = lasso.get_top_features(X.data.shape[1])
-        #top_knobs = np.append(top_knobs, removed_columns)
+        top_knobs = np.append(top_knobs, removed_columns)
     with open(os.path.join(savedir, "featured_knobs.txt"), "w") as f:
         f.write("\n".join(top_knobs))
 
@@ -106,7 +111,7 @@ class Lasso(object):
         self._fallout_idxs = []
         self._sorted_fallout_idxs = []
         sorted_idx_ctr = Counter()
-        for i,coef in enumerate(self._coefs):
+        for coef in self._coefs:
             fallouts = self._get_fallouts(coef)
             self._fallout_idxs.append(fallouts)
             sorted_fallouts = self._get_sorted_fallouts(coef,fallouts)
