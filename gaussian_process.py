@@ -5,7 +5,18 @@ Created on Jul 11, 2016
 '''
 
 def get_next_config(workload_name):
-    pass
+    # Parse all client data
+    
+    
+    # Concatenate workload and client matrices to create X_train/y_train
+    
+    
+    # Generate grid to create X_test
+    
+    
+    # Scale X_train, y_train and X_test
+    
+    
 
 def predict(X_train, y_train, X_test, metric, eng):
     #gp_model = self._models[metric]
