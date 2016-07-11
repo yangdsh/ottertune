@@ -110,19 +110,43 @@ def reverse_standardize(matrix, mmean, mstd, axis, copy=True):
 class Bin(Preprocess):
     
     def __init__(self, bin_start, axis=None):
-        if axis is not None:
-            raise NotImplementedError("Axis is not yet implemented")
+        if axis is not None and \
+                axis != 1 and axis != 0:
+            raise NotImplementedError("Axis={} is not yet implemented"
+                                      .format(axis))
         self.deciles_ = None
         self.bin_start_ = bin_start
         self.axis_ = axis
     
     def fit(self, matrix):
-        self.deciles_ = get_deciles(matrix, self.axis_)
+        if self.axis_ is None:
+            self.deciles_ = get_deciles(matrix, self.axis_)
+        elif self.axis_ == 0: # Bin columns
+            self.deciles_ = []
+            for col in matrix.T:
+                self.deciles_.append(get_deciles(col, axis=None))
+        elif self.axis_ == 1: # Bin rows
+            self.deciles_ = []
+            for row in matrix:
+                self.deciles_.append(get_deciles(row, axis=None))
         return self
 
     def transform(self, matrix, copy=True):
         assert self.deciles_ is not None
-        return bin_by_decile(matrix, self.deciles_, self.bin_start_, self.axis_)
+        if self.axis_ is None:
+            return bin_by_decile(matrix, self.deciles_,
+                                 self.bin_start_, self.axis_)
+        elif self.axis_ == 0: # Transform columns
+            columns = []
+            for col, decile in zip(matrix.T, self.deciles_):
+                columns.append(bin_by_decile(col, decile,
+                                             self.bin_start_, axis=None))
+            return np.hstack(columns).T
+        elif self.axis_ == 1: # Transform rows
+            rows = []
+            for row, decile in zip(matrix, self.deciles_):
+                rows.append(bin_by_decile(row, decile,
+                                          self.bin_start_, axis=None))
 
     def reverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
