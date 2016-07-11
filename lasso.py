@@ -19,14 +19,15 @@ def get_coef_range(X, y):
     print "starting experiment"
     with stopwatch("lasso paths"):
         alphas, coefs, dual_gaps = enet_path(X.data, y.data, l1_ratio=1.0, verbose=True,
-                return_models=False, positive=False, max_iter=1000)
+                return_models=False, positive=False, max_iter=5000)
 
     print alphas.shape
     print coefs.shape
     print dual_gaps.shape
     return alphas, coefs, dual_gaps
 
-def run_lasso(basepaths, savedir, featured_metrics):
+def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
+              include_polynomial_features=True):
     import gc
 
     # Load matrices
@@ -62,24 +63,28 @@ def run_lasso(basepaths, savedir, featured_metrics):
         column_mask = ~stdev_zero(X.data, axis=0)
         removed_columns = X.columnlabels[~column_mask]
         print "removed columns = {}".format(removed_columns)
-        filtered_columns = X.columnlabels[column_mask]
+        filtered_columns = set(X.columnlabels[column_mask])
+        filtered_columns -= set(knobs_to_ignore)
+        filtered_columns = np.array(sorted(filtered_columns))
         X = X.filter(filtered_columns, 'columns')
         print "\ncolumnlabels:",X.columnlabels
         
         # Scale the data
         X_standardizer = Standardize()
         X.data = X_standardizer.fit_transform(X.data)
-        X_poly = PolynomialFeatures()
-        X_data = X_poly.fit_transform(X.data)
-        X_columnlabels = np.expand_dims(np.array(X.columnlabels, dtype=str), axis=0)
-        X_columnlabels = X_poly.fit_transform(X_columnlabels).squeeze()
-        X = Matrix(X_data, X.rowlabels, X_columnlabels)
 #         X_standardizer = StandardScaler()
 #         X.data = X_standardizer.fit_transform(X.data)
         y_standardizer = Standardize()
         y.data = y_standardizer.fit_transform(y.data)
 #         y_standardizer = StandardScaler()
 #         y.data = y_standardizer.fit_transform(y.data)
+        if include_polynomial_features:
+            savedir += "_poly"
+            X_poly = PolynomialFeatures()
+            X_data = X_poly.fit_transform(X.data)
+            X_columnlabels = np.expand_dims(np.array(X.columnlabels, dtype=str), axis=0)
+            X_columnlabels = X_poly.fit_transform(X_columnlabels).squeeze()
+            X = Matrix(X_data, X.rowlabels, X_columnlabels)
 
         
         # Shuffle the data rows (experiments x metrics)
@@ -87,6 +92,7 @@ def run_lasso(basepaths, savedir, featured_metrics):
         X = shuffler.fit_transform(X, copy=False)
         y = shuffler.transform(y, copy=False)
         assert np.array_equal(X.rowlabels, y.rowlabels)
+        gc.collect()
         
     print "\nfeatured_metrics:",featured_metrics
 

@@ -8,7 +8,7 @@ import numpy as np
 import os.path
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import FactorAnalysis
-from sklearn.preprocessing import StandardScaler
+#from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
 from .matrix import Matrix
@@ -29,8 +29,8 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     
     with stopwatch("matrix concatenation"):
         for path in paths:
-            matrices.append(Matrix.load_matrix(path))
-        
+            matrices.append(Matrix.load_matrix(os.path.join(path,
+                                                            "y_data_enc.npz")))
         # Combine matrix data if more than 1 matrix
         if len(matrices) > 1:
             matrix = Matrix.vstack(matrices, require_equal_columnlabels=True)
