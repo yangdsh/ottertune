@@ -68,7 +68,7 @@ def get_mean_and_std(matrix, axis):
     if np.any(np.abs(mstd) < NEARZERO):
         raise Exception("Standard deviation calculation has near zero values.")
     
-    return mmean.squeeze(), mstd.squeeze()
+    return mmean, mstd
     
 def standardize(matrix, mmean, mstd, axis, copy=True):
     if not copy and matrix.dtype != np.dtype("float64"):
