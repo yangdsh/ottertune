@@ -79,7 +79,6 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
 #         y_standardizer = StandardScaler()
 #         y.data = y_standardizer.fit_transform(y.data)
         if include_polynomial_features:
-            savedir += "_poly"
             X_poly = PolynomialFeatures()
             X_data = X_poly.fit_transform(X.data)
             X_columnlabels = np.expand_dims(np.array(X.columnlabels, dtype=str), axis=0)
@@ -101,8 +100,14 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
         alphas, coefs, dual_gaps = get_coef_range(X, y)
     
     with stopwatch("lasso processing"):
+        nfeats = X.columnlabels.shape[0]
         lasso = Lasso(alphas, X.columnlabels, coefs)
-        top_knobs = lasso.get_top_features(X.data.shape[1])
+        print lasso.get_top_summary(nfeats, "")
+        top_knobs = get_features_list(lasso.get_top_features(n=nfeats))
+        print "\nfeat list length: {}".format(len(top_knobs))
+        print "nfeats = {}".format(nfeats)
+#         top_knobs = merge_top([top_knobs], nfeats)
+        top_knobs = lasso.get_top_features(nfeats)
         top_knobs = np.append(top_knobs, removed_columns)
     with open(os.path.join(savedir, "featured_knobs.txt"), "w") as f:
         f.write("\n".join(top_knobs))
@@ -240,6 +245,8 @@ def merge_top(top_feats_list,n=10):
 
     counts = np.zeros((num_feats,num_feats))
     for feat_list in top_feats_list:
+        print "len feat_list = {}".format(len(feat_list))
+        print "num_feats = {}".format(num_feats)
         assert len(feat_list) <= num_feats
         for i,feat in enumerate(all_feats):
             try:

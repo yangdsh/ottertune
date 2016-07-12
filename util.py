@@ -66,6 +66,7 @@ def get_unique_matrix(X, y):
     y_unique.rowlabels = rowlabels
     X_unique.rowlabels = rowlabels
     if X_unique.data.shape != X.data.shape:
+        print "\n\nDIFF(num_knobs={}): X_unique: {}, X: {}\n\n".format(X_unique.columnlabels.shape[0], X_unique.data.shape, X.data.shape)
         dup_map = {}
         dup_indexes = np.array([d for d in range(X.data.shape[0]) \
                                 if d not in unique_indexes])

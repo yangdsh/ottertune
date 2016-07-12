@@ -62,6 +62,13 @@ class Matrix(object):
         
         for matrix in matrices:
             assert isinstance(matrix, Matrix)
+            if matrix.columnlabels.shape != matrices[0].columnlabels.shape:
+                print ""
+                print matrix.columnlabels
+                print ""
+                print matrices[0].columnlabels
+                print ""
+                print set(matrices[0].columnlabels) - set(matrix.columnlabels)
             assert matrix.columnlabels.shape == matrices[0].columnlabels.shape
             assert matrix.data.shape[1] == matrices[0].data.shape[1]
             if require_equal_columnlabels:

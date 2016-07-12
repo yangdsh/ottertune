@@ -318,7 +318,11 @@ class PolynomialFeatures(Preprocess):
             if is_numeric_type:
                 poly_matrix[:, i] = matrix[:, c].prod(1)
             elif is_lexical_type:
-                x = "".join(np.squeeze(matrix[:, c]).tolist())
+                n_poly1_feats = n_features + int(self.include_bias_)
+                if i >= n_poly1_feats:
+                    x = "*".join(np.squeeze(matrix[:, c]).tolist())
+                else:
+                    x = "".join(np.squeeze(matrix[:, c]).tolist())
                 poly_matrix[:, i] = x
             else:
                 raise TypeError("Unsupported matrix type {}".format(matrix.dtype))
