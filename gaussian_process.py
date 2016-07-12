@@ -8,8 +8,9 @@ import os.path
 import numpy as np
 
 def get_next_config(workload_name, X_client, y_client):
+    from sklearn.preprocessing import StandardScaler
     from analysis.matrix import Matrix
-    from analysis.preprocessing import Standardize
+    #from analysis.preprocessing import Standardize
     from analysis.util import get_exp_labels
     from experiment import ExpContext, TunerContext
     from globals import Paths
@@ -25,6 +26,7 @@ def get_next_config(workload_name, X_client, y_client):
 
     # Filter out all metrics except for the optimization metric
     y_client = y_client.filter(np.array([tuner.optimization_metric]), "columns")
+
 
     if tuner.map_workload:
         # Load data for mapped workload
@@ -46,8 +48,8 @@ def get_next_config(workload_name, X_client, y_client):
         print ""
         
         # Concatenate workload and client matrices to create X_train/y_train
-        ridge = 0.01 * np.ones((X_train.data.shape[0],))
-        new_result_idxs = []
+        ridge = 0.01 * np.ones(X_train.data.shape[0])
+        #new_result_idxs = []
         for cidx, rowlabel in enumerate(X_client.rowlabels):
             primary_idx = [idx for idx,rl in enumerate(X_train.rowlabels) \
                         if rl == rowlabel]
@@ -56,22 +58,22 @@ def get_next_config(workload_name, X_client, y_client):
                 # Replace client results in workload matrix if overlap
                 y_train.data[primary_idx] = y_client.data[cidx]
                 ridge[primary_idx] = 0.000001
-            else:
+            #else:
                 # Else this is a unique client result
-                new_result_idxs.append(cidx)
+                #new_result_idxs.append(cidx)
         
-        print ""
-        print "new result idxs = {}".format(new_result_idxs)
-        if len(new_result_idxs) > 0:
-            X_client = Matrix(X_client.data[new_result_idxs],
-                            X_client.rowlabels[new_result_idxs],
-                            X_client.columnlabels)
-            y_client = Matrix(y_client.data[new_result_idxs],
-                            y_client.rowlabels[new_result_idxs],
-                            y_client.columnlabels)
-            X_train = Matrix.vstack([X_train, X_client])
-            y_train = Matrix.vstack([y_train, y_client])
-            ridge = np.append(ridge, 0.000001 * np.ones(len(new_result_idxs)))
+        #print ""
+        #print "new result idxs = {}".format(new_result_idxs)
+        #if len(new_result_idxs) > 0:
+        #    X_client = Matrix(X_client.data[new_result_idxs],
+        #                    X_client.rowlabels[new_result_idxs],
+        #                    X_client.columnlabels)
+        #    y_client = Matrix(y_client.data[new_result_idxs],
+        #                    y_client.rowlabels[new_result_idxs],
+        #                    y_client.columnlabels)
+        X_train = Matrix.vstack([X_train, X_client])
+        y_train = Matrix.vstack([y_train, y_client])
+        ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
     else:
         X_train = X_client
         y_train = y_client
@@ -84,11 +86,11 @@ def get_next_config(workload_name, X_client, y_client):
     X_test = Matrix(X_test, X_test_rowlabels, tuner.featured_knobs)
     
     # Scale X_train, y_train and X_test
-    X_standardizer = Standardize()
-    y_standardizer = Standardize()
+    X_standardizer = StandardScaler()
+    y_standardizer = StandardScaler()
     X_train.data = X_standardizer.fit_transform(X_train.data)
-    y_train.data = y_standardizer.fit_transform(y_train.data)
     X_test.data = X_standardizer.fit_transform(X_test.data)
+    y_train.data = y_standardizer.fit_transform(y_train.data)
 
     print "X_train shape: {}".format(X_train.data.shape)
     print "y_train shape: {}".format(y_train.data.shape)
@@ -102,7 +104,8 @@ def get_next_config(workload_name, X_client, y_client):
                                    tuner.optimization_metric,
                                    tuner.engine)
 
-    ypreds_unscaled = y_standardizer.reverse_transform(ypreds)
+    ypreds_unscaled = y_standardizer.inverse_transform(ypreds)
+
     print "best: delta -"
     delta_idx = get_best_idx(ypreds, sigmas, eips, method="delta")
     debug_idx(X_test, ypreds_unscaled, ypreds, sigmas, eips, delta_idx)
@@ -114,10 +117,10 @@ def get_next_config(workload_name, X_client, y_client):
     
     # Config manager to decode any categorical parameters
     next_config_params = config_mgr.decode_params(X_test.rowlabels[delta_idx])
-    for pname, pval in next_config_params:
+    for pname, pval in next_config_params.iteritems():
         print pname,":",pval
     config = config_mgr.get_next_config(next_config_params)
-    print config
+    return config
 
 def get_best_idx(ypreds, sigmas, eips, method="delta"):
     if method == "delta":
@@ -141,10 +144,15 @@ def predict(X_train, y_train, X_test, ridge, metric, eng):
     from common.timeutil import stopwatch
 
     n_feats = X_train.shape[1]
-    X_train = X_train.ravel().squeeze()
-    y_train = y_train.ravel().squeeze()
-    X_test = X_test.ravel().squeeze()
-    ridge = ridge.ravel().squeeze()
+    X_train = X_train.ravel()
+    y_train = y_train.ravel()
+    X_test = X_test.ravel()
+    ridge = ridge.ravel()
+
+    X_train = X_train.squeeze() if X_train.ndim > 1 else X_train
+    y_train = y_train.squeeze() if y_train.ndim > 1 else y_train
+    X_test = X_test.squeeze() if X_test.ndim > 1 else X_test
+    ridge = ridge.squeeze() if ridge.ndim > 1 else ridge
     
     print "\nCALL GP:"
     print "X_train shape: {}".format(X_train.shape)
