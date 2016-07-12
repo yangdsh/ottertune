@@ -6,6 +6,7 @@ Created on Jul 11, 2016
 
 import os.path
 import numpy as np
+import matlab.engine
 
 def get_next_config(workload_name, X_client, y_client):
     from sklearn.preprocessing import StandardScaler
@@ -95,14 +96,28 @@ def get_next_config(workload_name, X_client, y_client):
     print "X_train shape: {}".format(X_train.data.shape)
     print "y_train shape: {}".format(y_train.data.shape)
     print "X_test shape: {}".format(X_test.data.shape)
+    
+    if tuner.engine is None:
+        engine = matlab.engine.start_matlab()
+        # Make predictions
+        ypreds, sigmas, eips = predict(X_train.data,
+                                       y_train.data,
+                                       X_test.data,
+                                       ridge,
+                                       tuner.optimization_metric,
+                                       engine)
+        engine.quit()
+        engine = None
+    else:
+        # Make predictions
+        ypreds, sigmas, eips = predict(X_train.data,
+                                       y_train.data,
+                                       X_test.data,
+                                       ridge,
+                                       tuner.optimization_metric,
+                                       tuner.engine)
 
-    # Make predictions
-    ypreds, sigmas, eips = predict(X_train.data,
-                                   y_train.data,
-                                   X_test.data,
-                                   ridge,
-                                   tuner.optimization_metric,
-                                   tuner.engine)
+
 
     ypreds_unscaled = y_standardizer.inverse_transform(ypreds)
 
