@@ -10,7 +10,7 @@ import numpy as np
 def get_next_config(workload_name, X_client, y_client):
     from analysis.matrix import Matrix
     from analysis.preprocessing import Standardize
-    from analysis.util import get_unique_matrix, get_exp_labels
+    from analysis.util import get_exp_labels
     from experiment import ExpContext, TunerContext
     from globals import Paths
     
@@ -22,10 +22,6 @@ def get_next_config(workload_name, X_client, y_client):
     y_client.rowlabels = X_client.rowlabels.copy()
     print X_client
     print y_client
-
-    print ""
-    print "orig X_train shape: {}".format(X_train.data.shape)
-    print "orig y_train shape: {}".format(y_train.data.shape)
 
     # Filter out all metrics except for the optimization metric
     y_client = y_client.filter(np.array([tuner.optimization_metric]), "columns")
@@ -43,6 +39,11 @@ def get_next_config(workload_name, X_client, y_client):
         y_train = Matrix.load_matrix(y_path)
         y_train = y_train.filter(np.array([tuner.optimization_metric]), "columns")
         assert np.array_equal(y_train.columnlabels, y_client.columnlabels)
+
+        print ""
+        print "orig X_train shape: {}".format(X_train.data.shape)
+        print "orig y_train shape: {}".format(y_train.data.shape)
+        print ""
         
         # Concatenate workload and client matrices to create X_train/y_train
         ridge = 0.01 * np.ones((X_train.data.shape[0],))
@@ -70,7 +71,7 @@ def get_next_config(workload_name, X_client, y_client):
                             y_client.columnlabels)
             X_train = Matrix.vstack([X_train, X_client])
             y_train = Matrix.vstack([y_train, y_client])
-            ridge = np.append(ridge, 0.000001 * np.ones(len(new_result_idxs))
+            ridge = np.append(ridge, 0.000001 * np.ones(len(new_result_idxs)))
     else:
         X_train = X_client
         y_train = y_client
@@ -102,19 +103,32 @@ def get_next_config(workload_name, X_client, y_client):
                                    tuner.engine)
 
     ypreds_unscaled = y_standardizer.reverse_transform(ypreds)
+    print "best: delta -"
+    delta_idx = get_best_idx(ypreds, sigmas, eips, method="delta")
+    debug_idx(X_test, ypreds_unscaled, ypreds, sigmas, eips, delta_idx)
     print ""
-    for i in range(10):
-        print X_test.rowlabels[i]
-        #print "y_real={0:.2f}, y_scaled={1:.2f}, sigma={2:.2f}, eip={3:.2f}".format(ypreds_unscaled[i],
-        #                                                                            ypreds[i],
-        #                                                                            sigmas[i],
-        #                                                                            eips[i])
-        print "y_real={}, y_scaled={}, sigma={}, eip={}".format(ypreds_unscaled[i],
-                                                                                    ypreds[i],
-                                                                                    sigmas[i],
-                                                                                    eips[i])
-        print ""
-    
+    print "best: eip -"
+    eip_idx = get_best_idx(ypreds, sigmas, eips, method="eip")
+    debug_idx(X_test, ypreds_unscaled, ypreds, sigmas, eips, eip_idx)
+    print ""
+
+def get_best_idx(ypreds, sigmas, eips, method="delta"):
+    if method == "delta":
+        best_idx = np.argmin(ypreds - sigmas)
+    elif method == "eip":
+        best_idx = np.argmax(eips)
+    else:
+        raise Exception("Unknown method: {}".format(method))
+    return best_idx
+
+def debug_idx(xs, ys, ypreds, sigmas, eips, idx):
+    print ""
+    print xs.rowlabels[idx]
+    print "y_real={}, y_scaled={}, sigma={}, eip={}".format(ys[idx],
+                                                            ypreds[idx],
+                                                            sigmas[idx],
+                                                            eips[idx])
+    print ""
 
 def predict(X_train, y_train, X_test, ridge, metric, eng):
     from common.timeutil import stopwatch
