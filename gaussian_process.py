@@ -111,6 +111,11 @@ def get_next_config(workload_name, X_client, y_client):
     eip_idx = get_best_idx(ypreds, sigmas, eips, method="eip")
     debug_idx(X_test, ypreds_unscaled, ypreds, sigmas, eips, eip_idx)
     print ""
+    
+    # Config manager to decode any categorical parameters
+    next_config_params = config_mgr.decode_params(X_test.rowlabels[delta_idx])
+    for pname, pval in next_config_params:
+        print pname,":",pval
 
 def get_best_idx(ypreds, sigmas, eips, method="delta"):
     if method == "delta":
