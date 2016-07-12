@@ -116,6 +116,8 @@ def get_next_config(workload_name, X_client, y_client):
     next_config_params = config_mgr.decode_params(X_test.rowlabels[delta_idx])
     for pname, pval in next_config_params:
         print pname,":",pval
+    config = config_mgr.get_next_config(next_config_params)
+    print config
 
 def get_best_idx(ypreds, sigmas, eips, method="delta"):
     if method == "delta":
