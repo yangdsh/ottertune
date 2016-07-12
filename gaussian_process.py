@@ -86,6 +86,8 @@ def get_next_config(workload_name, X_client, y_client):
     X_test = Matrix(X_test, X_test_rowlabels, tuner.featured_knobs)
     
     # Scale X_train, y_train and X_test
+    print X_train.data[~np.isfinite(X_train.data)]
+    print np.count_nonzero(~np.isfinite(X_train.data))
     X_standardizer = StandardScaler()
     y_standardizer = StandardScaler()
     X_train.data = X_standardizer.fit_transform(X_train.data)
