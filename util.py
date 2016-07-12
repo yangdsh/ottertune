@@ -84,6 +84,13 @@ def get_unique_matrix(X, y):
             y_unique.data[idx] = np.median(np.vstack(yvals), axis=0)
     return X_unique, y_unique
 
+def get_exp_labels(X, columnlabels):
+    rowlabels = np.empty_like(X.shape[0], dtype=object)
+    for i,row in enumerate(X):
+        exp_label = tuple((l,r) for l,r in zip(columnlabels, row))
+        rowlabels[i] = exp_label
+    return rowlabels
+
 def get_knob_range():
     return np.arange(2,14,2)
 
