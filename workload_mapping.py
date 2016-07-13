@@ -76,9 +76,7 @@ class WorkloadMapper(object):
         engine = tuner.engine if tuner.engine is not None \
                 else matlab.engine.start_matlab()
         wkld_scores = {}
-        print ""
         for wkld,(y_mtx, X_data) in self.matrices_.iteritems():
-            print wkld
             wkld_score = 0.0
             row_indices = [(ci,i) for i,l in enumerate(y_mtx.rowlabels) \
                            for ci,cl in enumerate(y_client.rowlabels) \
@@ -104,15 +102,12 @@ class WorkloadMapper(object):
                 
                 # Create new matrix out of predictions
                 ypreds = np.vstack(predictions).T
-                print "ypreds shape:",ypreds.shape
                 ypreds = Matrix(ypreds, y_client.rowlabels[missing_indices],
                                 y_client.columnlabels)
 
                 # Update y matrix and X data with new predictions
                 new_y_mtx = Matrix.vstack([y_mtx, ypreds], require_equal_columnlabels=True)
                 new_X_data = np.vstack([X_data, X_test])
-                print "new y shape:",new_y_mtx.data.shape
-                print "new x shape:",new_X_data.shape
                 self.matrices_[wkld] = (new_y_mtx, new_X_data)
                 
                 # Update score using new predictions
@@ -124,12 +119,7 @@ class WorkloadMapper(object):
         if tuner.engine is None:
             engine.quit()
             engine = None
-                
-            
-#             print "row_indices",row_indices
-#             print "missing_indices",missing_indices
-#             print "score:",wkld_scores[wkld]
-#             print ""
+
         winner = sorted(wkld_scores.items(), key=operator.itemgetter(1))
         print "\nWINNER:\n{}\n\n".format(winner)
         return winner[0][0]
