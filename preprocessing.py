@@ -141,13 +141,13 @@ class Bin(Preprocess):
             for col, decile in zip(matrix.T, self.deciles_):
                 columns.append(bin_by_decile(col, decile,
                                              self.bin_start_, axis=None))
-            res = np.hstack(columns).T
+            res = np.vstack(columns).T
         elif self.axis_ == 1: # Transform rows
             rows = []
             for row, decile in zip(matrix, self.deciles_):
                 rows.append(bin_by_decile(row, decile,
                                           self.bin_start_, axis=None))
-            res = np.hstack(row)
+            res = np.vstack(rows)
         assert res.shape == matrix.shape
         return res
 
