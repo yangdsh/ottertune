@@ -58,7 +58,7 @@ def get_next_config(workload_name, X_client, y_client):
         print ""
         
         # Concatenate workload and client matrices to create X_train/y_train
-        #ridge = 0.01 * np.ones(X_train.data.shape[0])
+        ridge = 0.01 * np.ones(X_train.data.shape[0])
         #new_result_idxs = []
         for cidx, rowlabel in enumerate(X_client.rowlabels):
             primary_idx = [idx for idx,rl in enumerate(X_train.rowlabels) \
@@ -67,16 +67,16 @@ def get_next_config(workload_name, X_client, y_client):
             if len(primary_idx) == 1:
                 # Replace client results in workload matrix if overlap
                 y_train.data[primary_idx] = y_client.data[cidx]
-                #ridge[primary_idx] = 0.000001
+                ridge[primary_idx] = 0.000001
 
         X_train = Matrix.vstack([X_train, X_client])
         y_train = Matrix.vstack([y_train, y_client])
-        #ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
+        ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
     else:
         X_train = X_client
         y_train = y_client
-        #ridge = 0.000001 * np.ones(X_train.data.shape[0])
-    ridge = np.zeros(X_train.data.shape[0])
+        ridge = 0.000001 * np.ones(X_train.data.shape[0])
+    ridge = np.ones(X_train.data.shape[0])
     
     # Generate grid to create X_test
     config_mgr = exp.dbms.config_manager_
@@ -166,13 +166,13 @@ def predict(X_train, y_train, X_test, ridge, eng):
 #     print "X_test shape: {}".format(X_test.shape)
 #     print "Ridge shape: {}".format(ridge.shape)
 
-    with stopwatch("GP predictions"):
-        ypreds, sigmas, eips = eng.gp(X_train.tolist(),
-                                      y_train.tolist(),
-                                      X_test.tolist(),
-                                      ridge.tolist(),
-                                      n_feats,
-                                      nargout=3)
+    #with stopwatch("GP predictions"):
+    ypreds, sigmas, eips = eng.gp(X_train.tolist(),
+                                    y_train.tolist(),
+                                    X_test.tolist(),
+                                    ridge.tolist(),
+                                    n_feats,
+                                    nargout=3)
     ypreds = [ypreds] if isinstance(ypreds, float) else list(ypreds)
     sigmas = [sigmas] if isinstance(sigmas, float) else list(sigmas)
     ypreds = [eips] if isinstance(eips, float) else list(eips)
