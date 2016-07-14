@@ -3,7 +3,7 @@ Created on Jul 11, 2016
 
 @author: dvanaken
 '''
-import os.path, sys
+import os.path
 import gc
 import glob
 import matlab.engine

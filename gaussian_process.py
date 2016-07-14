@@ -58,7 +58,7 @@ def get_next_config(workload_name, X_client, y_client):
         print ""
         
         # Concatenate workload and client matrices to create X_train/y_train
-        ridge = 0.01 * np.ones(X_train.data.shape[0])
+        #ridge = 0.01 * np.ones(X_train.data.shape[0])
         #new_result_idxs = []
         for cidx, rowlabel in enumerate(X_client.rowlabels):
             primary_idx = [idx for idx,rl in enumerate(X_train.rowlabels) \
@@ -67,15 +67,16 @@ def get_next_config(workload_name, X_client, y_client):
             if len(primary_idx) == 1:
                 # Replace client results in workload matrix if overlap
                 y_train.data[primary_idx] = y_client.data[cidx]
-                ridge[primary_idx] = 0.000001
+                #ridge[primary_idx] = 0.000001
 
         X_train = Matrix.vstack([X_train, X_client])
         y_train = Matrix.vstack([y_train, y_client])
-        ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
+        #ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
     else:
         X_train = X_client
         y_train = y_client
-        ridge = 0.000001 * np.ones(X_train.data.shape[0])
+        #ridge = 0.000001 * np.ones(X_train.data.shape[0])
+    ridge = np.zeros(X_train.data.shape[0])
     
     # Generate grid to create X_test
     config_mgr = exp.dbms.config_manager_
@@ -84,8 +85,6 @@ def get_next_config(workload_name, X_client, y_client):
     X_test = Matrix(X_test, X_test_rowlabels, tuner.featured_knobs)
     
     # Scale X_train, y_train and X_test
-    print X_train.data[~np.isfinite(X_train.data)]
-    print np.count_nonzero(~np.isfinite(X_train.data))
     X_standardizer = StandardScaler()
     y_standardizer = StandardScaler()
     X_train.data = X_standardizer.fit_transform(X_train.data)
@@ -161,13 +160,12 @@ def predict(X_train, y_train, X_test, ridge, eng):
     X_test = X_test.squeeze() if X_test.ndim > 1 else X_test
     ridge = ridge.squeeze() if ridge.ndim > 1 else ridge
     
-    print "\nCALL GP:"
-    print "X_train shape: {}".format(X_train.shape)
-    print "y_train shape: {}".format(y_train.shape)
-    print "X_test shape: {}".format(X_test.shape)
-    print "Ridge shape: {}".format(ridge.shape)
-    
-    print "\nStarting predictions..."
+#     print "\nCALL GP:"
+#     print "X_train shape: {}".format(X_train.shape)
+#     print "y_train shape: {}".format(y_train.shape)
+#     print "X_test shape: {}".format(X_test.shape)
+#     print "Ridge shape: {}".format(ridge.shape)
+
     with stopwatch("GP predictions"):
         ypreds, sigmas, eips = eng.gp(X_train.tolist(),
                                       y_train.tolist(),
