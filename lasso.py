@@ -38,7 +38,11 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
     with stopwatch("matrix concatenation"):
         for basepath in basepaths:
             X_path = os.path.join(basepath, "X_data_enc.npz")
-            y_path = os.path.join(basepath, "y_data_enc.npz")
+            y_path = os.path.join(basepath, "y_data_enc_orig.npz")
+            if not os.path.exists(y_path):
+                y_path = os.path.join(basepath, "y_data_enc.npz")
+            #y_path = os.path.join(basepath, "y_data_enc.npz")
+            
             Xs.append(Matrix.load_matrix(X_path))
             ys.append(Matrix.load_matrix(y_path).filter(featured_metrics,
                                                         "columns"))

@@ -18,7 +18,7 @@ from common.timeutil import stopwatch
 
 OPT_METRICS = ["99th_lat_ms", "throughput_req_per_sec"]
 
-REQUIRED_VARIANCE_EXPLAINED = 80
+REQUIRED_VARIANCE_EXPLAINED = 90
 
 def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     import gc
@@ -29,8 +29,14 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     
     with stopwatch("matrix concatenation"):
         for path in paths:
-            matrices.append(Matrix.load_matrix(os.path.join(path,
-                                                            "y_data_enc.npz")))
+            if os.path.exists(os.path.join(path, "y_data_enc_orig.npz")):
+                matrices.append(Matrix.load_matrix(os.path.join(path,
+                                                                "y_data_enc_orig.npz")))
+            else:
+                matrices.append(Matrix.load_matrix(os.path.join(path,
+                                                                "y_data_enc.npz")))
+#             matrices.append(Matrix.load_matrix(os.path.join(path,
+#                                                             "y_data_enc.npz")))
         # Combine matrix data if more than 1 matrix
         if len(matrices) > 1:
             matrix = Matrix.vstack(matrices, require_equal_columnlabels=True)
@@ -45,6 +51,7 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
         column_mask = ~stdev_zero(matrix.data, axis=0)
         filtered_columns = matrix.columnlabels[column_mask]
         matrix = matrix.filter(filtered_columns, 'columns')
+        print "matrix shape after filter constant: ", matrix.data.shape
         
         # Scale the data
         standardizer = Standardize()

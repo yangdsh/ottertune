@@ -120,17 +120,15 @@ class WorkloadMapper(object):
             engine.quit()
             engine = None
 
-        winner = sorted(wkld_scores.items(), key=operator.itemgetter(1))
-        print "\nWINNER:\n{}\n\n".format(winner)
-        return winner[0][0]
-            
+        winners = sorted(wkld_scores.items(), key=operator.itemgetter(1))
+        print "\nWINNERs:\n{}\n".format(winners)
         
-#         for exp_label, row in zip(y_client.rowlabels, binned_y):
-#             for wkld, 
-#         
-#         if ExpContext().dbms.name == "mysql":
-#             return ("analysis_20160710-204911_exps_mysql_5.6_m3.xlarge_tpch_rr_sf10_tr1_t0_runlimited_w0-0-1-0-1-0-1-1-1-0-0-1-0-0-1-0-1-0-1-0-1-1_sl")
-#         elif ExpContext().dbms.name == "postgres":
-#             return ("analysis_20160710-204142_exps_postgres_9.3_m3.xlarge_tpch_rc_sf10_tr1_t0_runlimited_w0-0-1-0-1-0-1-1-1-0-0-1-0-0-1-0-1-0-1-0-1-1_sl")
-#         else:
-#             assert False
+        if ExpContext().benchmark.bench_name == "tpch":
+            winner = [w for w in self.matrices_.keys() if "tpch" in w]
+            assert len(winner) == 1
+            winner = winner[0]
+        else:
+            winner = winners[0][0]
+        
+        print "Mapping to {}\n\n".format(winner)
+        return winner
