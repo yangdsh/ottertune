@@ -331,10 +331,6 @@ class PolynomialFeatures(Preprocess):
 
     def reverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
-
-##==========================================================
-##  Intermediate forms
-##==========================================================
     
 
 ##==========================================================

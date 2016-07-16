@@ -93,7 +93,7 @@ def get_exp_labels(X, columnlabels):
     return rowlabels
 
 def get_knob_range():
-    return np.arange(2,14,2)
+    return np.arange(2,20,2)
 
 def combine_workloads(paths, savedirs):
     from collections import Counter
