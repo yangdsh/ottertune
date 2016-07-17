@@ -92,8 +92,9 @@ def get_exp_labels(X, columnlabels):
         rowlabels[i] = exp_label
     return rowlabels
 
-def get_knob_range():
-    return np.arange(2,20,2)
+def get_knob_range(dbms, cluster):
+    num_featured_knobs = len(get_featured_knobs(dbms, cluster))
+    return np.arange(2,num_featured_knobs + 2,2)
 
 def combine_workloads(paths, savedirs):
     from collections import Counter

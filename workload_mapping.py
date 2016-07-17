@@ -23,7 +23,7 @@ class WorkloadMapper(object):
     
     def __init__(self):
         exp = ExpContext()
-        tuner = TunerContext()
+        
         
         dbms = exp.dbms.name
         cluster = exp.server.instance_type
@@ -32,12 +32,46 @@ class WorkloadMapper(object):
                                                                         cluster)))
         workload_dirs = [w for w in workload_dirs if "session" not in w]
         assert len(workload_dirs) > 0
+        self.workload_dirs_ = workload_dirs
+        self.prep_matrices()
+        
+#         # Filter all matrices by featured metrics. Populate counter that keeps
+#         # track of 'high density' experiments (common experiments executed by
+#         # different workloads)
+#         self.matrices_ = {}
+#         for wd in workload_dirs:
+#             Xpath = os.path.join(wd, "X_data_unique_{}.npz".format(tuner.num_knobs))
+#             ypath = os.path.join(wd, "y_data_unique_{}.npz".format(tuner.num_knobs))
+#             X = Matrix.load_matrix(Xpath)
+#             y = Matrix.load_matrix(ypath)
+#             assert np.array_equal(X.columnlabels, tuner.featured_knobs)
+#             y = y.filter(tuner.featured_metrics, "columns")
+#             self.matrices_[wd] = (y, X.data)
+#         
+#         ys = Matrix.vstack([v[0] for v in self.matrices_.values()],
+#                            require_equal_columnlabels=True)
+#         
+#         # Determine deciles for the combined matrix data
+#         self.binner_ = Bin(0, axis=0)
+#         self.binner_.fit(ys.data)
+# 
+#         # Bin the metrics using the pre-calculated deciles
+#         for wkld in self.matrices_.keys():
+#             binned_mtx = self.binner_.transform(self.matrices_[wkld][0].data)
+#             assert np.all(binned_mtx >= 0) and np.all(binned_mtx < 10)
+#             self.matrices_[wkld][0].data = binned_mtx
+#         gc.collect()
+    
+    
+    def prep_matrices(self):
+        tuner = TunerContext()
         
         # Filter all matrices by featured metrics. Populate counter that keeps
         # track of 'high density' experiments (common experiments executed by
         # different workloads)
         self.matrices_ = {}
-        for wd in workload_dirs:
+        self.tuned_for_ = tuner.num_knobs
+        for wd in self.workload_dirs_:
             Xpath = os.path.join(wd, "X_data_unique_{}.npz".format(tuner.num_knobs))
             ypath = os.path.join(wd, "y_data_unique_{}.npz".format(tuner.num_knobs))
             X = Matrix.load_matrix(Xpath)
@@ -75,6 +109,8 @@ class WorkloadMapper(object):
         binned_y = self.binner_.transform(y_client.data)
 
         wkld_scores = {}
+        if tuner.incremental_knob_selection and tuner.num_knobs != self.tuned_for_:
+            self.prep_matrices()
         with matlab_engine() as engine:
             for wkld,(y_mtx, X_data) in self.matrices_.iteritems():
                 wkld_score = 0.0

@@ -36,7 +36,7 @@ def get_next_config(X_client, y_client, workload_name=None):
     last_exp_idx = [i for i,e in enumerate(y_client.rowlabels) \
                     if os.path.basename(e) == tuner.get_last_exp()]
     assert len(last_exp_idx) == 1
-    tuner.append_opt_metric(y_client.data[last_exp_idx])
+    tuner.append_opt_metric(np.asscalar(y_client.data[last_exp_idx]))
 
     # Update client rowlabels
     X_client.rowlabels = get_exp_labels(X_client.data, X_client.columnlabels)
@@ -156,9 +156,9 @@ def get_next_config(X_client, y_client, workload_name=None):
                         .format(tuner.config_selection_mode))
     
     # Log 'winning' config info
-    tuner.append_gp_info(ypreds[selection_idx],
-                         sigmas[selection_idx],
-                         eips[selection_idx],
+    tuner.append_gp_info(np.asscalar(ypreds[selection_idx]),
+                         np.asscalar(sigmas[selection_idx]),
+                         np.asscalar(eips[selection_idx]),
                          y_standardizer.__dict__)
 
     # Config manager must decode any categorical parameters
