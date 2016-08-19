@@ -34,34 +34,6 @@ class WorkloadMapper(object):
         assert len(workload_dirs) > 0
         self.workload_dirs_ = workload_dirs
         self.prep_matrices()
-        
-#         # Filter all matrices by featured metrics. Populate counter that keeps
-#         # track of 'high density' experiments (common experiments executed by
-#         # different workloads)
-#         self.matrices_ = {}
-#         for wd in workload_dirs:
-#             Xpath = os.path.join(wd, "X_data_unique_{}.npz".format(tuner.num_knobs))
-#             ypath = os.path.join(wd, "y_data_unique_{}.npz".format(tuner.num_knobs))
-#             X = Matrix.load_matrix(Xpath)
-#             y = Matrix.load_matrix(ypath)
-#             assert np.array_equal(X.columnlabels, tuner.featured_knobs)
-#             y = y.filter(tuner.featured_metrics, "columns")
-#             self.matrices_[wd] = (y, X.data)
-#         
-#         ys = Matrix.vstack([v[0] for v in self.matrices_.values()],
-#                            require_equal_columnlabels=True)
-#         
-#         # Determine deciles for the combined matrix data
-#         self.binner_ = Bin(0, axis=0)
-#         self.binner_.fit(ys.data)
-# 
-#         # Bin the metrics using the pre-calculated deciles
-#         for wkld in self.matrices_.keys():
-#             binned_mtx = self.binner_.transform(self.matrices_[wkld][0].data)
-#             assert np.all(binned_mtx >= 0) and np.all(binned_mtx < 10)
-#             self.matrices_[wkld][0].data = binned_mtx
-#         gc.collect()
-    
     
     def prep_matrices(self):
         tuner = TunerContext()
