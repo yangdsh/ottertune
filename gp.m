@@ -18,7 +18,7 @@ arr_offset = 1;
 yhats = zeros(size(xt,1),1);
 sigmas = zeros(size(xt,1),1);
 eips = zeros(size(xt,1),1);
-n_xt = size(xt,1);`
+n_xt = size(xt,1);
 while arr_offset <= n_xt
     if arr_offset + batch_size > n_xt
         end_offset = n_xt;
