@@ -1,9 +1,9 @@
 function [yhats,sigmas,eips] = gp(xs,ys,xt,ridge,nfeats) 
 batch_size = 3000;
-xs=reshape(xs,[],nfeats);
 xs=cell2mat(xs);
-xt=reshape(xt,[],nfeats);
+xs=reshape(xs,nfeats,[])';
 xt=cell2mat(xt);
+xt=reshape(xt,nfeats,[])';
 ys = cell2mat(ys');
 ridge = cell2mat(ridge');
 
