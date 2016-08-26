@@ -183,11 +183,19 @@ class Matrix(object):
                                 columnlabels=self.__columnlabels)
     
     def get_membership_mask(self, labels, rows_or_columns):
+        from .util import array_tostring
+
         assert rows_or_columns in ['rows', 'columns']
+        assert isinstance(labels, np.ndarray)
+        assert labels.size > 0
+
         if rows_or_columns == "rows":
             filter_labels = self.rowlabels
         else:
             filter_labels = self.columnlabels
+
+        labels = array_tostring(labels)
+        filter_labels = array_tostring(filter_labels)
         
         return np.in1d(filter_labels.ravel(),
                        labels).reshape(filter_labels.shape)
@@ -195,9 +203,10 @@ class Matrix(object):
     def filter(self, labels, rows_or_columns):
         """Returns a new matrix filtered by either the rows or
            columns given in 'labels'"""
+
         assert rows_or_columns in ['rows', 'columns']
         logical_filter = self.get_membership_mask(labels, rows_or_columns)
-        
+
         if rows_or_columns == "rows":
             return Matrix(self.__data[logical_filter],
                           self.__rowlabels[logical_filter],
