@@ -104,4 +104,11 @@ def combine_workloads(paths, savedirs):
         y = Matrix.load_matrix(os.path.join(path, "y_data_wkld.npz"))
         exp_counter.update(y.rowlabels)
     print [c for _,c in exp_counter.most_common(10)]
+
+def array_tostring(arr):
+    arr_shape = arr.shape
+    arr = arr.ravel()
+    arr = np.array([str(a) for a in arr])
+    return arr.reshape(arr_shape)
+    
         
