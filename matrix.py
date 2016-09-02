@@ -182,6 +182,29 @@ class Matrix(object):
                                 rowlabels=self.__rowlabels,
                                 columnlabels=self.__columnlabels)
     
+    def save_matrix_csv(self, path):
+        import csv
+#         from .util import array_tostring
+
+        with open(path, 'w') as f:
+            writer = csv.writer(f, delimiter=',')
+#             writer.writerow(array_tostring(self.rowlabels))
+#             writer.writerow(array_tostring(self.columnlabels))
+            writer.writerow(self.rowlabels)
+            writer.writerow(self.columnlabels)
+            writer.writerows(self.data)
+    
+    @staticmethod
+    def load_matrix_csv(path):
+        import csv
+
+        with open(path, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            rowlabels = np.array(reader[0])
+            columnlabels = np.array(reader[1])
+        data = np.genfromtxt(path, delimiter=',', skip_header=2)
+        return Matrix(data, rowlabels, columnlabels)
+    
     def get_membership_mask(self, labels, rows_or_columns):
         from .util import array_tostring
 

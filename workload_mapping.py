@@ -11,11 +11,11 @@ import numpy as np
 import operator
 from scipy.spatial.distance import euclidean
 
-from analysis.gaussian_process import predict
+from analysis.gaussian_process import tf_predict
 from analysis.matrix import Matrix
 from analysis.preprocessing import Bin
 from analysis.util import get_unique_matrix
-from experiment import ExpContext, TunerContext, matlab_engine
+from experiment import ExpContext, TunerContext
 from globals import Paths
 from common.timeutil import stopwatch
 
@@ -83,46 +83,47 @@ class WorkloadMapper(object):
         wkld_scores = {}
         if tuner.incremental_knob_selection and tuner.num_knobs != self.tuned_for_:
             self.prep_matrices()
-        with matlab_engine() as engine:
-            for wkld,(y_mtx, X_data) in self.matrices_.iteritems():
-                wkld_score = 0.0
-                row_indices = [(ci,i) for i,l in enumerate(y_mtx.rowlabels) \
-                               for ci,cl in enumerate(y_client.rowlabels) \
-                               if l == cl]
-                missing_indices = [i for i in range(len(y_client.rowlabels)) \
-                                   if i not in row_indices]
-                if len(row_indices) > 0:
-                    wkld_score += np.sum([euclidean(binned_y[ci], y_mtx.data[i]) \
-                                          for ci,i in row_indices])
+        #with matlab_engine() as engine:
+        for wkld,(y_mtx, X_data) in self.matrices_.iteritems():
+            wkld_score = 0.0
+            row_indices = [(ci,i) for i,l in enumerate(y_mtx.rowlabels) \
+                           for ci,cl in enumerate(y_client.rowlabels) \
+                           if l == cl]
+            missing_indices = [i for i in range(len(y_client.rowlabels)) \
+                               if i not in row_indices]
+            if len(row_indices) > 0:
+                wkld_score += np.sum([euclidean(binned_y[ci], y_mtx.data[i]) \
+                                      for ci,i in row_indices])
+            
+            if len(missing_indices) > 0:
+                # Predict any missing indices
+                X_test = X_client.data[missing_indices]
+                ridge = 0.000001 * np.ones(X_data.shape[0])
+                predictions = []
+                for ycol in y_mtx.data.T:
+                    # Make predictions
+                    ypreds, _, _ = tf_predict(X_data, ycol.reshape(ycol.shape[0],1), X_test, ridge)
+                    ypreds = np.array(np.array(ypreds, dtype=int), dtype=float)
+                    ypreds[ypreds > 9] = 9
+                    ypreds[ypreds < 0] = 0
+                    predictions.append(ypreds.ravel())
                 
-                if len(missing_indices) > 0:
-                    # Predict any missing indices
-                    X_test = X_client.data[missing_indices]
-                    ridge = 0.000001 * np.ones(X_data.shape[0])
-                    predictions = []
-                    for ycol in y_mtx.data.T:
-                        # Make predictions
-                        ypreds, _, _ = predict(X_data, ycol, X_test, ridge, engine)
-                        ypreds = np.array(np.array(ypreds, dtype=int), dtype=float)
-                        ypreds[ypreds > 9] = 9
-                        ypreds[ypreds < 0] = 0
-                        predictions.append(ypreds.ravel())
-                    
-                    # Create new matrix out of predictions
-                    ypreds = np.vstack(predictions).T
-                    ypreds = Matrix(ypreds, y_client.rowlabels[missing_indices],
-                                    y_client.columnlabels)
-    
-                    # Update y matrix and X data with new predictions
-                    new_y_mtx = Matrix.vstack([y_mtx, ypreds], require_equal_columnlabels=True)
-                    new_X_data = np.vstack([X_data, X_test])
-                    self.matrices_[wkld] = (new_y_mtx, new_X_data)
-                    
-                    # Update score using new predictions
-                    wkld_score += np.sum([euclidean(u, v) for u,v in \
-                                          zip(binned_y[missing_indices],
-                                              ypreds.data)])
-                wkld_scores[wkld] = wkld_score / X_client.data.shape[0]
+                # Create new matrix out of predictions
+                ypreds = np.vstack(predictions).T
+                ypreds = Matrix(ypreds, y_client.rowlabels[missing_indices],
+                                y_client.columnlabels)
+
+                # Update y matrix and X data with new predictions
+                new_y_mtx = Matrix.vstack([y_mtx, ypreds], require_equal_columnlabels=True)
+                new_X_data = np.vstack([X_data, X_test])
+                self.matrices_[wkld] = (new_y_mtx, new_X_data)
+                
+                # Update score using new predictions
+                wkld_score += np.sum([euclidean(u, v) for u,v in \
+                                      zip(binned_y[missing_indices],
+                                          ypreds.data)])
+                gc.collect()
+            wkld_scores[wkld] = wkld_score / X_client.data.shape[0]
 
         winners = sorted(wkld_scores.items(), key=operator.itemgetter(1))
         print "\nWINNERs:\n{}\n".format(winners)

@@ -4,16 +4,16 @@ Created on Jul 11, 2016
 @author: dvanaken
 '''
 
-import os.path, gc
+import os.path, gc, sys
 import numpy as np
 
 from common.timeutil import stopwatch
 
 def get_next_config(X_client, y_client, workload_name=None):
     from sklearn.preprocessing import StandardScaler
-    from analysis.matrix import Matrix
-    from analysis.util import get_exp_labels, get_unique_matrix
-    from experiment import ExpContext, TunerContext, matlab_engine
+    from .matrix import Matrix
+    from .util import get_exp_labels, get_unique_matrix
+    from experiment import ExpContext, TunerContext
     from globals import Paths
     
     exp = ExpContext()
@@ -69,11 +69,6 @@ def get_next_config(X_client, y_client, workload_name=None):
             else:
                 X_train.rowlabels = get_exp_labels(X_train.data, X_train.columnlabels)
                 y_train.rowlabels = X_train.rowlabels.copy()
-    
-            print ""
-            print "orig X_train shape: {}".format(X_train.data.shape)
-            print "orig y_train shape: {}".format(y_train.data.shape)
-            print ""
             
             # Concatenate workload and client matrices to create X_train/y_train
             ridge = 0.01 * np.ones(X_train.data.shape[0])
@@ -98,7 +93,7 @@ def get_next_config(X_client, y_client, workload_name=None):
     with stopwatch() as t:
         # Generate grid to create X_test
         config_mgr = exp.dbms.config_manager_
-        X_test = config_mgr.get_param_grid(featured_knobs)
+        X_test = config_mgr.get_param_grid(featured_knobs, desired_size=5)
         X_test_rowlabels = get_exp_labels(X_test, featured_knobs)
         X_test = Matrix(X_test, X_test_rowlabels, featured_knobs)
     tuner.append_stat("create_param_grid_sec", t.elapsed_seconds)
@@ -109,30 +104,13 @@ def get_next_config(X_client, y_client, workload_name=None):
     X_train.data = X_standardizer.fit_transform(X_train.data)
     X_test.data = X_standardizer.fit_transform(X_test.data)
     y_train.data = y_standardizer.fit_transform(y_train.data)
-
-    print "X_train shape: {}".format(X_train.data.shape)
-    print "y_train shape: {}".format(y_train.data.shape)
-    print "X_test shape: {}".format(X_test.data.shape)
     
     with stopwatch() as t:
-        if tuner.gp_algorithm == "matlab":
+        ypreds, sigmas, eips = predict(X_train.data,
+                                       y_train.data,
+                                       X_test.data,
+                                       ridge)
 
-            # Make predictions
-            with matlab_engine() as engine:
-                ypreds, sigmas, eips = predict(X_train.data,
-                                               y_train.data,
-                                               X_test.data,
-                                               ridge,
-                                               engine)
-        
-        elif tuner.gp_algorithm == "sklearn":
-            assert tuner.config_selection_mode == "sigma"
-            ypreds, sigmas, eips = sklearn_predict(X_train.data,
-                                                   y_train.data,
-                                                   X_test.data,
-                                                   ridge)
-        else:
-            raise Exception("Unknown GP version: {}".format(tuner.gp_algorithm))
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
     gc.collect()
 
@@ -145,8 +123,7 @@ def get_next_config(X_client, y_client, workload_name=None):
     print "best: eip -"
     eip_idx = get_best_idx(ypreds, sigmas, eips, method="eip")
     debug_idx(X_test, ypreds_unscaled, ypreds, sigmas, eips, eip_idx)
-    print ""
-    
+
     if tuner.config_selection_mode == "sigma":
         selection_idx = sigma_idx
     elif tuner.config_selection_mode == "eip":
@@ -188,37 +165,37 @@ def debug_idx(xs, ys, ypreds, sigmas, eips, idx):
     print xs.rowlabels[idx]
     print ""
 
-def sklearn_predict(X_train, y_train, X_test, ridge, batch_size=1000):
-    import multiprocessing
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import ConstantKernel
-    
-    gp = GaussianProcessRegressor(kernel=ConstantKernel(1.0, (1e-2, 1e2)),
-                                  alpha=ridge)
+def predict(X_train, y_train, X_test, ridge, sigma_cl, gp_algorithm=None):
+    from experiment import TunerContext, matlab_engine
 
-    gp.fit(X_train, y_train)
+    if gp_algorithm is None:
+        gp_algorithm = TunerContext().gp_algorithm
 
-    sections = X_test.shape[0] / batch_size
-    X_test_chunks = np.vsplit(X_test, sections)
-    pool_size = 5
-    p = multiprocessing.Pool(pool_size)
-    iterable = [(i,chunk,gp) for i,chunk in enumerate(X_test_chunks)]
+    if gp_algorithm == "matlab":
+        with matlab_engine() as engine:
+            ypreds, sigmas, eips = matlab_predict(X_train,
+                                                  y_train,
+                                                  X_test,
+                                                  ridge,
+                                                  engine)
+    elif gp_algorithm == "tensorflow":
+        ypreds, sigmas, eips = tf_predict(X_train,
+                                          y_train,
+                                          X_test,
+                                          ridge,
+                                          sigma_cl)
+    else:
+        raise Exception("Unknown GP algorithm: {}".format(gp_algorithm))
+    return ypreds, sigmas, eips
 
-    res = p.map(sklearn_predict_helper, iterable)
-    ypreds = [r[0] for r in res]
-    sigmas = [r[1] for r in res]
-    ypreds = np.hstack(ypreds)
-    sigmas = np.hstack(sigmas)
-    
-    return ypreds, sigmas, np.zeros(len(ypreds))
-
-def sklearn_predict_helper((chunk_idx, chunk, gp)):
-    print "Starting chunk #{}".format(chunk_idx)
-    with stopwatch("chunk #{}".format(chunk_idx)):
-        y,s = gp.predict(chunk, return_std=True)
-    return y.ravel(), s
-
-def predict(X_train, y_train, X_test, ridge, eng):
+def matlab_predict(X_train, y_train, X_test, ridge, eng):
+    print "X_train: {}".format(X_train[0])
+    print "X_test: {}".format(X_test)
+    print "X_train shape: {}".format(X_train.shape)
+    print "y_train shape: {}".format(y_train.shape)
+    print "X_test shape: {}".format(X_test.shape)
+    print "ridge shape: {}".format(ridge.shape)
+    print "nfeats: {}".format(X_train.shape[1])
     n_feats = X_train.shape[1]
     X_train = X_train.ravel()
     y_train = y_train.ravel()
@@ -238,9 +215,19 @@ def predict(X_train, y_train, X_test, ridge, eng):
                                     nargout=3)
     ypreds = [ypreds] if isinstance(ypreds, float) else list(ypreds)
     sigmas = [sigmas] if isinstance(sigmas, float) else list(sigmas)
-    ypreds = [eips] if isinstance(eips, float) else list(eips)
+    eips = [eips] if isinstance(eips, float) else list(eips)
 
-    return np.array(ypreds, dtype=float), \
-           np.array(sigmas, dtype=float), \
-           np.array(eips, dtype=float)
+    return np.array(ypreds, dtype=float).ravel(), \
+           np.array(sigmas, dtype=float).ravel(), \
+           np.array(eips, dtype=float).ravel()
+    
+def tf_predict(X_train, y_train, X_test, ridge, sigma_cl):
+    from .gp_tf import gp_tf
+    
+    print "X_train shape: {}".format(X_train.shape)
+    print "y_train shape: {}".format(y_train.shape)
+    print "X_test shape: {}".format(X_test.shape)
+    print "ridge shape: {}".format(ridge.shape)
 
+    ypreds, sigmas, eips = gp_tf(X_train, y_train, X_test, ridge, sigma_cl)
+    return ypreds.ravel(), sigmas.ravel(), eips.ravel()
