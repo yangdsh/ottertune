@@ -4,7 +4,7 @@ Created on Jul 11, 2016
 @author: dvanaken
 '''
 
-import os.path, gc, sys
+import os.path, gc
 import numpy as np
 
 from common.timeutil import stopwatch
@@ -231,3 +231,4 @@ def tf_predict(X_train, y_train, X_test, ridge, sigma_cl):
 
     ypreds, sigmas, eips = gp_tf(X_train, y_train, X_test, ridge, sigma_cl)
     return ypreds.ravel(), sigmas.ravel(), eips.ravel()
+

@@ -5,15 +5,19 @@ Created on Aug 29, 2016
 '''
 
 import numpy as np
-
 from collections import namedtuple
-import multiprocessing
+import cPickle as pickle
+import gc #multiprocessing
 from sklearn.model_selection import KFold
 from sklearn.utils.validation import _is_arraylike, check_X_y
+import tensorflow as tf
 
-def mp_grid_search((task_id, parameters, estimator_cls, kf, X, y,
+from common.timeutil import stopwatch
+
+GridScore = namedtuple('GridScore', ['parameters', 'mean_scores', 'cv_scores'])
+
+def mp_grid_search((task_id, parameters, estimator, kf, X, y,
                     score_fns, ntasks)):
-    estimator = estimator_cls()
     estimator.set_params(**parameters)
     sparams = estimator.get_params()
     nfolds = kf.n_folds
@@ -22,30 +26,32 @@ def mp_grid_search((task_id, parameters, estimator_cls, kf, X, y,
     for i, (train_idx, test_idx) in enumerate(kf.split(X)):
         X_train, y_train = X[train_idx], y[train_idx]
         X_test, y_test = X[test_idx], y[test_idx]
-        estimator.fit(X_train, y_train)
-        ypreds, sigmas, _ = estimator.predict(X_test)
+
+        with tf.Graph().as_default():
+            estimator.fit(X_train, y_train)
+            ypreds, sigmas, _ = estimator.predict(X_test)
+        gc.collect()
         for j,score_fn in enumerate(score_fns):
             scores[i,j] = score_fn(y_test, ypreds, sigmas)
+        print "\tCompleted {}/{} folds".format(i+1, nfolds)
     mean_scores = scores.mean(axis=0)
     grid_score = GridScore(sparams, mean_scores, scores)
-    if task_id % 10 == 0:
-        print "{}/{} jobs completed".format(task_id,
-                                            ntasks)
     return grid_score
-
-GridScore = namedtuple('GridScore', ['parameters', 'mean_scores', 'cv_scores'])
 
 class GridSearch(object):
     
     def __init__(self, estimator_cls, parameter_grid, score_fns,
-                 nfolds=10, shuffle=False, seed=None, njobs=1):
+                 nfolds=10, shuffle=False, seed=None, njobs=1,
+                 checkpoint_path=None):
         self.estimator_cls = estimator_cls
         self.parameter_grid = parameter_grid
         self.nfolds = nfolds
         self.seed = seed
+        assert njobs == 1, "# jobs > 1 not supported."
         self.njobs = njobs
         assert _is_arraylike(score_fns)
         self.score_fns = score_fns
+        self.checkpoint_path = checkpoint_path
         self.grid_scores = None
         self.kf = KFold(n_folds=self.nfolds,
                         shuffle=shuffle,
@@ -61,66 +67,44 @@ class GridSearch(object):
         return self.__repr__()
     
     def fit(self, X, y):
-        import itertools, traceback
+        #import traceback
+        from fabric.api import local
 
         X, y = check_X_y(X, y, allow_nd=True, multi_output=True,
                          y_numeric=True, estimator="GridSearch")
         print "njobs = {}".format(self.njobs)
         if self.njobs > 1:
-            iterable = [(i, pg, self.estimator_cls, self.kf, X, y, \
-                         self.score_fns, len(self.parameter_grid)) \
-                         for i,pg in enumerate(self.parameter_grid)]
-            try:
-                p = multiprocessing.Pool(self.njobs)
-                res = p.map(mp_grid_search, iterable)
-                print res
-            except:
-                traceback.print_exc()
+            assert False
+#             iterable = [(i, pg, self.estimator_cls, self.kf, X, y, \
+#                          self.score_fns, len(self.parameter_grid)) \
+#                          for i,pg in enumerate(self.parameter_grid)]
+#             try:
+#                 p = multiprocessing.Pool(self.njobs)
+#                 res = p.map(mp_grid_search, iterable)
+#                 print res
+#             except:
+#                 traceback.print_exc()
         else:
             self.grid_scores = []
+            estimator = self.estimator_cls()
+            num_tasks = len(self.parameter_grid)
             for i,params in enumerate(self.parameter_grid):
-                self.grid_scores.append(mp_grid_search((i,
-                                                       params,
-                                                       self.estimator_cls,
-                                                       self.kf,
-                                                       X,
-                                                       y,
-                                                       self.score_fns,
-                                                       len(self.parameter_grid))))
-#         estimator = self.estimator_cls()
-#         self.grid_scores = []
-#         gridsize = len(self.parameter_grid)
-#         for pnum, params in enumerate(self.parameter_grid):
-#             estimator.set_params(**params)
-#             sparams = estimator.get_params()
-#             scores = np.empty((self.nfolds, len(self.score_fns)))
-#             if pnum % 10 == 0:
-#                 print "{}/{} jobs completed".format(pnum,
-#                                                     gridsize)
-#             for i, (train_idx, test_idx) in enumerate(self.kf.split(X)):
-#                 X_train, y_train = X[train_idx], y[train_idx]
-#                 X_test, y_test = X[test_idx], y[test_idx]
-#                 estimator.fit(X_train, y_train)
-#                 ypreds, sigmas, _ = estimator.predict(X_test)
-#                 for j,score_fn in enumerate(self.score_fns):
-#                     scores[i,j] = score_fn(y_test, ypreds, sigmas)
-#             mean_scores = scores.mean(axis=0)
-#             self.grid_scores.append(GridScore(sparams,
-#                                               mean_scores,
-#                                               scores))
-    
-    def save(self, path):
-        import cPickle as pickle
-        
-        with open(path, 'w') as f:
-            pickle.dump(self, f)
-    
-    @staticmethod
-    def load(path):
-        import cPickle as pickle
+                print "Starting task {}/{}...".format(i+1, num_tasks)
+                with stopwatch("Done. Elapsed time"):
+                    self.grid_scores.append(mp_grid_search((i,
+                                                           params,
+                                                           estimator,
+                                                           self.kf,
+                                                           X,
+                                                           y,
+                                                           self.score_fns,
+                                                           len(self.parameter_grid))))
 
-        with open(path, 'r') as f:
-            return pickle.load(f)
+                if self.checkpoint_path is not None:
+                    local("rm -f {}*.p".format(self.checkpoint_path))
+                    savepath = self.checkpoint_path + "_{}.p".format(i)
+                    with open(savepath, 'w') as f:
+                        pickle.dump(self.grid_scores, f)
 
     @staticmethod
     def create_parameter_grid(param_dict):
@@ -145,10 +129,11 @@ def gpvar_cv(y_reals, y_preds, sigmas):
     return res
 
 CombinedScore = namedtuple('CombinedScore', ['combined_scores',
-                                         'combined_indices',
-                                         'rmse_indices',
-                                         'gpvar_indices'])
-def combine_rmse_gpvar(grid_scores, w_rmse=0.6, w_gpvar=0.4):
+                                             'scaled_scores',
+                                             'combined_indices',
+                                             'rmse_indices',
+                                             'gpvar_indices'])
+def combine_rmse_gpvar(grid_scores, w_rmse=0.8, w_gpvar=0.2):
     from sklearn.preprocessing import minmax_scale
 
     # Scale rmses, gpvars to (0,1)
@@ -162,6 +147,7 @@ def combine_rmse_gpvar(grid_scores, w_rmse=0.6, w_gpvar=0.4):
     combined_scores = w_rmse*scaled_scores[:,0] + w_gpvar*scaled_scores[:,1]
     comb_sort_indices = np.argsort(combined_scores)
     return CombinedScore(combined_scores,
+                         scaled_scores,
                          comb_sort_indices,
                          rmse_sort_indices,
                          gpvar_sort_indices)

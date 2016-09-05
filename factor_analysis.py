@@ -8,7 +8,7 @@ import numpy as np
 import os.path
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import FactorAnalysis
-#from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
 from .matrix import Matrix
@@ -29,14 +29,8 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     
     with stopwatch("matrix concatenation"):
         for path in paths:
-            if os.path.exists(os.path.join(path, "y_data_enc_orig.npz")):
-                matrices.append(Matrix.load_matrix(os.path.join(path,
-                                                                "y_data_enc_orig.npz")))
-            else:
-                matrices.append(Matrix.load_matrix(os.path.join(path,
-                                                                "y_data_enc.npz")))
-#             matrices.append(Matrix.load_matrix(os.path.join(path,
-#                                                             "y_data_enc.npz")))
+            matrices.append(Matrix.load_matrix(os.path.join(path,
+                                                            "y_data_enc.npz")))
         # Combine matrix data if more than 1 matrix
         if len(matrices) > 1:
             matrix = Matrix.vstack(matrices, require_equal_columnlabels=True)
@@ -54,22 +48,23 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
         print "matrix shape after filter constant: ", matrix.data.shape
         
         # Scale the data
-        standardizer = Standardize()
+        standardizer = StandardScaler()
         matrix.data = standardizer.fit_transform(matrix.data)
-#         standardizer = StandardScaler()
-#         matrix.data = standardizer.fit_transform(matrix.data)
         
         # Shuffle the data rows (experiments x metrics)
         exp_shuffle_indices = get_shuffle_indices(matrix.data.shape[0])
         matrix.data = matrix.data[exp_shuffle_indices]
+    
+        # Shrink the cluster range if # metrics < max # clusters
+        max_clusters = matrix.data.shape[1] + 1
+        if max_clusters < cluster_range[1]:
+            cluster_range = (cluster_range[0], max_clusters)
 
     with stopwatch("factor analysis"):
         # Fit the model to calculate the components
         fa = FactorAnalysis()
         fa.fit(matrix.data)
     fa_mask = np.sum(fa.components_ != 0.0, axis=1) > 0.0
-    print fa_mask
-    print fa_mask.shape
     variances = np.sum(np.abs(fa.components_[fa_mask]), axis=1)
     total_variance = np.sum(variances).squeeze()
     print "total variance: {}".format(total_variance)

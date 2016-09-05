@@ -8,10 +8,10 @@ from collections import Counter
 import numpy as np
 import os.path
 from sklearn.linear_model import enet_path
-#from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 from .matrix import Matrix
-from .preprocessing import PolynomialFeatures, Shuffler, Standardize
+from .preprocessing import PolynomialFeatures, Shuffler
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
@@ -19,7 +19,7 @@ def get_coef_range(X, y):
     print "starting experiment"
     with stopwatch("lasso paths"):
         alphas, coefs, dual_gaps = enet_path(X.data, y.data, l1_ratio=1.0, verbose=True,
-                return_models=False, positive=False, max_iter=5000)
+                return_models=False, positive=False, max_iter=1000)
 
     print alphas.shape
     print coefs.shape
@@ -38,10 +38,7 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
     with stopwatch("matrix concatenation"):
         for basepath in basepaths:
             X_path = os.path.join(basepath, "X_data_enc.npz")
-            y_path = os.path.join(basepath, "y_data_enc_orig.npz")
-            if not os.path.exists(y_path):
-                y_path = os.path.join(basepath, "y_data_enc.npz")
-            #y_path = os.path.join(basepath, "y_data_enc.npz")
+            y_path = os.path.join(basepath, "y_data_enc.npz")
             
             Xs.append(Matrix.load_matrix(X_path))
             ys.append(Matrix.load_matrix(y_path).filter(featured_metrics,
@@ -74,14 +71,10 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
         print "\ncolumnlabels:",X.columnlabels
         
         # Scale the data
-        X_standardizer = Standardize()
+        X_standardizer = StandardScaler()
         X.data = X_standardizer.fit_transform(X.data)
-#         X_standardizer = StandardScaler()
-#         X.data = X_standardizer.fit_transform(X.data)
-        y_standardizer = Standardize()
+        y_standardizer = StandardScaler()
         y.data = y_standardizer.fit_transform(y.data)
-#         y_standardizer = StandardScaler()
-#         y.data = y_standardizer.fit_transform(y.data)
         if include_polynomial_features:
             X_poly = PolynomialFeatures()
             X_data = X_poly.fit_transform(X.data)
@@ -101,7 +94,7 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
 
     with stopwatch("lasso paths"):
         # Fit the model to calculate the components
-        alphas, coefs, dual_gaps = get_coef_range(X, y)
+        alphas, coefs, _ = get_coef_range(X, y)
     
     with stopwatch("lasso processing"):
         nfeats = X.columnlabels.shape[0]

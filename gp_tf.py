@@ -1,7 +1,7 @@
 '''
 Created on Aug 18, 2016
 
-@author: Bohan Zhang
+@author: Bohan Zhang, Dana Van Aken
 '''
 
 import numpy as np
@@ -13,11 +13,12 @@ NUM_CORES = 2
 class GPR(object):
     
     def __init__(self, length_scale=1.0, magnitude=1.0, ridge=1.0,
-                 batch_size=3000):
+                 batch_size=3000, max_train_size=5000):
         self.length_scale = length_scale
         self.magnitude = magnitude
         self.ridge = ridge
         self.batch_size = batch_size
+        self.max_train_size = max_train_size
         self.X_train = None
         self.y_train = None
         self.xy_ = None
@@ -34,6 +35,9 @@ class GPR(object):
     
     def fit(self, X_train, y_train):
         self.__reset()
+        if X_train.shape[0] > self.max_train_size:
+            raise Exception("X_train size cannot exceed {}"
+                            .format(self.max_train_size))
         X_train, y_train = check_X_y(X_train, y_train, multi_output=True,
                                      allow_nd=True, y_numeric=True,
                                      estimator="GPR")
@@ -132,7 +136,7 @@ class GPR(object):
             sess.close()
         assert_all_finite(yhats)
         assert_all_finite(sigmas)
-        assert_all_finite(eips)
+        #assert_all_finite(eips)
     
         return yhats, sigmas, eips
     
@@ -240,11 +244,58 @@ def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3
     finally:
         sess.close()
 
-    return yhats.ravel(), sigmas.ravel(), eips.ravel()
+    return yhats, sigmas, eips
 
 def main():
-    from sklearn.utils.estimator_checks import check_estimator
-    check_estimator(GPR)
+    check_equivalence()
+#     X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices()
+#     gpr = GPR(length_scale, magnitude, ridge)
+# #     g = tf.Graph()
+# #     print g
+# #     print dir(g)
+# #     print ""
+# #     print g._nodes_by_id
+#     gpr.fit(X_train, y_train)
+# #     print ""
+# #     print g._nodes_by_id
+#     return
+#     yhats2, sigmas2, eips2 = gpr.predict(X_test)
+
+def create_random_matrices(n_samples=3000, n_feats=12, n_test=4444):
+    n_samples, n_feats = 3000, 12
+    n_test = 4444
+    X_train = np.random.rand(n_samples, n_feats)
+    y_train = np.random.rand(n_samples, 1)
+    X_test = np.random.rand(n_test, n_feats)
+    
+    length_scale = np.random.rand()
+    magnitude = np.random.rand()
+    ridge = np.ones(n_samples) * np.random.rand()
+    
+    return X_train, y_train, X_test, length_scale, magnitude, ridge
+
+def check_equivalence():
+    from time import time
+
+    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices()
+    
+    print "Running GPR method..."
+    start = time()
+    yhats1, sigmas1, eips1 = gp_tf(X_train, y_train, X_test, ridge,
+                                   length_scale, magnitude)
+    print "Done."
+    print "GPR method: {0:.3f}".format(time() - start)
+    
+    print "Running GPR class..."
+    start = time()
+    gpr = GPR(length_scale, magnitude, ridge)
+    gpr.fit(X_train, y_train)
+    yhats2, sigmas2, eips2 = gpr.predict(X_test)
+    print "GPR class: {0:.3f}".format(time() - start)
+
+    assert np.allclose(yhats1, yhats2)
+    assert np.allclose(sigmas1, sigmas2)
+    assert np.allclose(eips1, eips2)
 
 if __name__ == "__main__":
     main()
