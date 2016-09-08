@@ -3,12 +3,25 @@ Created on Aug 18, 2016
 
 @author: Bohan Zhang, Dana Van Aken
 '''
-from collections import namedtuple
+
 import numpy as np
 import tensorflow as tf
 from time import time
 
-GPRResult = namedtuple('GPRResult', ['ypreds', 'sigmas', 'minL', 'minL_conf'])
+
+class GPRResult(object):
+    
+    def __init__(self, ypreds=None, sigmas=None):
+        self.ypreds = ypreds
+        self.sigmas = sigmas
+
+class GPR_GDResult(GPRResult):
+    
+    def __init__(self, ypreds=None, sigmas=None,
+                 minL=None, minL_conf=None):
+        super(GPR_GDResult, self).__init__(ypreds, sigmas)
+        self.minL = minL
+        self.minL_conf = minL_conf
 
 class GPR(object):
     
@@ -164,38 +177,18 @@ class GPR(object):
             yt_ph = self.vars['yt_h']
             self.xy_ = sess.run(xy_op, feed_dict={K_inv_ph:self.K_inv,
                                                   yt_ph:self.y_train})
-            
-            # Setup for gradient descent
-            print "Setting up for gradient descent"
-            start = time()
-            xt_ = tf.Variable(self.X_train[0], tf.float32)
-            init = tf.initialize_all_variables()
-            sess.run(init)
-            K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, self.X_train), 2),1)), 0))
-            K2__ = tf.cast(self.magnitude * tf.exp(-K2_mat/self.length_scale),tf.float32)
-            yhat_gd =  tf.cast(tf.matmul( tf.transpose(K2__) , self.xy_),tf.float32)
-            sig_val2 = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
-            self.ops['yhat_gd'] = yhat_gd
-            self.ops['sig_val2'] = sig_val2
-            self.vars['xt_'] = xt_
-            print "Done. {0:.3f} seconds\n".format(time() - start)
+
         return self
     
-    def predict(self, X_test, run_gradient_descent=False):
+    def predict(self, X_test):
         self.check_fitted()
         X_test = np.float32(self.check_array(X_test))
         test_size = X_test.shape[0]
-        sample_size, nfeats = self.X_train.shape
+        sample_size = self.X_train.shape[0]
 
         arr_offset = 0
         yhats = np.zeros([test_size, 1])
         sigmas = np.zeros([test_size, 1])
-        if run_gradient_descent:
-            minLs = np.zeros([test_size, 1])
-            minL_confs = np.zeros([test_size, nfeats])
-        else:
-            minLs = None
-            minL_confs = None
         with tf.Session(graph=self.graph) as sess:
             # Nodes for distance operation
             dist_op = self.ops['dist_op']
@@ -227,58 +220,25 @@ class GPR(object):
                     dists1[i] = sess.run(dist_op, feed_dict={v1:self.X_train[i],
                                                              v2:X_test_batch})
 
-                if run_gradient_descent:
-                    max_iter = 0
-                    learning_rate = 0.1
-                    xt_ = self.vars['xt_']
-                    init = tf.initialize_all_variables()
-                    sess.run(init)
 
-                    sig_val = self.ops['sig_val2']
-                    yhat_gd = self.ops['yhat_gd']
-                    Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
-                    optimizer = tf.train.AdamOptimizer(learning_rate)
-                    train = optimizer.minimize(Loss)
-
-                    yhat = np.empty((batch_len, 1))
-                    sigma = np.empty((batch_len, 1))
-                    minL = np.empty((batch_len, 1))
-                    minL_conf = np.empty((batch_len, nfeats))
-                    for i in range(batch_len):
-                        assign_op = xt_.assign(X_test_batch[i])
-                        sess.run(assign_op) 
-                        for step in range(max_iter):
-                            print i, step,  sess.run(Loss)
-                            sess.run(train)
-                        yhat[i] = sess.run(yhat_gd)[0][0]
-                        sigma[i] = sess.run(sig_val)[0][0]
-                        minL[i] = sess.run(Loss)
-                        minL_conf[i] = sess.run(xt_)
-                    minLs[arr_offset:end_offset] = minL
-                    minL_confs[arr_offset:end_offset] = minL_conf
-                else:
-                    sig_val = self.ops['sig_op']
-                    K2_ = sess.run(K_op, feed_dict={X_dists:dists1})
-                    yhat = sess.run(yhat_, feed_dict={K2:K2_, xy_ph:self.xy_})
-                    dists2 = np.zeros([batch_len,batch_len])
-                    for i in range(batch_len):
-                        dists2[i] = sess.run(dist_op, feed_dict={v1:X_test_batch[i], v2:X_test_batch})
-                    K3_ = sess.run(K_op, feed_dict={X_dists:dists2})
-            
-                    sigma = np.zeros([1,batch_len], np.float32)
-                    sigma[0] = sess.run(sig_val,feed_dict={K_inv_ph:self.K_inv, K2:K2_, K3:K3_})
-                    sigma = np.transpose(sigma)
+                sig_val = self.ops['sig_op']
+                K2_ = sess.run(K_op, feed_dict={X_dists:dists1})
+                yhat = sess.run(yhat_, feed_dict={K2:K2_, xy_ph:self.xy_})
+                dists2 = np.zeros([batch_len,batch_len])
+                for i in range(batch_len):
+                    dists2[i] = sess.run(dist_op, feed_dict={v1:X_test_batch[i], v2:X_test_batch})
+                K3_ = sess.run(K_op, feed_dict={X_dists:dists2})
+        
+                sigma = np.zeros([1,batch_len], np.float32)
+                sigma[0] = sess.run(sig_val,feed_dict={K_inv_ph:self.K_inv, K2:K2_, K3:K3_})
+                sigma = np.transpose(sigma)
                 yhats[arr_offset:end_offset] = yhat
                 sigmas[arr_offset:end_offset] =  sigma
                 arr_offset = end_offset
 
         self.check_output(yhats)
         self.check_output(sigmas)
-        if run_gradient_descent:
-            self.check_output(minLs)
-            self.check_output(minL_confs)
-
-        return GPRResult(yhats, sigmas, minLs, minL_confs)
+        return GPRResult(yhats, sigmas)
     
     def get_params(self, deep=True):
         return {"length_scale": self.length_scale,
@@ -300,6 +260,100 @@ class GPR(object):
         self.graph = None
         self.build_graph()
         gc.collect()
+
+class GPR_GD(GPR):
+    
+    def __init__(self, length_scale=1.0, magnitude=1.0,
+                 learning_rate=0.1, max_iter=20):
+        super(GPR_GD, self).__init__(length_scale, magnitude)
+        self.learning_rate = learning_rate
+        self.max_iter = max_iter
+    
+    def fit(self, X_train, y_train, ridge=1.0):
+        super(GPR_GD, self).fit(X_train, y_train, ridge)
+
+        with tf.Session(graph=self.graph) as sess:
+            xt_ = tf.Variable(self.X_train[0], tf.float32)
+            init = tf.initialize_all_variables()
+            sess.run(init)
+            K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, self.X_train), 2),1)), 0))
+            K2__ = tf.cast(self.magnitude * tf.exp(-K2_mat/self.length_scale),tf.float32)
+            yhat_gd =  tf.cast(tf.matmul( tf.transpose(K2__) , self.xy_),tf.float32)
+            sig_val = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
+
+            Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
+            optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            train = optimizer.minimize(Loss)
+
+            self.ops['yhat_gd'] = yhat_gd
+            self.ops['sig_val2'] = sig_val
+            self.vars['xt_'] = xt_
+            self.ops['loss_op'] = Loss
+            self.ops['train_op'] = train
+
+        return self
+
+    def predict(self, X_test):
+        self.check_fitted()
+        X_test = np.float32(self.check_array(X_test))
+        test_size = X_test.shape[0]
+        nfeats = self.X_train.shape[1]
+
+        arr_offset = 0
+        yhats = np.zeros([test_size, 1])
+        sigmas = np.zeros([test_size, 1])
+        minLs = np.zeros([test_size, 1])
+        minL_confs = np.zeros([test_size, nfeats])
+
+        with tf.Session(graph=self.graph) as sess:
+            while arr_offset < test_size:
+                if arr_offset + GPR.BATCH_SIZE > test_size:
+                    end_offset = test_size
+                else:
+                    end_offset = arr_offset + GPR.BATCH_SIZE;
+    
+                X_test_batch = X_test[arr_offset:end_offset];
+                batch_len = end_offset - arr_offset
+
+                xt_ = self.vars['xt_']
+                init = tf.initialize_all_variables()
+                sess.run(init)
+
+                sig_val = self.ops['sig_val2']
+                yhat_gd = self.ops['yhat_gd']
+                Loss = self.ops['loss_op']
+                train = self.ops['train_op']
+#                 Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
+#                 optimizer = tf.train.AdamOptimizer(self.learning_rate)
+#                 train = optimizer.minimize(Loss)
+
+                yhat = np.empty((batch_len, 1))
+                sigma = np.empty((batch_len, 1))
+                minL = np.empty((batch_len, 1))
+                minL_conf = np.empty((batch_len, nfeats))
+                for i in range(batch_len):
+                    assign_op = xt_.assign(X_test_batch[i])
+                    sess.run(assign_op) 
+                    for step in range(self.max_iter):
+                        print i, step,  sess.run(Loss)
+                        sess.run(train)
+                    yhat[i] = sess.run(yhat_gd)[0][0]
+                    sigma[i] = sess.run(sig_val)[0][0]
+                    minL[i] = sess.run(Loss)
+                    minL_conf[i] = sess.run(xt_)
+                minLs[arr_offset:end_offset] = minL
+                minL_confs[arr_offset:end_offset] = minL_conf
+                yhats[arr_offset:end_offset] = yhat
+                sigmas[arr_offset:end_offset] =  sigma
+                arr_offset = end_offset
+
+        self.check_output(yhats)
+        self.check_output(sigmas)
+        self.check_output(minLs)
+        self.check_output(minL_confs)
+
+        return GPR_GDResult(yhats, sigmas, minLs, minL_confs)
+        
 
 def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3000):
     with tf.Graph().as_default():
@@ -418,12 +472,10 @@ def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
         tmp = np.zeros([sample_size,sample_size])
         for i in range(sample_size):
             tmp[i] = sess.run(dist,feed_dict={v1:xs[i],v2:xs})
-        print "Finished euc matrix \n"
     
     
         tmp = tf.cast(tmp,tf.float32)
         K = magnitude * tf.exp(-tmp/length_scale) + tf.diag(ridge);
-        print "Finished K "
     
         K2_mat =  tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, xs), 2),1))
         K2_mat = tf.transpose(tf.expand_dims(K2_mat,0))
@@ -454,10 +506,6 @@ def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
 
 def main():
     check_gd_equivalence()
-#     X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=1000)
-#     gpr = GPR2(length_scale, magnitude, ridge)
-#     gpr.fit(X_train, y_train)
-#     gpr.predict(X_test)
 
 def create_random_matrices(n_samples=3000, n_feats=12, n_test=4444):
     X_train = np.random.rand(n_samples, n_feats)
@@ -499,45 +547,36 @@ def check_gd_equivalence():
                                length_scale, magnitude)
     print "Done."
     print "GPR method: {0:.3f} seconds\n".format(time() - start)
-      
+       
     print "Running GD method..."
     start = time()
     yhats1, sigmas1, minL, minL_conf = gd_tf(X_train, y_train, X_test, ridge,
                                   length_scale, magnitude, max_iter=0)
     print "Done."
     print "GD method: {0:.3f} seconds\n".format(time() - start)
-    
+     
     print "Running GPR class..."
     start = time()
     gpr = GPR(length_scale, magnitude)
     gpr.fit(X_train, y_train, ridge)
-    gpres = gpr.predict(X_test, run_gradient_descent=True)
+    gpres1 = gpr.predict(X_test)
     print "GPR class: {0:.3f} seconds\n".format(time() - start)
-     
-#     print yhats1
-#     print gpres.ypreds
-# #     print yhats3
-#     print ""
-#     print sigmas1
-#     print gpres.sigmas
-# #     print sigmas3
-#     print ""
-#     print minL
-#     print gpres.minL
-#     print ""
-#     print minL_conf
-#     print gpres.minL_conf
-#     print ""
+
+    print "Running GPR_GD class..."
+    start = time()
+    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=0)
+    gpr_gd.fit(X_train, y_train, ridge)
+    gpres2 = gpr_gd.predict(X_test)
+    print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
+
     assert np.allclose(yhats1, yhats3, atol=1e-4)
     assert np.allclose(sigmas1, sigmas3, atol=1e-4)
-    assert np.allclose(yhats1, gpres.ypreds, atol=1e-4)
-    assert np.allclose(sigmas1, gpres.sigmas, atol=1e-4)
-    assert np.allclose(minL, gpres.minL, atol=1e-4)
-    assert np.allclose(minL_conf, gpres.minL_conf, atol=1e-4)
-    
-
- 
-
+    assert np.allclose(yhats1, gpres1.ypreds, atol=1e-4)
+    assert np.allclose(sigmas1, gpres1.sigmas, atol=1e-4)
+    assert np.allclose(yhats1, gpres2.ypreds, atol=1e-4)
+    assert np.allclose(sigmas1, gpres2.sigmas, atol=1e-4)
+    assert np.allclose(minL, gpres2.minL, atol=1e-4)
+    assert np.allclose(minL_conf, gpres2.minL_conf, atol=1e-4)
 
 if __name__ == "__main__":
     main()
