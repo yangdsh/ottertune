@@ -331,7 +331,79 @@ class PolynomialFeatures(Preprocess):
 
     def reverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
+
+##==========================================================
+##  Dummy Encoding
+##==========================================================
+
+class DummyEncoder(Preprocess):
     
+    def __init__(self, n_values, feature_indices):
+        from sklearn.preprocessing import OneHotEncoder
+        
+        if not isinstance(n_values, np.ndarray):
+            n_values = np.array(n_values)
+        if not isinstance(feature_indices, np.ndarray):
+            feature_indices = np.array(feature_indices)
+        assert feature_indices.size > 0
+        assert feature_indices.shape == n_values.shape
+        for nv in n_values:
+            if nv <= 2:
+                raise Exception("Categorical features must have 3+ labels") 
+        
+        self.feature_indices = feature_indices
+        self.n_values = n_values
+        self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
+        self.columnlabels = None
+    
+    def fit(self, matrix, copy=True, columnlabels=None):
+        assert isinstance(matrix, np.ndarray)
+        cat_X = matrix[:, self.feature_indices]
+        self.encoder.fit(cat_X)
+        cat_index = 0
+        if columnlabels is not None:
+            labels = []
+            for i in range(matrix.shape[1]):
+                orig_label = columnlabels[i]
+                if i in self.feature_indices:
+                    assert self.feature_indices[cat_index] == i
+                    nvals = self.n_values[cat_index]
+                    labels.extend(["{}#{}".format(orig_label, v) \
+                                   for v in range(nvals)])
+                    cat_index += 1
+                else:
+                    labels.append(orig_label)
+            self.columnlabels = np.array(labels)
+        return self
+
+    def transform(self, matrix, copy=True):
+        num_cat_feats = self.feature_indices.size
+        cat_X = matrix[:, self.feature_indices]
+        X_enc = self.encoder.transform(cat_X)
+        assert X_enc.shape[1] == np.sum(self.n_values)
+        
+        nfeats = matrix.shape[1] - num_cat_feats + np.sum(self.n_values)
+        offset = 0
+        cat_index = 0
+        new_matrix = []
+        for i in range(matrix.shape[1]):
+            if i in self.feature_indices:
+                assert self.feature_indices[cat_index] == i
+                nvals = self.n_values[cat_index]
+                new_matrix.append(X_enc[:, offset:offset+nvals])
+                offset += nvals
+                cat_index += 1
+            else:
+                new_matrix.append(matrix[:,i].reshape(matrix.shape[0], 1))
+
+        new_matrix = np.hstack(new_matrix)
+        assert new_matrix.shape == (matrix.shape[0], nfeats)
+        return new_matrix
+        
+
+    def reverse_transform(self, matrix, copy=True):
+        raise NotImplementedError("This method is not supported")
+
 
 ##==========================================================
 ##  Testing

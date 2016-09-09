@@ -21,9 +21,6 @@ def get_coef_range(X, y):
         alphas, coefs, dual_gaps = enet_path(X.data, y.data, l1_ratio=1.0, verbose=True,
                 return_models=False, positive=False, max_iter=1000)
 
-    print alphas.shape
-    print coefs.shape
-    print dual_gaps.shape
     return alphas, coefs, dual_gaps
 
 def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,

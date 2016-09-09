@@ -220,7 +220,6 @@ class GPR(object):
                     dists1[i] = sess.run(dist_op, feed_dict={v1:self.X_train[i],
                                                              v2:X_test_batch})
 
-
                 sig_val = self.ops['sig_op']
                 K2_ = sess.run(K_op, feed_dict={X_dists:dists1})
                 yhat = sess.run(yhat_, feed_dict={K2:K2_, xy_ph:self.xy_})
@@ -257,6 +256,7 @@ class GPR(object):
         self.y_train = None
         self.xy_ = None
         self.K = None
+        self.K_inv = None
         self.graph = None
         self.build_graph()
         gc.collect()
@@ -293,7 +293,7 @@ class GPR_GD(GPR):
 
         return self
 
-    def predict(self, X_test):
+    def predict(self, X_test, constraint_helper=None):
         self.check_fitted()
         X_test = np.float32(self.check_array(X_test))
         test_size = X_test.shape[0]
@@ -323,9 +323,6 @@ class GPR_GD(GPR):
                 yhat_gd = self.ops['yhat_gd']
                 Loss = self.ops['loss_op']
                 train = self.ops['train_op']
-#                 Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
-#                 optimizer = tf.train.AdamOptimizer(self.learning_rate)
-#                 train = optimizer.minimize(Loss)
 
                 yhat = np.empty((batch_len, 1))
                 sigma = np.empty((batch_len, 1))
@@ -335,8 +332,11 @@ class GPR_GD(GPR):
                     assign_op = xt_.assign(X_test_batch[i])
                     sess.run(assign_op) 
                     for step in range(self.max_iter):
-                        print i, step,  sess.run(Loss)
+                        current_loss = sess.run(Loss)
+                        print i, step, current_loss
                         sess.run(train)
+                        if constraint_helper is not None:
+                            constraint_helper.apply_constraints(sess.run(xt_))
                     yhat[i] = sess.run(yhat_gd)[0][0]
                     sigma[i] = sess.run(sig_val)[0][0]
                     minL[i] = sess.run(Loss)
@@ -539,44 +539,93 @@ def check_equivalence():
     assert np.allclose(eips1, eips2)
 
 def check_gd_equivalence():
-    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=5,
-                                                                                      n_feats=5)
-    print "Running GPR method..."
-    start = time()
-    yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
-                               length_scale, magnitude)
-    print "Done."
-    print "GPR method: {0:.3f} seconds\n".format(time() - start)
-       
+    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=3)
+#     print "Running GPR method..."
+#     start = time()
+#     yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
+#                                length_scale, magnitude)
+#     print "Done."
+#     print "GPR method: {0:.3f} seconds\n".format(time() - start)
+        
     print "Running GD method..."
     start = time()
     yhats1, sigmas1, minL, minL_conf = gd_tf(X_train, y_train, X_test, ridge,
-                                  length_scale, magnitude, max_iter=0)
+                                  length_scale, magnitude, max_iter=5)
     print "Done."
     print "GD method: {0:.3f} seconds\n".format(time() - start)
-     
-    print "Running GPR class..."
-    start = time()
-    gpr = GPR(length_scale, magnitude)
-    gpr.fit(X_train, y_train, ridge)
-    gpres1 = gpr.predict(X_test)
-    print "GPR class: {0:.3f} seconds\n".format(time() - start)
+      
+#     print "Running GPR class..."
+#     start = time()
+#     gpr = GPR(length_scale, magnitude)
+#     gpr.fit(X_train, y_train, ridge)
+#     gpres1 = gpr.predict(X_test)
+#     print "GPR class: {0:.3f} seconds\n".format(time() - start)
 
     print "Running GPR_GD class..."
     start = time()
-    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=0)
+    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=5)
     gpr_gd.fit(X_train, y_train, ridge)
     gpres2 = gpr_gd.predict(X_test)
     print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
 
-    assert np.allclose(yhats1, yhats3, atol=1e-4)
-    assert np.allclose(sigmas1, sigmas3, atol=1e-4)
-    assert np.allclose(yhats1, gpres1.ypreds, atol=1e-4)
-    assert np.allclose(sigmas1, gpres1.sigmas, atol=1e-4)
+#     assert np.allclose(yhats1, yhats3, atol=1e-4)
+#     assert np.allclose(sigmas1, sigmas3, atol=1e-4)
+#     assert np.allclose(yhats1, gpres1.ypreds, atol=1e-4)
+#     assert np.allclose(sigmas1, gpres1.sigmas, atol=1e-4)
     assert np.allclose(yhats1, gpres2.ypreds, atol=1e-4)
     assert np.allclose(sigmas1, gpres2.sigmas, atol=1e-4)
     assert np.allclose(minL, gpres2.minL, atol=1e-4)
     assert np.allclose(minL_conf, gpres2.minL_conf, atol=1e-4)
+
+def test_constraints():
+    import os.path
+    from .constraints import ParamConstraintHelper
+    from .matrix import Matrix
+    from .util import get_featured_knobs
+    from dbms.param import ConfigManager
+    from sklearn.preprocessing import StandardScaler
+    
+    n_feats = 12
+    test_size = 1
+
+    datadir = '/usr0/home/dvanaken/Dropbox/Apps/ottertune/data/analysis_20160905-152616_exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w50-0-0-50-0-0_s0.6'
+    X_train = Matrix.load_matrix(os.path.join(datadir, "X_data_enc.npz"))
+    y_train = Matrix.load_matrix(os.path.join(datadir, "y_data_enc.npz"))
+    length_scale, magnitude, ridge_const = 10.0, 10.0, 7.15
+    featured_knobs = get_featured_knobs("mysql", "m3.xlarge")[:n_feats]
+    X_train = X_train.filter(featured_knobs, 'columns')
+    y_train = y_train.filter(np.array(['99th_lat_ms']), 'columns')
+
+    config_mgr = ConfigManager.get_config_manager('mysql')
+    X_test = config_mgr.get_param_grid(X_train.columnlabels)
+    X_test = X_test[np.random.choice(np.arange(X_test.shape[0]), test_size, replace=False)]
+    
+    X_scaler = StandardScaler()
+    X_scaler.partial_fit(X_train.data)
+    X_scaler.partial_fit(X_test)
+    X_train_data = X_scaler.transform(X_train.data)
+    X_test_data = X_scaler.transform(X_test)
+    
+    y_scaler = StandardScaler()
+    y_train_data = y_scaler.fit_transform(y_train.data)
+
+    param_list = []
+    for pname in X_train.columnlabels:
+        param = config_mgr._find_param(pname)
+        print param.name, param.data_type
+        param_list.append(param)
+    print len(param_list)
+        
+    constraint_helper = ParamConstraintHelper(param_list, X_scaler)
+    
+    ridge = np.ones(X_train_data.shape[0])* ridge_const
+    print "Running GPR_GD class..."
+    start = time()
+    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=5)
+    gpr_gd.fit(X_train_data, y_train_data, ridge)
+    gpres2 = gpr_gd.predict(X_test_data, constraint_helper)
+    print gpres2.minL
+    print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
 
 if __name__ == "__main__":
     main()
