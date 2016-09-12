@@ -39,7 +39,7 @@ class WorkloadState(object):
     def decompress(compressed_workload_state):
         return pickle.loads(zlib.decompress(compressed_workload_state))
 
-def mp_worker_create_model((workload_name, data)):
+def worker_create_model((workload_name, data)):
     X, y = data
     models = {}
     for col, label in zip(y.data.T, y.columnlabels):
@@ -51,9 +51,38 @@ def mp_worker_create_model((workload_name, data)):
         model.fit(X.data, col, ridge)
         models[label] = model.get_params()
     workload_state = WorkloadState(X, y, models)
-    #self.workload_states_[wd] = WorkloadState.compress(workload_state)
     print "Done.\n"
     return (workload_name, workload_state)
+
+def worker_score_workload((workload_name, workload_state, X_client, y_client)):
+    assert np.array_equal(workload_state.X.columnlabels,
+                          X_client.columnlabels)
+    assert np.array_equal(workload_state.y.columnlabels,
+                          y_client.columnlabels)
+
+    # Make all predictions
+    model = GPR()
+    model._reset()
+    metrics = workload_state.y.columnlabels
+    predictions = np.empty_like(y_client.data)
+    for i, metric in enumerate(metrics):
+        model_params = workload_state.models[metric]
+        model.set_params(**model_params)
+        res = model.predict(X_client.data)
+        predictions[:, i] = res.ypreds.ravel()
+
+#     print "predictions={}".format(predictions)
+#     print ""
+#     print "client={}".format(y_client.data)
+#     print ""
+
+    # Compute distance
+    dists = np.sum(np.square(np.subtract(predictions, y_client.data)), axis=1)
+#     print "dists={}".format(dists)
+    assert dists.shape == (predictions.shape[0],)
+#     print ""
+#     print "score={}".format(np.mean(dists))
+    return (workload_name, np.mean(dists))
 
 class WorkloadMapper(object):
 
@@ -123,61 +152,25 @@ class WorkloadMapper(object):
                 y.data = self.y_gp_scaler_.transform(y.data)
             
             p = multiprocessing.Pool(self.POOL_SIZE)
-            res = p.map(mp_worker_create_model, list(data_map.iteritems())[:2])
+            res = p.map(worker_create_model, list(data_map.iteritems())[:2])
             self.workload_states_ = dict(res)
 
+            test_wkld_name, test_wkld = list(self.workload_states_.iteritems())[0]
+            indices = np.random.choice(np.arange(test_wkld.X.data.shape[0]), 5)
+            X_client = Matrix(test_wkld.X.data[indices],
+                              test_wkld.X.rowlabels[indices],
+                              test_wkld.X.columnlabels)
+            y_client = Matrix(test_wkld.y.data[indices],
+                              test_wkld.y.rowlabels[indices],
+                              test_wkld.y.columnlabels)
+            iterable = [(wd, ws, X_client, y_client) for \
+                        wd, ws in self.workload_states_.iteritems()]
+            p = multiprocessing.Pool(self.POOL_SIZE)
+            res = p.map(worker_score_workload, iterable)
+            print "TEST_WKLD_NAME: {}\n".format(test_wkld_name)
+            for wkld_name, score in res:
+                print "{}: {}".format(wkld_name, score)
 
-#             del data_map
-#         gc.collect()
-#         sleep(20)
-#         with stopwatch("decompress and predict"):
-# #             model = GPR()
-# #             model._reset()
-#             for wd, ws in self.workload_states_.iteritems():
-#                 ws = WorkloadState.decompress(ws)
-#                 quick_test = np.random.choice(np.arange(ws.X.data.shape[0]), 5)
-# 
-#                 for metric, model in ws.models.iteritems():
-#                     #model.set_params(**model_params)
-#                     res = model.predict(ws.X.data[quick_test])
-#                     #res = ws.models[metric].predict(ws.X.data[quick_test])
-# #                     print metric
-# #                     print res.ypreds
-# #                     print res.sigmas
-                
-            
-        
-    
-#     def prep_matrices(self):
-#         tuner = TunerContext()
-#         
-#         # Filter all matrices by featured metrics. Populate counter that keeps
-#         # track of 'high density' experiments (common experiments executed by
-#         # different workloads)
-#         self.matrices_ = {}
-#         self.tuned_for_ = tuner.num_knobs
-#         for wd in self.workload_dirs_:
-#             Xpath = os.path.join(wd, "X_data_unique_{}.npz".format(tuner.num_knobs))
-#             ypath = os.path.join(wd, "y_data_unique_{}.npz".format(tuner.num_knobs))
-#             X = Matrix.load_matrix(Xpath)
-#             y = Matrix.load_matrix(ypath)
-#             assert np.array_equal(X.columnlabels, tuner.featured_knobs)
-#             y = y.filter(tuner.featured_metrics, "columns")
-#             self.matrices_[wd] = (y, X.data)
-#         
-#         ys = Matrix.vstack([v[0] for v in self.matrices_.values()],
-#                            require_equal_columnlabels=True)
-#         
-#         # Determine deciles for the combined matrix data
-#         self.binner_ = Bin(0, axis=0)
-#         self.binner_.fit(ys.data)
-# 
-#         # Bin the metrics using the pre-calculated deciles
-#         for wkld in self.matrices_.keys():
-#             binned_mtx = self.binner_.transform(self.matrices_[wkld][0].data)
-#             assert np.all(binned_mtx >= 0) and np.all(binned_mtx < 10)
-#             self.matrices_[wkld][0].data = binned_mtx
-#         gc.collect()
 
     def map_workload(self, X_client, y_client):
         tuner = TunerContext()
