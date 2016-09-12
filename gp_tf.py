@@ -4,6 +4,7 @@ Created on Aug 18, 2016
 @author: Bohan Zhang, Dana Van Aken
 '''
 
+import sys
 import numpy as np
 import tensorflow as tf
 from time import time
@@ -144,7 +145,7 @@ class GPR(object):
                             .format(X[~finite_els]))
     
     def fit(self, X_train, y_train, ridge=1.0):
-        self.__reset()
+        self._reset()
         X_train, y_train = self.check_X_y(X_train, y_train)
         self.X_train = np.float32(X_train)
         self.y_train = np.float32(y_train)
@@ -241,15 +242,19 @@ class GPR(object):
     
     def get_params(self, deep=True):
         return {"length_scale": self.length_scale,
-                "magnitude": self.magnitude}
+                "magnitude": self.magnitude,
+                "X_train": self.X_train,
+                "y_train": self.y_train,
+                "xy_": self.xy_,
+                "K": self.K,
+                "K_inv": self.K_inv}
     
     def set_params(self, **parameters):
         for param, val in parameters.iteritems():
             setattr(self, param, val)
         return self
 
-
-    def __reset(self):
+    def _reset(self):
         import gc
 
         self.X_train = None
@@ -293,7 +298,9 @@ class GPR_GD(GPR):
 
         return self
 
-    def predict(self, X_test, constraint_helper=None):
+    def predict(self, X_test, constraint_helper=None,
+                categorical_feature_method='hillclimbing',
+                categorical_feature_steps=3):
         self.check_fitted()
         X_test = np.float32(self.check_array(X_test))
         test_size = X_test.shape[0]
@@ -323,24 +330,62 @@ class GPR_GD(GPR):
                 yhat_gd = self.ops['yhat_gd']
                 Loss = self.ops['loss_op']
                 train = self.ops['train_op']
+                
+                xt_ph = tf.placeholder(tf.float32)
+                assign_op = xt_.assign(xt_ph)
 
                 yhat = np.empty((batch_len, 1))
                 sigma = np.empty((batch_len, 1))
                 minL = np.empty((batch_len, 1))
                 minL_conf = np.empty((batch_len, nfeats))
                 for i in range(batch_len):
-                    assign_op = xt_.assign(X_test_batch[i])
-                    sess.run(assign_op) 
+#                     assign_op = xt_.assign(X_test_batch[i])
+#                     sess.run(assign_op)
+                    yhats_it = np.empty((self.max_iter+1,))
+                    sigmas_it = np.empty((self.max_iter+1,))
+                    losses_it = np.empty((self.max_iter+1,))
+                    confs_it = np.empty((self.max_iter+1, nfeats))
+                    
+                    sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
-                        current_loss = sess.run(Loss)
-                        print i, step, current_loss
+
+                        yhats_it[step] = sess.run(yhat_gd)[0][0]
+                        sigmas_it[step] = sess.run(sig_val)[0][0]
+                        losses_it[step] = sess.run(Loss)
+                        confs_it[step] = sess.run(xt_)
+                        print i, step, losses_it[step]
                         sess.run(train)
                         if constraint_helper is not None:
-                            constraint_helper.apply_constraints(sess.run(xt_))
-                    yhat[i] = sess.run(yhat_gd)[0][0]
-                    sigma[i] = sess.run(sig_val)[0][0]
-                    minL[i] = sess.run(Loss)
-                    minL_conf[i] = sess.run(xt_)
+                            xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
+                            sess.run(assign_op, feed_dict={xt_ph:xt_valid})
+
+                            if categorical_feature_method == 'hillclimbing':
+                                if step % categorical_feature_steps == 0:
+                                    current_xt = sess.run(xt_)
+                                    current_loss = sess.run(Loss)
+                                    new_xt = constraint_helper.randomize_categorical_features(current_xt)
+                                    sess.run(assign_op, feed_dict={xt_ph:new_xt})
+                                    new_loss = sess.run(Loss)
+                                    print "current loss={}, new loss={}".format(current_loss, new_loss)
+                                    if current_loss < new_loss:
+                                        sess.run(assign_op, feed_dict={xt_ph:current_xt})
+                            else:
+                                raise Exception("Unknown categorical feature method: {}"
+                                                .format(categorical_feature_method))
+                    
+                    # Record results from final iteration
+                    yhats_it[-1] = sess.run(yhat_gd)[0][0]
+                    sigmas_it[-1] = sess.run(sig_val)[0][0]
+                    losses_it[-1] = sess.run(Loss)
+                    confs_it[-1] = sess.run(xt_)
+                    
+                    # Store info for conf with min loss from all iters
+                    min_loss_idx = np.argmin(losses_it)
+                    yhat[i] = yhats_it[min_loss_idx]
+                    sigma[i] = sigmas_it[min_loss_idx]
+                    minL[i] = losses_it[min_loss_idx]
+                    minL_conf[i] = confs_it[min_loss_idx]
+
                 minLs[arr_offset:end_offset] = minL
                 minL_confs[arr_offset:end_offset] = minL_conf
                 yhats[arr_offset:end_offset] = yhat
@@ -539,7 +584,7 @@ def check_equivalence():
     assert np.allclose(eips1, eips2)
 
 def check_gd_equivalence():
-    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=3)
+    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=2)
 #     print "Running GPR method..."
 #     start = time()
 #     yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
@@ -581,14 +626,15 @@ def test_constraints():
     import os.path
     from .constraints import ParamConstraintHelper
     from .matrix import Matrix
+    from .preprocessing import DummyEncoder, dummy_encoder_helper, fix_scaler, get_encoded_min_max, MinMaxScaler
     from .util import get_featured_knobs
     from dbms.param import ConfigManager
     from sklearn.preprocessing import StandardScaler
     
     n_feats = 12
-    test_size = 1
+    test_size = 5
 
-    datadir = '/usr0/home/dvanaken/Dropbox/Apps/ottertune/data/analysis_20160905-152616_exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w50-0-0-50-0-0_s0.6'
+    datadir = '/usr0/home/dvanaken/Dropbox/Apps/ottertune/data/analysis_20160910-204945_exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w50-0-0-50-0-0_s0.6'
     X_train = Matrix.load_matrix(os.path.join(datadir, "X_data_enc.npz"))
     y_train = Matrix.load_matrix(os.path.join(datadir, "y_data_enc.npz"))
     length_scale, magnitude, ridge_const = 10.0, 10.0, 7.15
@@ -600,14 +646,13 @@ def test_constraints():
     X_test = config_mgr.get_param_grid(X_train.columnlabels)
     X_test = X_test[np.random.choice(np.arange(X_test.shape[0]), test_size, replace=False)]
     
-    X_scaler = StandardScaler()
-    X_scaler.partial_fit(X_train.data)
-    X_scaler.partial_fit(X_test)
-    X_train_data = X_scaler.transform(X_train.data)
-    X_test_data = X_scaler.transform(X_test)
-    
-    y_scaler = StandardScaler()
-    y_train_data = y_scaler.fit_transform(y_train.data)
+    cat_knob_indices, n_values = dummy_encoder_helper("mysql", X_train.columnlabels)
+    encoder = DummyEncoder(n_values, cat_knob_indices)
+    encoder.fit(X_train.data, columnlabels=X_train.columnlabels)
+    X_train_enc = Matrix(encoder.transform(X_train.data),
+                         X_train.rowlabels,
+                         encoder.columnlabels)
+    X_test_enc = encoder.transform(X_test)
 
     param_list = []
     for pname in X_train.columnlabels:
@@ -615,17 +660,42 @@ def test_constraints():
         print param.name, param.data_type
         param_list.append(param)
     print len(param_list)
-        
-    constraint_helper = ParamConstraintHelper(param_list, X_scaler)
+    
+    mins, maxs = get_encoded_min_max(encoder, param_list)
+    X_scaler = MinMaxScaler(mins, maxs)
+    print mins
+    print maxs
+#     X_scaler = StandardScaler()
+    #X_scaler.fit(X_train_enc.data)
+    #X_scaler.partial_fit(X_test_enc)
+
+#     premean = np.array(X_scaler.mean_)
+#     fix_scaler(X_scaler, encoder, param_list)
+#     assert not np.array_equal(premean, X_scaler.mean_)
+    X_train_data = X_scaler.transform(X_train_enc.data)
+    X_test_data = X_scaler.transform(X_test_enc)
+
+    y_scaler = StandardScaler()
+    y_train_data = y_scaler.fit_transform(y_train.data)
+    
+    print X_train_data
+    print X_train_enc.columnlabels
+
+    constraint_helper = ParamConstraintHelper(param_list, X_scaler, encoder)
     
     ridge = np.ones(X_train_data.shape[0])* ridge_const
     print "Running GPR_GD class..."
     start = time()
-    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=5)
+    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=30)
     gpr_gd.fit(X_train_data, y_train_data, ridge)
     gpres2 = gpr_gd.predict(X_test_data, constraint_helper)
-    print gpres2.minL
     print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
+    
+    best_idx = np.argmin(gpres2.minL)
+    print ""
+    best_conf = constraint_helper.get_valid_config(gpres2.minL_conf[best_idx], rescale=False)
+    for n,v in zip(X_train.columnlabels, best_conf):
+        print "{}: {}".format(n,v) 
 
 if __name__ == "__main__":
     main()

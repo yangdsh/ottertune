@@ -27,7 +27,7 @@ class Preprocess(object):
         return self.transform(matrix, copy)
 
     @abstractmethod
-    def reverse_transform(self, matrix, copy):
+    def inverse_transform(self, matrix, copy):
         pass
     
 ##==========================================================
@@ -51,10 +51,10 @@ class Standardize(Preprocess):
         assert self.std_ is not None
         return standardize(matrix, self.mean_, self.std_, self.axis_, copy)
 
-    def reverse_transform(self, matrix, copy=True):
+    def inverse_transform(self, matrix, copy=True):
         assert self.mean_ is not None
         assert self.std_ is not None
-        return reverse_standardize(matrix, self.mean_, self.std_, self.axis_, copy)
+        return inverse_standardize(matrix, self.mean_, self.std_, self.axis_, copy)
         
 def get_mean_and_std(matrix, axis):
     assert matrix.ndim > 0
@@ -87,7 +87,7 @@ def standardize(matrix, mmean, mstd, axis, copy=True):
 
     return matrix
 
-def reverse_standardize(matrix, mmean, mstd, axis, copy=True):
+def inverse_standardize(matrix, mmean, mstd, axis, copy=True):
     if not copy and matrix.dtype != np.dtype("float64"):
         raise TypeError("Matrix should be of type 'float64'")
     
@@ -151,7 +151,7 @@ class Bin(Preprocess):
         assert res.shape == matrix.shape
         return res
 
-    def reverse_transform(self, matrix, copy=True):
+    def inverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
 
 def get_deciles(matrix, axis=None):
@@ -217,7 +217,7 @@ class Shuffler(Preprocess):
             matrix.columnlabels = matrix.columnlabels[self.column_indices_]
         return matrix
 
-    def reverse_transform(self, matrix, copy):
+    def inverse_transform(self, matrix, copy):
         if copy:
             matrix = matrix.copy()
         
@@ -226,9 +226,9 @@ class Shuffler(Preprocess):
             matrix.data = matrix.data[inverse_row_indices]
             matrix.rowlabels = matrix.rowlabels[inverse_row_indices]
         if self.shuffle_columns_:
-            reverse_column_indices = np.argsort(self.column_indices_)
-            matrix.data = matrix.data[:, reverse_column_indices]
-            matrix.columnlabels = matrix.columnlabels[reverse_column_indices]
+            inverse_column_indices = np.argsort(self.column_indices_)
+            matrix.data = matrix.data[:, inverse_column_indices]
+            matrix.columnlabels = matrix.columnlabels[inverse_column_indices]
         return matrix
 
 def get_shuffle_indices(size, seed=None):
@@ -329,7 +329,7 @@ class PolynomialFeatures(Preprocess):
 
         return poly_matrix
 
-    def reverse_transform(self, matrix, copy=True):
+    def inverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
 
 ##==========================================================
@@ -355,14 +355,22 @@ class DummyEncoder(Preprocess):
         self.n_values = n_values
         self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
         self.columnlabels = None
+        self.xform_start_indices = None
     
     def fit(self, matrix, copy=True, columnlabels=None):
         assert isinstance(matrix, np.ndarray)
         cat_X = matrix[:, self.feature_indices]
         self.encoder.fit(cat_X)
-        cat_index = 0
+
+        self.xform_start_indices = np.empty_like(self.feature_indices)
+        for i,(idx,nvals) in enumerate(zip(self.feature_indices, self.n_values)):
+            start_idx = idx + np.sum(self.n_values[:i]) - np.sum(self.n_values[:i].size)
+            self.xform_start_indices[i] = start_idx
+        print self.xform_start_indices
+
         if columnlabels is not None:
             labels = []
+            cat_index = 0
             for i in range(matrix.shape[1]):
                 orig_label = columnlabels[i]
                 if i in self.feature_indices:
@@ -399,11 +407,149 @@ class DummyEncoder(Preprocess):
         new_matrix = np.hstack(new_matrix)
         assert new_matrix.shape == (matrix.shape[0], nfeats)
         return new_matrix
+
+    def inverse_transform(self, matrix, copy=True):
+        assert matrix.ndim == 2
+        n_cat_feats = self.n_values.size
+        cat_idx = 0
+        current_idx = 0
+        nsamples = matrix.shape[0]
+        nfeats = matrix.shape[1] - np.sum(self.n_values) + n_cat_feats
+        new_matrix = np.empty((nsamples, nfeats))
+        for i in range(nfeats):
+            if cat_idx < n_cat_feats and current_idx == self.xform_start_indices[cat_idx]:
+                new_col = np.ones((nsamples,))*np.nan
+                nvals = self.n_values[cat_idx]
+                for n in range(nvals):
+                    col = matrix[:, current_idx+n]
+                    new_col[col == 1] = n
+                assert np.all(np.isfinite(new_col))
+                current_idx += nvals
+                cat_idx += 1
+            else:
+                new_col = np.array(matrix[:, current_idx])
+                current_idx += 1
+            print new_matrix.shape, new_col.shape
+            new_matrix[:, i] = new_col
+        return new_matrix
+
+def dummy_encoder_helper(dbms, featured_knobs):
+    from dbms.param import ConfigManager
+
+    config_mgr = ConfigManager.get_config_manager(dbms)
+    cat_knob_indices = []
+    n_values = []
+    for i,knob_name in enumerate(featured_knobs):
+        knob = config_mgr._find_param(knob_name)
+        if knob.iscategorical and not knob.data_type == "boolean":
+            cat_knob_indices.append(i)
+            n_values.append(len(knob.valid_values))
+    cat_knob_indices = np.array(cat_knob_indices)
+    n_values = np.array(n_values)
+    return cat_knob_indices, n_values
+
+def fix_scaler(scaler, encoder, params):
+    p = 0.5
+    mean = scaler.mean_
+    var = scaler.var_
+    n_values = encoder.n_values
+    cat_start_idxs = encoder.xform_start_indices
+    current_idx = 0
+    cat_idx = 0
+    for param in params:
+        if param.iscategorical:
+            if param.isboolean:
+                nvals = 1
+            else:
+                assert cat_start_idxs[cat_idx] == current_idx
+                nvals = n_values[cat_idx]
+                cat_idx += 1
+            cat_mean = nvals * p
+            cat_var = cat_mean*(1 - p)
+            mean[current_idx:current_idx+nvals] = cat_mean
+            var[current_idx:current_idx+nvals] = cat_var
+            current_idx += nvals
+        else:
+            current_idx += 1
+    
+    scaler.mean_ = mean
+    scaler.var_ = var
+    scaler.scale_ = np.sqrt(var)
+
+def get_encoded_min_max(encoder, params):
+    num_cat_feats = encoder.n_values.size
+    nfeats = len(params) - num_cat_feats + np.sum(encoder.n_values)
+    mins = np.empty((nfeats,))
+    maxs = np.empty((nfeats,))
+    n_values = encoder.n_values
+    cat_start_idxs = encoder.xform_start_indices
+    current_idx = 0
+    cat_idx = 0
+    for param in params:
+        if param.iscategorical:
+            if param.isboolean:
+                nvals = 1
+            else:
+                assert cat_start_idxs[cat_idx] == current_idx
+                nvals = n_values[cat_idx]
+                cat_idx += 1
+            mins[current_idx:current_idx+nvals] = 0
+            maxs[current_idx:current_idx+nvals] = 1
+            current_idx += nvals
+        else:
+            mins[current_idx] = param.valid_values[0]
+            maxs[current_idx] = param.valid_values[-1]
+            current_idx += 1
+    return mins, maxs
+
+##==========================================================
+##  Min-max scaler
+##==========================================================
+
+class MinMaxScaler(Preprocess):
+    
+    def __init__(self, mins=None, maxs=None):
+        from sklearn.preprocessing import MinMaxScaler
+
+        self.scaler_ = MinMaxScaler()
+        if mins is not None:
+            assert isinstance(mins, np.ndarray)
+            if mins.ndim == 1:
+                mins = mins.reshape(1, -1)
+            self.scaler_.partial_fit(mins)
+            self.mins_ = mins
+        else:
+            self.mins_ = None
+        if maxs is not None:
+            assert isinstance(maxs, np.ndarray)
+            if maxs.ndim == 1:
+                maxs = maxs.reshape(1, -1)
+            self.scaler_.partial_fit(maxs)
+            self.maxs_ = maxs
+        else:
+            self.maxs_ = None
+        if self.mins_ is not None and self.maxs_ is not None:
+            self.fitted_ = True
+        else:
+            self.fitted_ = False
+
+    def fit(self, matrix):
+        if matrix.ndim == 1:
+            matrix = matrix.reshape(1, -1)
+        self.scaler_.partial_fit(matrix)
+        self.fitted_ = True
+        return self
+    
+    def transform(self, matrix, copy=True):
+        if matrix.ndim == 1:
+            matrix = matrix.reshape(1, -1)
+        return self.scaler_.transform(matrix)
+
+    def inverse_transform(self, matrix, copy=True):
+        if matrix.ndim == 1:
+            matrix = matrix.reshape(1, -1)
+        return self.scaler_.inverse_transform(matrix)
         
-
-    def reverse_transform(self, matrix, copy=True):
-        raise NotImplementedError("This method is not supported")
-
 
 ##==========================================================
 ##  Testing
@@ -445,7 +591,7 @@ def test_preprocess_module():
     x2_scaled = std_norm_pp.transform(x2, copy = False)
     assert np.allclose(x1a0_exp, x2_scaled)
     assert arrays_share_data(x2, x2_scaled)
-    x1_xf = std_norm_pp.reverse_transform(x1_scaled)
+    x1_xf = std_norm_pp.inverse_transform(x1_scaled)
     assert np.allclose(x1, x1_xf)
     
     # Tests for axis = 1
@@ -462,7 +608,7 @@ def test_preprocess_module():
     x2_scaled = std_norm_pp.transform(x2, copy = False)
     assert np.allclose(x1a0_exp, x2_scaled)
     assert arrays_share_data(x2, x2_scaled)
-    assert np.allclose(std_norm_pp.reverse_transform(x1_scaled), x1)
+    assert np.allclose(std_norm_pp.inverse_transform(x1_scaled), x1)
     
     # Test empty array
     x_empty = np.array([], dtype = "float64")

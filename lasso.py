@@ -11,19 +11,19 @@ from sklearn.linear_model import enet_path
 from sklearn.preprocessing import StandardScaler
 
 from .matrix import Matrix
-from .preprocessing import PolynomialFeatures, Shuffler
+from .preprocessing import PolynomialFeatures, Shuffler, dummy_encoder_helper, DummyEncoder
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
 def get_coef_range(X, y):
     print "starting experiment"
     with stopwatch("lasso paths"):
-        alphas, coefs, dual_gaps = enet_path(X.data, y.data, l1_ratio=1.0, verbose=True,
+        alphas, coefs, dual_gaps = enet_path(X, y, l1_ratio=1.0, verbose=True,
                 return_models=False, positive=False, max_iter=1000)
 
     return alphas, coefs, dual_gaps
 
-def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
+def run_lasso(dbms, basepaths, savedir, featured_metrics, knobs_to_ignore,
               include_polynomial_features=True):
     import gc
 
@@ -67,6 +67,15 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
         X = X.filter(filtered_columns, 'columns')
         print "\ncolumnlabels:",X.columnlabels
         
+        # Dummy-code categorical features
+        cat_feat_indices, n_values = dummy_encoder_helper(dbms, X.columnlabels)
+        if len(cat_feat_indices) > 0:
+            encoder = DummyEncoder(n_values, cat_feat_indices)
+            encoder.fit(X.data, columnlabels=X.columnlabels)
+            X = Matrix(encoder.transform(X.data),
+                       X.rowlabels,
+                       encoder.columnlabels)
+        
         # Scale the data
         X_standardizer = StandardScaler()
         X.data = X_standardizer.fit_transform(X.data)
@@ -79,7 +88,6 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
             X_columnlabels = X_poly.fit_transform(X_columnlabels).squeeze()
             X = Matrix(X_data, X.rowlabels, X_columnlabels)
 
-        
         # Shuffle the data rows (experiments x metrics)
         shuffler = Shuffler(shuffle_rows=True, shuffle_columns=False)
         X = shuffler.fit_transform(X, copy=False)
@@ -91,7 +99,7 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
 
     with stopwatch("lasso paths"):
         # Fit the model to calculate the components
-        alphas, coefs, _ = get_coef_range(X, y)
+        alphas, coefs, _ = get_coef_range(X.data, y.data)
     
     with stopwatch("lasso processing"):
         nfeats = X.columnlabels.shape[0]
@@ -100,11 +108,19 @@ def run_lasso(basepaths, savedir, featured_metrics, knobs_to_ignore,
         top_knobs = get_features_list(lasso.get_top_features(n=nfeats))
         print "\nfeat list length: {}".format(len(top_knobs))
         print "nfeats = {}".format(nfeats)
-#         top_knobs = merge_top([top_knobs], nfeats)
         top_knobs = lasso.get_top_features(nfeats)
-        top_knobs = np.append(top_knobs, removed_columns)
+        print top_knobs
+        final_ordering = []
+        for knob in top_knobs:
+            if '#' in knob:
+                knob = knob.split('#')[0]
+                if knob not in final_ordering:
+                    final_ordering.append(knob)
+            else:
+                final_ordering.append(knob)
+        final_ordering = np.append(final_ordering, removed_columns)
     with open(os.path.join(savedir, "featured_knobs.txt"), "w") as f:
-        f.write("\n".join(top_knobs))
+        f.write("\n".join(final_ordering))
 
 class Lasso(object):
 
