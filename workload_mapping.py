@@ -8,6 +8,7 @@ import gc
 import glob, zlib
 #import matlab.engine
 import dill as pickle
+import multiprocessing
 import numpy as np
 import operator
 from scipy.spatial.distance import euclidean
@@ -38,10 +39,27 @@ class WorkloadState(object):
     def decompress(compressed_workload_state):
         return pickle.loads(zlib.decompress(compressed_workload_state))
 
+def mp_worker_create_model((workload_name, data)):
+    X, y = data
+    models = {}
+    for col, label in zip(y.data.T, y.columnlabels):
+        print "building model: {}".format(label)
+        length_scale, magnitude, ridge_const = 1., 1., 1.
+        ridge = np.ones(X.data.shape[0]) * ridge_const
+        col = col.reshape(-1, 1)
+        model = GPR(length_scale, magnitude)
+        model.fit(X.data, col, ridge)
+        models[label] = model.get_params()
+    workload_state = WorkloadState(X, y, models)
+    #self.workload_states_[wd] = WorkloadState.compress(workload_state)
+    print "Done.\n"
+    return (workload_name, workload_state)
+
 class WorkloadMapper(object):
 
     NUM_KNOBS = 12
     MAX_METRICS = 5
+    POOL_SIZE = 2
     
     def __init__(self):
         exp = ExpContext()
@@ -98,26 +116,17 @@ class WorkloadMapper(object):
             self.y_gp_scaler_ = StandardScaler()
             self.y_gp_scaler_.fit(all_ys)
             del all_ys
-    
-            self.workload_states_ = {}
+
+            # Bin y by deciles and recenter
             for wd, (X, y) in data_map.iteritems():
-                print wd
-                # Bin y by deciles and recenter
                 y.data = self.y_binner_.transform(y.data)
                 y.data = self.y_gp_scaler_.transform(y.data)
-                models = {}
-                for col, label in zip(y.data.T, y.columnlabels):
-                    print "building model: {}".format(label)
-                    length_scale, magnitude, ridge_const = 1., 1., 1.
-                    ridge = np.ones(X.data.shape[0]) * ridge_const
-                    col = col.reshape(-1, 1)
-                    model = GPR(length_scale, magnitude)
-                    model.fit(X.data, col, ridge)
-                    models[label] = model #.get_params()
-                    del model
-                workload_state = WorkloadState(X, y, models)
-                self.workload_states_[wd] = WorkloadState.compress(workload_state)
-                print "Done.\n"
+            
+            p = multiprocessing.Pool(self.POOL_SIZE)
+            res = p.map(mp_worker_create_model, list(data_map.iteritems())[:2])
+            self.workload_states_ = dict(res)
+
+
 #             del data_map
 #         gc.collect()
 #         sleep(20)
