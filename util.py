@@ -15,7 +15,7 @@ def stdev_zero(data, axis=None):
     mstd = np.expand_dims(data.std(axis=axis), axis=axis)
     return (np.abs(mstd) < NEARZERO).squeeze()
 
-def get_featured_metrics(dbms, cluster, benchmark=None):
+def get_featured_metrics(dbms, cluster, benchmark=None, num_clusters=None):
     from globals import Paths
 
     path = "{}_{}".format(dbms, cluster)
@@ -27,9 +27,10 @@ def get_featured_metrics(dbms, cluster, benchmark=None):
                            path)
     if not os.path.exists(datadir):
         return None
-    with open(os.path.join(datadir, "DetK_optimal_num_clusters.txt"), "r") as f:
-        opt_num_clusters = int(f.read().strip())
-    with open(os.path.join(datadir, "featured_metrics_{}.txt".format(opt_num_clusters)), "r") as f:
+    if num_clusters is None:
+        with open(os.path.join(datadir, "DetK_optimal_num_clusters.txt"), "r") as f:
+            num_clusters = int(f.read().strip())
+    with open(os.path.join(datadir, "featured_metrics_{}.txt".format(num_clusters)), "r") as f:
         metrics = np.array(sorted([l.strip() for l in f.readlines()]))
     return metrics
 

@@ -1,3 +1,6 @@
+import numpy as np
+import tensorflow as tf
+
 def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
     with tf.Graph().as_default():
         y_best = tf.cast(tf.reduce_min(ys,0,True),tf.float32);   #array

@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
 from .matrix import Matrix
-from .preprocessing import Standardize, get_shuffle_indices
+from .preprocessing import get_shuffle_indices
 from .util import stdev_zero
 from common.timeutil import stopwatch
 
@@ -71,14 +71,14 @@ def run_factor_analysis(paths, savedir, cluster_range, algorithms):
     var_exp = np.array([np.sum(variances[:i+1]) / total_variance * 100 \
                         for i in range(variances.shape[0])])
     factor_cutoff = np.count_nonzero(var_exp < REQUIRED_VARIANCE_EXPLAINED) + 1
+    factor_cutoff = min(factor_cutoff, 10)
     print "factor cutoff: {}".format(factor_cutoff)
     for i,var in enumerate(variances):
         print i, var, np.sum(variances[:i+1]), np.sum(variances[:i+1]) / total_variance
 
     components = np.transpose(fa.components_[:factor_cutoff]).copy()
     print "components shape: {}".format(components.shape)
-    #standardizer = StandardScaler() #Standardize()
-    standardizer = Standardize()
+    standardizer = StandardScaler()
     components = standardizer.fit_transform(components)
     
     # Shuffle factor analysis matrix rows (metrics x factors)
