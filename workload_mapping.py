@@ -87,7 +87,7 @@ def worker_score_workload((worker_id, workload_name, workload_state,
 
 class WorkloadMapper(object):
 
-    POOL_SIZE = 2
+    POOL_SIZE = 8
     
     def __init__(self, verbose=True):
         exp = ExpContext()
