@@ -213,7 +213,7 @@ class WorkloadMapper(object):
         y_client_scaler = copy.deepcopy(self.y_scaler_)
         y_client_scaler.n_samples_seen_ = 5
         y_client_scaler.partial_fit(y_client.data)
-        y_client.data = self.y_client_scaler.transform(y_client.data)
+        y_client.data = y_client_scaler.transform(y_client.data)
         
         # Bin and recenter client data
         y_client.data = self.y_binner_.transform(y_client.data)
