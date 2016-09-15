@@ -234,4 +234,10 @@ class WorkloadMapper(object):
         else:
             assert tuner.map == "best"
         
+        if self.verbose_:
+            print ""
+            print "WORKLOAD SCORES"
+            for wkld, score in sorted_wkld_scores:
+                print "{0}: {1:.2f}".format(os.path.basename(wkld), score)
+        
         return sorted_wkld_scores[0][0]
