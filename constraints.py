@@ -25,6 +25,11 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         self.params_ = params
         self.scaler_ = scaler
         self.encoder_ = encoder
+        self.cat_param_indices_ = []
+        for i,p in enumerate(self.params_):
+            if p.iscategorical:
+                self.cat_param_indices_.append(i)
+        self.cat_param_indices_ = np.array(self.cat_param_indices_)
 
     def apply_constraints(self, sample, scaled=True, rescale=True):
         conv_sample = self._handle_scaling(sample, scaled)
@@ -102,10 +107,29 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         return conv_sample
     
     def randomize_categorical_features(self, sample, scaled=True, rescale=True):
-        conv_sample = self._handle_scaling(sample, scaled)
+        n_cat_feats = self.cat_param_indices_.size
+        if n_cat_feats == 0:
+            return sample
         
-        current_idx = 0
-        cat_idx = 0
+        conv_sample = self._handle_scaling(sample, scaled)
+        flips = np.zeros((n_cat_feats,), dtype=bool)
+        
+        # Always flip at least one categorical feature
+        flips[0] = True
+        
+        # Flip the rest with decreasing probability
+        p = 0.3
+        for i in range(1, n_cat_feats):
+            if np.random.rand() <= p:
+                flips[i] = True
+            p *= 0.5
+
+        flip_shuffle_indices = np.random.choice(np.arange(n_cat_feats),
+                                                n_cat_feats,
+                                                replace=False)
+        flips = flips[flip_shuffle_indices]
+
+        current_idx, cat_idx, flip_idx = 0, 0, 0
         for param in self.params_:
             if param.iscategorical:
                 if param.isboolean:
@@ -114,8 +138,8 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                     assert current_idx == self.encoder_.xform_start_indices[cat_idx]
                     nvals = self.encoder_.n_values[cat_idx]
                     cat_idx += 1
-                flip = np.random.binomial(1.0, 0.5)
-                if flip == 1:
+                flip = flips[flip_idx]
+                if flip:
                     current_val = conv_sample[current_idx:current_idx+nvals]
                     #print "{}: current val={}".format(param.name, current_val)
                     assert np.all(np.logical_or(current_val == 0, current_val == 1))
@@ -132,6 +156,7 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                     conv_sample[current_idx:current_idx+nvals] = r
                     
                 current_idx += nvals
+                flip_idx += 1
             else:
                 current_idx += 1
         conv_sample = self._handle_rescaling(conv_sample, rescale)

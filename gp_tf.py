@@ -4,7 +4,6 @@ Created on Aug 18, 2016
 @author: Bohan Zhang, Dana Van Aken
 '''
 
-import sys
 import numpy as np
 import tensorflow as tf
 from time import time
@@ -626,7 +625,7 @@ def test_constraints():
     import os.path
     from .constraints import ParamConstraintHelper
     from .matrix import Matrix
-    from .preprocessing import DummyEncoder, dummy_encoder_helper, fix_scaler, get_encoded_min_max, MinMaxScaler
+    from .preprocessing import DummyEncoder, dummy_encoder_helper, fix_scaler, get_min_max, MinMaxScaler
     from .util import get_featured_knobs
     from dbms.param import ConfigManager
     from sklearn.preprocessing import StandardScaler
@@ -661,7 +660,7 @@ def test_constraints():
         param_list.append(param)
     print len(param_list)
     
-    mins, maxs = get_encoded_min_max(encoder, param_list)
+    mins, maxs = get_min_max(encoder, param_list)
     X_scaler = MinMaxScaler(mins, maxs)
     print mins
     print maxs

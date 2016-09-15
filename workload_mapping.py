@@ -12,9 +12,9 @@ import numpy as np
 import operator
 from sklearn.preprocessing import StandardScaler
 
-from analysis.gp_tf import GPR
-from analysis.matrix import Matrix
-from analysis.preprocessing import Bin
+from .gp_tf import GPR
+from .matrix import Matrix
+import analysis.preprocessing as prep
 from analysis.util import get_unique_matrix
 from experiment import ExpContext, TunerContext
 from globals import Paths
@@ -89,7 +89,7 @@ class WorkloadMapper(object):
 
     POOL_SIZE = 2
     
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=True):
         exp = ExpContext()
         tuner = TunerContext()
         self.verbose_ = verbose
@@ -102,27 +102,32 @@ class WorkloadMapper(object):
                                                "analysis*{}*{}*".format(dbms,
                                                                         cluster)))
         assert len(workload_dirs) > 0
-        for w in workload_dirs:
-            assert "session" not in w
-
-        self.workload_dirs_ = workload_dirs
+        target_wkld_desc = exp.exp_id(exp.benchmark)
+        self.workload_dirs_ = [w for w in workload_dirs if not \
+                               w.endswith(target_wkld_desc)]
         self.initialize_models()
         assert self.workload_states_ is not None
         gc.collect()
 
     def initialize_models(self):
+        exp = ExpContext()
         tuner = TunerContext()
 
         if self.verbose_:
             print ("Initializing models for # knobs={}\n"
                    .format(self.featured_knobs_.size))
         with stopwatch("workload mapping model creation"):
+            n_values, cat_indices, params = prep.dummy_encoder_helper(exp.dbms.name,
+                                                                      self.featured_knobs_)
+            if n_values.size > 0:
+                self.dummy_encoder_ = prep.DummyEncoder(n_values, cat_indices)
+            else:
+                self.dummy_encoder_ = None
             self.X_scaler_ = StandardScaler()
             self.y_scaler_ = StandardScaler()
             data_map = {}
-
-            # Load data and fit scalers
-            for wd in self.workload_dirs_:
+            for i,wd in enumerate(self.workload_dirs_):
+                # Load and filter data
                 Xpath = os.path.join(wd, "X_data_enc.npz")
                 ypath = os.path.join(wd, "y_data_enc.npz")
                 X = Matrix.load_matrix(Xpath)
@@ -131,10 +136,24 @@ class WorkloadMapper(object):
                 y = y.filter(tuner.featured_metrics, "columns")
                 assert np.array_equal(X.columnlabels, self.featured_knobs_)
                 assert np.array_equal(y.columnlabels, tuner.featured_metrics)
+                assert np.array_equal(X.rowlabels, y.rowlabels)
+                
+                # Dummy-code categorical knobs
+                if self.dummy_encoder_ is not None:
+                    if i == 0:
+                        # Just need to fit this once
+                        self.dummy_encoder_.fit(X.data, columnlabels=X.columnlabels)
+                    X = Matrix(self.dummy_encoder_.transform(X.data),
+                               X.rowlabels,
+                               self.dummy_encoder_.columnlabels)
                 
                 self.X_scaler_.partial_fit(X.data)
                 self.y_scaler_.partial_fit(y.data)
                 data_map[wd] = (X, y)
+            
+            if self.dummy_encoder_ is not None:
+                # Fix X_scaler wrt categorical features
+                prep.fix_scaler(self.X_scaler_, self.dummy_encoder_, params)
 
             # Scale X/y
             all_ys = []
@@ -145,7 +164,7 @@ class WorkloadMapper(object):
 
             # Concat all ys and compute deciles
             all_ys = np.vstack(all_ys)
-            self.y_binner_ = Bin(0, axis=0)
+            self.y_binner_ = prep.Bin(0, axis=0)
             self.y_binner_.fit(all_ys)
             self.y_gp_scaler_ = StandardScaler()
             self.y_gp_scaler_.fit(all_ys)
@@ -184,6 +203,10 @@ class WorkloadMapper(object):
         X_client, y_client = get_unique_matrix(X_client, y_client)
         
         # Preprocessing steps
+        if self.dummy_encoder_ is not None:
+            X_client = Matrix(self.dummy_encoder_.transform(X_client.data),
+                              X_client.rowlabels,
+                              self.dummy_encoder_.columnlabels)
         X_client.data = self.X_scaler_.transform(X_client.data)
         
         # Create y_client scaler with prior and transform client data

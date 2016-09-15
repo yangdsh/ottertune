@@ -439,14 +439,16 @@ def dummy_encoder_helper(dbms, featured_knobs):
     config_mgr = ConfigManager.get_config_manager(dbms)
     cat_knob_indices = []
     n_values = []
+    params = []
     for i,knob_name in enumerate(featured_knobs):
         knob = config_mgr._find_param(knob_name)
+        params.append(knob)
         if knob.iscategorical and not knob.data_type == "boolean":
             cat_knob_indices.append(i)
             n_values.append(len(knob.valid_values))
     cat_knob_indices = np.array(cat_knob_indices)
     n_values = np.array(n_values)
-    return cat_knob_indices, n_values
+    return n_values, cat_knob_indices, params
 
 def fix_scaler(scaler, encoder, params):
     p = 0.5
@@ -476,13 +478,20 @@ def fix_scaler(scaler, encoder, params):
     scaler.var_ = var
     scaler.scale_ = np.sqrt(var)
 
-def get_encoded_min_max(encoder, params):
-    num_cat_feats = encoder.n_values.size
-    nfeats = len(params) - num_cat_feats + np.sum(encoder.n_values)
+def get_min_max(params, encoder=None):
+    if encoder is not None:
+        num_cat_feats = encoder.n_values.size
+        nfeats = len(params) - num_cat_feats + np.sum(encoder.n_values)
+        n_values = encoder.n_values
+        cat_start_idxs = encoder.xform_start_indices
+    else:
+        num_cat_feats = 0
+        nfeats = len(params)
+        n_values = np.array([])
+        cat_start_idxs = np.array([])
+    
     mins = np.empty((nfeats,))
     maxs = np.empty((nfeats,))
-    n_values = encoder.n_values
-    cat_start_idxs = encoder.xform_start_indices
     current_idx = 0
     cat_idx = 0
     for param in params:
@@ -541,6 +550,8 @@ class MinMaxScaler(Preprocess):
         return self
     
     def transform(self, matrix, copy=True):
+        if not self.fitted_:
+            raise Exception("Model not fitted!")
         if matrix.ndim == 1:
             matrix = matrix.reshape(1, -1)
         return self.scaler_.transform(matrix)
