@@ -57,9 +57,9 @@ def worker_create_model((worker_id, workload_name, data, njobs, verbose)):
 
 def worker_score_workload((worker_id, workload_name, workload_state,
                            X_client, y_client, njobs, verbose)):
-    if verbose:
-        print "{}: computing scores for {}".format(worker_id,
-                                                   os.path.basename(workload_name))
+    #if verbose:
+    #    print "{}: computing scores for {}".format(worker_id,
+                                                   #os.path.basename(workload_name))
     assert np.array_equal(workload_state.X.columnlabels,
                           X_client.columnlabels)
     assert np.array_equal(workload_state.y.columnlabels,
@@ -71,8 +71,8 @@ def worker_score_workload((worker_id, workload_name, workload_state,
     metrics = workload_state.y.columnlabels
     predictions = np.empty_like(y_client.data)
     for i, metric in enumerate(metrics):
-        if verbose:
-            print "    {}: {}".format(worker_id, metric)
+        #if verbose:
+        #    print "    {}: {}".format(worker_id, metric)
         model_params = workload_state.models[metric]
         model.set_params(**model_params)
         res = model.predict(X_client.data)
@@ -232,7 +232,7 @@ class WorkloadMapper(object):
         if tuner.map_to == "worst":
             sorted_wkld_scores = sorted_wkld_scores[::-1]
         else:
-            assert tuner.map == "best"
+            assert tuner.map_to == "best"
         
         if self.verbose_:
             print ""
