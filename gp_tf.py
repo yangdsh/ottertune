@@ -347,22 +347,28 @@ class GPR_GD(GPR):
                     
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
+                        current_xt = sess.run(xt_)
+                        assert np.all(np.isfinite(current_xt))
 
                         yhats_it[step] = sess.run(yhat_gd)[0][0]
                         sigmas_it[step] = sess.run(sig_val)[0][0]
                         losses_it[step] = sess.run(Loss)
-                        confs_it[step] = sess.run(xt_)
-                        print i, step, losses_it[step]
+                        confs_it[step] = current_xt
+                        print i, step, losses_it[step], yhats_it[step], sigmas_it[step], current_xt
                         sess.run(train)
                         if constraint_helper is not None:
-                            xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
-                            sess.run(assign_op, feed_dict={xt_ph:xt_valid})
+                            current_xt = sess.run(xt_)
+                            assert np.all(np.isfinite(current_xt))
+                            current_xt = constraint_helper.apply_constraints(current_xt)
+                            assert np.all(np.isfinite(current_xt))
+                            sess.run(assign_op, feed_dict={xt_ph:current_xt})
 
                             if categorical_feature_method == 'hillclimbing':
                                 if step % categorical_feature_steps == 0:
                                     current_xt = sess.run(xt_)
                                     current_loss = sess.run(Loss)
                                     new_xt = constraint_helper.randomize_categorical_features(current_xt)
+                                    assert np.all(np.isfinite(new_xt))
                                     sess.run(assign_op, feed_dict={xt_ph:new_xt})
                                     new_loss = sess.run(Loss)
                                     print "current loss={}, new loss={}".format(current_loss, new_loss)

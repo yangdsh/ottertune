@@ -72,10 +72,19 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         return value
     
     def _handle_scaling(self, sample, scaled):
+        orig_sample = sample.copy() ## TODO: remove this!
         if scaled:
             if sample.ndim == 1:
                 sample = sample.reshape(1, -1)
-            sample = self.scaler_.inverse_transform(sample).ravel()
+            try:
+                sample = self.scaler_.inverse_transform(sample).ravel()
+            except Exception as e:
+                print "orig_sample = {}".format(orig_sample)
+                print "sample = {}".format(sample)
+                print "mins = {}".format(self.scaler_.mins_)
+                print "maxs = {}".format(self.scaler_.maxs_)
+                raise e
+                
         else:
             sample = np.array(sample)
         return sample

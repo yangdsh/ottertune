@@ -546,6 +546,8 @@ class MinMaxScaler(Preprocess):
         if matrix.ndim == 1:
             matrix = matrix.reshape(1, -1)
         self.scaler_.partial_fit(matrix)
+        self.mins_ = self.scaler_.data_min_
+        self.maxs_ = self.scaler_.data_max_
         self.fitted_ = True
         return self
     

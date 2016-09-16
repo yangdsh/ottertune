@@ -4,7 +4,7 @@ Created on Jul 11, 2016
 @author: dvanaken
 '''
 
-import os.path, copy
+import os.path, copy, sys
 import numpy as np
 
 from common.timeutil import stopwatch
@@ -142,11 +142,11 @@ def get_next_config(X_client, y_client, workload_name=None):
     tuner.append_stat("gp_preprocessing_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
-        n_local_points, n_global_points = 5, 50
+        n_local_points, n_global_points = 5, 5
         if X_train.data.shape[0] < n_local_points:
             n_local_points = X_train.data.shape[0]
         search_data = np.empty((n_local_points + n_global_points,
-                                X_train.data.shape[1]))
+                                X_train.data.shape[1])) * np.nan
 
         # Generate global search points
         config_mgr = exp.dbms.config_manager_
@@ -169,6 +169,9 @@ def get_next_config(X_client, y_client, workload_name=None):
         #X_train.data = X_scaler.transform(X_train.data)
         best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
         search_data[n_global_points:] = X_train.data[best_indices]
+
+        print "search data:"
+        print search_data
     tuner.append_stat("gpr_search_points_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
