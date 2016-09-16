@@ -66,12 +66,12 @@ def get_next_config(X_client, y_client, workload_name=None):
                           encoder.columnlabels)
     else:
         encoder = None
-    X_mins, X_maxs = prep.get_min_max(params, encoder)
-    X_scaler = prep.MinMaxScaler(X_mins, X_maxs)
-    X_scaler.fit(X_client.data)
-    X_client.data = X_scaler.transform(X_client.data)
+#     X_mins, X_maxs = prep.get_min_max(params, encoder)
+#     X_scaler = prep.MinMaxScaler(X_mins, X_maxs)
+#     X_scaler.fit(X_client.data)
+#     X_client.data = X_scaler.transform(X_client.data)
 
-#     X_scaler = StandardScaler()
+    X_scaler = StandardScaler()
 
     with stopwatch() as t:
         if tuner.map_workload:
@@ -104,7 +104,7 @@ def get_next_config(X_client, y_client, workload_name=None):
                 X_train = Matrix(encoder.transform(X_train.data),
                                  X_train.rowlabels,
                                  encoder.columnlabels)
-            X_train.data = X_scaler.transform(X_train.data)
+            #X_train.data = X_scaler.transform(X_train.data)
             assert np.array_equal(X_train.columnlabels, X_client.columnlabels)
             
             # Create y train scaler
@@ -138,15 +138,14 @@ def get_next_config(X_client, y_client, workload_name=None):
             X_train = X_client
             y_train = y_client
             ridge = 1.0 * np.ones(X_train.data.shape[0])
-        #X_scaler.partial_fit(X_train.data)
+        X_scaler.fit(X_train.data)
     tuner.append_stat("gp_preprocessing_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
         n_local_points, n_global_points = 5, 5
         if X_train.data.shape[0] < n_local_points:
             n_local_points = X_train.data.shape[0]
-        search_data = np.empty((n_local_points + n_global_points,
-                                X_train.data.shape[1])) * np.nan
+        search_data = []
 
         # Generate global search points
         config_mgr = exp.dbms.config_manager_
@@ -156,19 +155,20 @@ def get_next_config(X_client, y_client, workload_name=None):
                                                    replace=False)]
         if encoder is not None:
             X_test_data = encoder.transform(X_test_data)
-        #X_scaler.partial_fit(X_test_data)
+        X_scaler.partial_fit(X_test_data)
         
-#         if encoder is not None:
-#             # Fix X_scaler wrt categorical features
-#             prep.fix_scaler(X_scaler, encoder, params)
+        if encoder is not None:
+            # Fix X_scaler wrt categorical features
+            prep.fix_scaler(X_scaler, encoder, params)
 
+        X_train.data = X_scaler.transform(X_train.data)
         X_test_data = X_scaler.transform(X_test_data)
-        search_data[:n_global_points,:] = X_test_data
+        search_data.append(X_test_data)
 
         # Find local search points
-        #X_train.data = X_scaler.transform(X_train.data)
         best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
-        search_data[n_global_points:] = X_train.data[best_indices]
+        search_data.append(X_train.data[best_indices])
+        search_data = np.vstack(search_data)
 
         print "search data:"
         print search_data
