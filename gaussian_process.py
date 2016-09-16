@@ -66,10 +66,12 @@ def get_next_config(X_client, y_client, workload_name=None):
                           encoder.columnlabels)
     else:
         encoder = None
-    X_mins, X_maxs = prep.get_min_max(params, encoder)
-    X_scaler = prep.MinMaxScaler(X_mins, X_maxs)
-    X_scaler.fit(X_client.data)
-    X_client.data = X_scaler.transform(X_client.data)
+#     X_mins, X_maxs = prep.get_min_max(params, encoder)
+#     X_scaler = prep.MinMaxScaler(X_mins, X_maxs)
+#     X_scaler.fit(X_client.data)
+#     X_client.data = X_scaler.transform(X_client.data)
+
+    X_scaler = StandardScaler()
 
     with stopwatch() as t:
         if tuner.map_workload:
@@ -102,7 +104,7 @@ def get_next_config(X_client, y_client, workload_name=None):
                 X_train = Matrix(encoder.transform(X_train.data),
                                  X_train.rowlabels,
                                  encoder.columnlabels)
-            X_train.data = X_scaler.transform(X_train.data)
+            #X_train.data = X_scaler.transform(X_train.data)
             assert np.array_equal(X_train.columnlabels, X_client.columnlabels)
             
             # Create y train scaler
@@ -117,29 +119,30 @@ def get_next_config(X_client, y_client, workload_name=None):
             y_scaler = y_client_scaler
             
             # Concatenate workload and client matrices to create X_train/y_train
-            ridge = 0.01 * np.ones(X_train.data.shape[0])
+            ridge = 5.0 * np.ones(X_train.data.shape[0])
             for cidx, rowlabel in enumerate(X_client.rowlabels):
                 primary_idxs = [idx for idx,rl in enumerate(X_train.rowlabels) \
                                 if rl == rowlabel]
                 if len(primary_idxs) == 1:
                     # Replace client results in workload matrix if overlap
                     y_train.data[primary_idxs] = y_client.data[cidx]
-                    ridge[primary_idxs] = 0.000001
+                    ridge[primary_idxs] = 1.0
     
             X_train = Matrix.vstack([X_train, X_client])
             y_train = Matrix.vstack([y_train, y_client])
-            ridge = np.append(ridge, 0.000001 * np.ones(X_client.data.shape[0]))
+            ridge = np.append(ridge, 1.0 * np.ones(X_client.data.shape[0]))
         else:
             y_scaler = StandardScaler()
             y_client.data = y_scaler.fit_transform(y_client.data)
             
             X_train = X_client
             y_train = y_client
-            ridge = 0.000001 * np.ones(X_train.data.shape[0])
+            ridge = 1.0 * np.ones(X_train.data.shape[0])
+        X_scaler.partial_fit(X_train.data)
     tuner.append_stat("gp_preprocessing_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
-        n_local_points, n_global_points = 20, 500
+        n_local_points, n_global_points = 5, 50
         if X_train.shape[0] < n_local_points:
             n_local_points = X_train.shape[0]
         search_data = np.empty((n_local_points + n_global_points,
@@ -153,10 +156,12 @@ def get_next_config(X_client, y_client, workload_name=None):
                                                    replace=False)]
         if encoder is not None:
             X_test_data = encoder.transform(X_test_data)
+        X_scaler.partial_fit(X_test_data)
         X_test_data = X_scaler.transform(X_test_data)
         search_data[:n_global_points,:] = X_test_data
 
         # Find local search points
+        X_train.data = X_scaler.transform(X_train.data)
         best_indices = np.argsort(y_train)[:n_local_points]
         search_data[n_global_points:,:] = X_train[best_indices]
     tuner.append_stat("gpr_search_points_sec", t.elapsed_seconds)
