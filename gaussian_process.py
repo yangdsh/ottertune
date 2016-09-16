@@ -140,10 +140,10 @@ def get_next_config(X_client, y_client, workload_name=None):
     
     with stopwatch() as t:
         n_local_points, n_global_points = 20, 500
-        if X_train.shape[0] < n_local_points:
-            n_local_points = X_train.shape[0]
+        if X_train.data.shape[0] < n_local_points:
+            n_local_points = X_train.data.shape[0]
         search_data = np.empty((n_local_points + n_global_points,
-                                X_train.shape[1]))
+                                X_train.data.shape[1]))
 
         # Generate global search points
         config_mgr = exp.dbms.config_manager_
@@ -157,15 +157,15 @@ def get_next_config(X_client, y_client, workload_name=None):
         search_data[:n_global_points,:] = X_test_data
 
         # Find local search points
-        best_indices = np.argsort(y_train)[:n_local_points]
-        search_data[n_global_points:,:] = X_train[best_indices]
+        best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
+        search_data[n_global_points:] = X_train.data[best_indices]
     tuner.append_stat("gpr_search_points_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
         # Run GPR/GD
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
         gpr = GPR_GD(length_scale=1.0, magnitude=1.0)
-        gpr.fit(X_train, y_train, ridge)
+        gpr.fit(X_train.data, y_train.data, ridge)
         gpres = gpr.predict(search_data, constraint_helper)
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
 
