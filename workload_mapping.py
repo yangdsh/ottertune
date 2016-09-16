@@ -222,7 +222,7 @@ class WorkloadMapper(object):
         # Compute workload scores in parallel
         njobs = len(self.workload_states_)
         iterable = [(i, wd, ws, X_client, y_client, njobs, self.verbose_) \
-                    for i,(wd,ws) in self.workload_states_.iteritems()]
+                    for i,(wd,ws) in enumerate(self.workload_states_.iteritems())]
 
         p = multiprocessing.Pool(self.POOL_SIZE)
         wkld_scores = p.map(worker_score_workload, iterable)
