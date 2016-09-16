@@ -4,7 +4,7 @@ Created on Jul 11, 2016
 @author: dvanaken
 '''
 
-import os.path, copy, sys
+import os.path, copy
 import numpy as np
 
 from common.timeutil import stopwatch
@@ -60,10 +60,10 @@ def get_next_config(X_client, y_client, workload_name=None):
                                                                    featured_knobs)
     if n_values.size > 0:
         encoder = prep.DummyEncoder(n_values, cat_knob_indices)
-        encoder.fit(X_client.data, columnlabels=featured_knobs)
-        X_client = Matrix(encoder.transform(X_client.data),
-                          X_client.rowlabels,
-                          encoder.columnlabels)
+        #encoder.fit(X_client.data, columnlabels=featured_knobs)
+        #X_client = Matrix(encoder.transform(X_client.data),
+        #                  X_client.rowlabels,
+        #                  encoder.columnlabels)
     else:
         encoder = None
 #     X_mins, X_maxs = prep.get_min_max(params, encoder)
@@ -71,7 +71,8 @@ def get_next_config(X_client, y_client, workload_name=None):
 #     X_scaler.fit(X_client.data)
 #     X_client.data = X_scaler.transform(X_client.data)
 
-    X_scaler = StandardScaler()
+    #X_scaler = StandardScaler()
+    hps = get_hyperparameters(workload_name)
 
     with stopwatch() as t:
         if tuner.map_workload:
@@ -100,10 +101,10 @@ def get_next_config(X_client, y_client, workload_name=None):
                 y_train.rowlabels = X_train.rowlabels.copy()
             
             # Encode/scale X_train
-            if encoder is not None:
-                X_train = Matrix(encoder.transform(X_train.data),
-                                 X_train.rowlabels,
-                                 encoder.columnlabels)
+            #if encoder is not None:
+            #    X_train = Matrix(encoder.transform(X_train.data),
+            #                     X_train.rowlabels,
+            #                     encoder.columnlabels)
             #X_train.data = X_scaler.transform(X_train.data)
             assert np.array_equal(X_train.columnlabels, X_client.columnlabels)
             
@@ -119,33 +120,43 @@ def get_next_config(X_client, y_client, workload_name=None):
             y_scaler = y_client_scaler
             
             # Concatenate workload and client matrices to create X_train/y_train
-            ridge = 5.0 * np.ones(X_train.data.shape[0])
+            ridge = hps['ridge'] * np.ones(X_train.data.shape[0])
             for cidx, rowlabel in enumerate(X_client.rowlabels):
                 primary_idxs = [idx for idx,rl in enumerate(X_train.rowlabels) \
                                 if rl == rowlabel]
                 if len(primary_idxs) == 1:
                     # Replace client results in workload matrix if overlap
                     y_train.data[primary_idxs] = y_client.data[cidx]
-                    ridge[primary_idxs] = 1.0
+                    ridge[primary_idxs] = hps['ridge'] / 2.0
     
             X_train = Matrix.vstack([X_train, X_client])
             y_train = Matrix.vstack([y_train, y_client])
-            ridge = np.append(ridge, 1.0 * np.ones(X_client.data.shape[0]))
+            ridge = np.append(ridge, hps['ridge'] / 2.0 * np.ones(X_client.data.shape[0]))
         else:
             y_scaler = StandardScaler()
             y_client.data = y_scaler.fit_transform(y_client.data)
             
             X_train = X_client
             y_train = y_client
-            ridge = 1.0 * np.ones(X_train.data.shape[0])
-        X_scaler.fit(X_train.data)
+            ridge = hps['ridge'] / 2.0 * np.ones(X_train.data.shape[0])
+
+        # Encode/scale X_train
+        if encoder is not None:
+            encoder.fit(X_client.data, columnlabels=featured_knobs)
+            X_train = Matrix(encoder.transform(X_train.data),
+                             X_train.rowlabels,
+                             encoder.columnlabels)
+        X_scaler = StandardScaler()
+        X_scaler.partial_fit(X_train.data)
     tuner.append_stat("gp_preprocessing_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
         n_local_points, n_global_points = 5, 5
         if X_train.data.shape[0] < n_local_points:
             n_local_points = X_train.data.shape[0]
-        search_data = []
+        #search_data = []
+        search_data = np.empty((n_local_points + n_global_points,
+                                X_train.data.shape[1]))
 
         # Generate global search points
         config_mgr = exp.dbms.config_manager_
@@ -155,37 +166,36 @@ def get_next_config(X_client, y_client, workload_name=None):
                                                    replace=False)]
         if encoder is not None:
             X_test_data = encoder.transform(X_test_data)
-        X_scaler.partial_fit(X_test_data)
-        
-        if encoder is not None:
-            # Fix X_scaler wrt categorical features
-            prep.fix_scaler(X_scaler, encoder, params)
-
-        X_train.data = X_scaler.transform(X_train.data)
+            X_scaler.partial_fit(X_test_data)
+        prep.fix_scaler(X_scaler, encoder, params)
         X_test_data = X_scaler.transform(X_test_data)
-        search_data.append(X_test_data)
+        X_train.data = X_scaler.transform(X_train.data)
 
         # Find local search points
         best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
-        search_data.append(X_train.data[best_indices])
-        search_data = np.vstack(search_data)
-
-        print "search data:"
-        print search_data
+        search_data[:n_global_points,:] = X_test_data
+        search_data[n_global_points:] = X_train.data[best_indices]
     tuner.append_stat("gpr_search_points_sec", t.elapsed_seconds)
     
     with stopwatch() as t:
         # Run GPR/GD
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
-        gpr = GPR_GD(length_scale=1.0, magnitude=1.0)
+        gpr = GPR_GD(length_scale=hps['length_scale'], magnitude=hps['magnitude'])
         gpr.fit(X_train.data, y_train.data, ridge)
         gpres = gpr.predict(search_data, constraint_helper)
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
 
     # Replace categorical features with original
-    next_config_idx = np.argmin(gpres.minL)
+    print "ypreds: {}".format(gpres.ypreds.shape)
+    print "sigmas: {}".format(gpres.sigmas.shape)
+    print "minL: {}".format(gpres.minL.shape)
+    print "minL_conf: {}".format(gpres.minL_conf.shape)
+    next_config_idx = np.nanargmin(gpres.minL.ravel())
+    print "next_config_idx: {}, {}".format(next_config_idx, next_config_idx.shape)
     next_config = gpres.minL_conf[next_config_idx]
-    next_config = constraint_helper.get_valid_config(next_config)
+    print "next_conf #1: {}".format(next_config)
+    next_config = constraint_helper.get_valid_config(next_config, rescale=False)
+    print "next_conf #2: {}".format(next_config)
     tuner.append_gp_info(gpres.ypreds[next_config_idx],
                          gpres.sigmas[next_config_idx],
                          y_scaler.__dict__)
@@ -229,5 +239,10 @@ def get_query_response_times():
     
     return median_exec_times
     
-    
+def get_hyperparameters(workload_name=None):
+    hyperparams = {}
+    hyperparams['length_scale'] = 20.0
+    hyperparams['magnitude'] = 10.0
+    hyperparams['ridge'] = 10.0
+    return hyperparams
 

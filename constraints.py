@@ -72,19 +72,10 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         return value
     
     def _handle_scaling(self, sample, scaled):
-        orig_sample = sample.copy() ## TODO: remove this!
         if scaled:
             if sample.ndim == 1:
                 sample = sample.reshape(1, -1)
-            try:
-                sample = self.scaler_.inverse_transform(sample).ravel()
-            except Exception as e:
-                print "orig_sample = {}".format(orig_sample)
-                print "sample = {}".format(sample)
-                print "mins = {}".format(self.scaler_.mins_)
-                print "maxs = {}".format(self.scaler_.maxs_)
-                raise e
-                
+            sample = self.scaler_.inverse_transform(sample).ravel()
         else:
             sample = np.array(sample)
         return sample
@@ -151,7 +142,7 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                 if flip:
                     current_val = conv_sample[current_idx:current_idx+nvals]
                     #print "{}: current val={}".format(param.name, current_val)
-                    assert np.all(np.logical_or(current_val == 0, current_val == 1))
+                    assert np.all(np.logical_or(current_val == 0, current_val == 1)), "{0}: value not 0/1: {1}".format(param.name, current_val)
                     if param.isboolean:
                         current_val = current_val.squeeze()
                         r = 1 if current_val == 0 else 0

@@ -55,6 +55,7 @@ class GPR(object):
             v1 = tf.placeholder(tf.float32, name="v1")
             v2 = tf.placeholder(tf.float32, name="v2")
             dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(v1, v2), 2), 1), name='dist_op')
+            dist_op = tf.check_numerics(dist_op, "dist_op: ")
             
             self.vars['v1_h'] = v1
             self.vars['v2_h'] = v2
@@ -64,7 +65,9 @@ class GPR(object):
             X_dists = tf.placeholder(tf.float32, name='X_dists')
             ridge_ph = tf.placeholder(tf.float32, name='ridge')
             K_op = mag_const * tf.exp(-X_dists / ls_const)
+            K_op = tf.check_numerics(K_op, "K_op: ")
             K_ridge_op = K_op + tf.diag(ridge_ph)
+            K_ridge_op = tf.check_numerics(K_ridge_op, "K_ridge_op: ")
             
             self.vars['X_dists_h'] = X_dists
             self.vars['ridge_h'] = ridge_ph
@@ -76,8 +79,8 @@ class GPR(object):
             K_inv = tf.placeholder(tf.float32, name='K_inv')
             xy_ = tf.placeholder(tf.float32, name='xy_')
             yt_ = tf.placeholder(tf.float32, name='yt_')
-            K_inv_op = tf.matrix_inverse(K)
-            xy_op = tf.matmul(K_inv, yt_)
+            K_inv_op = tf.check_numerics(tf.matrix_inverse(K), "K_inv: ")
+            xy_op = tf.check_numerics(tf.matmul(K_inv, yt_), "xy_: ")
             
             self.vars['K_h'] = K
             self.vars['K_inv_h'] = K_inv
@@ -90,8 +93,11 @@ class GPR(object):
             K2 = tf.placeholder(tf.float32, name="K2")
             K3 = tf.placeholder(tf.float32, name="K3")
             yhat_ =  tf.cast(tf.matmul( tf.transpose(K2), xy_), tf.float32);
+            yhat_ = tf.check_numerics(yhat_, "yhat_: ")
             sv1 = tf.matmul(tf.transpose(K2), tf.matmul(K_inv, K2))
+            sv1 = tf.check_numerics(sv1, "sv1: ")
             sig_val = tf.cast((tf.sqrt(tf.diag_part(K3 - sv1))), tf.float32)
+            sig_val = tf.check_numerics(sig_val, "sig_val: ")
 
             self.vars['K2_h'] = K2
             self.vars['K3_h'] = K3
@@ -100,6 +106,7 @@ class GPR(object):
             
             # Compute y_best (min y)
             y_best_op = tf.cast(tf.reduce_min(yt_, 0, True), tf.float32)
+            y_best_op = tf.check_numerics(y_best_op, "y_best_op: ")
             self.ops['y_best_op'] = y_best_op
 
             sigma = tf.placeholder(tf.float32, name='sigma')
@@ -268,9 +275,10 @@ class GPR(object):
 class GPR_GD(GPR):
     
     def __init__(self, length_scale=1.0, magnitude=1.0,
-                 learning_rate=0.1, max_iter=20):
+                 learning_rate=0.01, epsilon=1e-6, max_iter=5):
         super(GPR_GD, self).__init__(length_scale, magnitude)
         self.learning_rate = learning_rate
+        self.epsilon = epsilon
         self.max_iter = max_iter
     
     def fit(self, X_train, y_train, ridge=1.0):
@@ -278,20 +286,31 @@ class GPR_GD(GPR):
 
         with tf.Session(graph=self.graph) as sess:
             xt_ = tf.Variable(self.X_train[0], tf.float32)
+            xt_ph = tf.placeholder(tf.float32)
+            xt_assign_op = xt_.assign(xt_ph)
+            xt_ = tf.check_numerics(xt_, "xt_: ")
             init = tf.initialize_all_variables()
             sess.run(init)
             K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, self.X_train), 2),1)), 0))
+            K2_mat = tf.check_numerics(K2_mat, "K2_mat: ")
             K2__ = tf.cast(self.magnitude * tf.exp(-K2_mat/self.length_scale),tf.float32)
+            K2__ = tf.check_numerics(K2__, "K2__: ")
             yhat_gd =  tf.cast(tf.matmul( tf.transpose(K2__) , self.xy_),tf.float32)
+            yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
             sig_val = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
+            sig_val = tf.check_numerics(sig_val, message="sigma: ")
 
             Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
-            optimizer = tf.train.AdamOptimizer(self.learning_rate)
+            Loss = tf.check_numerics(Loss, "loss: ")
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate,
+                                               epsilon=self.epsilon)
             train = optimizer.minimize(Loss)
 
+            self.vars['xt_'] = xt_
+            self.vars['xt_ph'] = xt_ph
+            self.ops['xt_assign_op'] = xt_assign_op
             self.ops['yhat_gd'] = yhat_gd
             self.ops['sig_val2'] = sig_val
-            self.vars['xt_'] = xt_
             self.ops['loss_op'] = Loss
             self.ops['train_op'] = train
 
@@ -300,6 +319,8 @@ class GPR_GD(GPR):
     def predict(self, X_test, constraint_helper=None,
                 categorical_feature_method='hillclimbing',
                 categorical_feature_steps=3):
+        from tensorflow.python.framework.errors import InvalidArgumentError
+
         self.check_fitted()
         X_test = np.float32(self.check_array(X_test))
         test_size = X_test.shape[0]
@@ -330,62 +351,67 @@ class GPR_GD(GPR):
                 Loss = self.ops['loss_op']
                 train = self.ops['train_op']
                 
-                xt_ph = tf.placeholder(tf.float32)
-                assign_op = xt_.assign(xt_ph)
+                xt_ph = self.vars['xt_ph']
+                assign_op = self.ops['xt_assign_op']
 
                 yhat = np.empty((batch_len, 1))
                 sigma = np.empty((batch_len, 1))
                 minL = np.empty((batch_len, 1))
                 minL_conf = np.empty((batch_len, nfeats))
                 for i in range(batch_len):
-#                     assign_op = xt_.assign(X_test_batch[i])
-#                     sess.run(assign_op)
-                    yhats_it = np.empty((self.max_iter+1,))
-                    sigmas_it = np.empty((self.max_iter+1,))
-                    losses_it = np.empty((self.max_iter+1,))
-                    confs_it = np.empty((self.max_iter+1, nfeats))
+                    print "-------------------------------------------"
+                    yhats_it = np.empty((self.max_iter+1,)) * np.nan
+                    sigmas_it = np.empty((self.max_iter+1,)) * np.nan
+                    losses_it = np.empty((self.max_iter+1,)) * np.nan
+                    confs_it = np.empty((self.max_iter+1, nfeats)) * np.nan
                     
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
-                        current_xt = sess.run(xt_)
-                        assert np.all(np.isfinite(current_xt))
+                        try:
+                            print "Sample {}, iter {}:".format(i, step)
+                            yhats_it[step] = sess.run(yhat_gd)[0][0]
+                            sigmas_it[step] = sess.run(sig_val)[0][0]
+                            losses_it[step] = sess.run(Loss)
+                            confs_it[step] = sess.run(xt_)
+                            print "    yhat:  {}".format(yhats_it[step])
+                            print "    sigma: {}".format(sigmas_it[step])
+                            print "    loss:  {}".format(losses_it[step])
+                            print "    conf:  {}".format(confs_it[step])
+                            sess.run(train)
+                            if constraint_helper is not None:
+                                xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
+                                sess.run(assign_op, feed_dict={xt_ph:xt_valid})
 
-                        yhats_it[step] = sess.run(yhat_gd)[0][0]
-                        sigmas_it[step] = sess.run(sig_val)[0][0]
-                        losses_it[step] = sess.run(Loss)
-                        confs_it[step] = current_xt
-                        print i, step, losses_it[step], yhats_it[step], sigmas_it[step], current_xt
-                        sess.run(train)
-                        if constraint_helper is not None:
-                            current_xt = sess.run(xt_)
-                            assert np.all(np.isfinite(current_xt))
-                            current_xt = constraint_helper.apply_constraints(current_xt)
-                            assert np.all(np.isfinite(current_xt))
-                            sess.run(assign_op, feed_dict={xt_ph:current_xt})
-
-                            if categorical_feature_method == 'hillclimbing':
-                                if step % categorical_feature_steps == 0:
-                                    current_xt = sess.run(xt_)
-                                    current_loss = sess.run(Loss)
-                                    new_xt = constraint_helper.randomize_categorical_features(current_xt)
-                                    assert np.all(np.isfinite(new_xt))
-                                    sess.run(assign_op, feed_dict={xt_ph:new_xt})
-                                    new_loss = sess.run(Loss)
-                                    print "current loss={}, new loss={}".format(current_loss, new_loss)
-                                    if current_loss < new_loss:
-                                        sess.run(assign_op, feed_dict={xt_ph:current_xt})
-                            else:
-                                raise Exception("Unknown categorical feature method: {}"
-                                                .format(categorical_feature_method))
-                    
-                    # Record results from final iteration
-                    yhats_it[-1] = sess.run(yhat_gd)[0][0]
-                    sigmas_it[-1] = sess.run(sig_val)[0][0]
-                    losses_it[-1] = sess.run(Loss)
-                    confs_it[-1] = sess.run(xt_)
+                                if categorical_feature_method == 'hillclimbing':
+                                    if step % categorical_feature_steps == 0:
+                                        current_xt = sess.run(xt_)
+                                        current_loss = sess.run(Loss)
+                                        new_xt = constraint_helper.randomize_categorical_features(current_xt)
+                                        sess.run(assign_op, feed_dict={xt_ph:new_xt})
+                                        new_loss = sess.run(Loss)
+                                        if current_loss < new_loss:
+                                            sess.run(assign_op, feed_dict={xt_ph:current_xt})
+                                else:
+                                    raise Exception("Unknown categorical feature method: {}"
+                                    .format(categorical_feature_method))
+                        except:
+                            break
+                    if step == self.max_iter - 1:
+                        # Record results from final iteration
+                        yhats_it[-1] = sess.run(yhat_gd)[0][0]
+                        sigmas_it[-1] = sess.run(sig_val)[0][0]
+                        losses_it[-1] = sess.run(Loss)
+                        confs_it[-1] = sess.run(xt_)
+                        assert np.all(np.isfinite(yhats_it))
+                        assert np.all(np.isfinite(sigmas_it))
+                        assert np.all(np.isfinite(losses_it))
+                        assert np.all(np.isfinite(confs_it))
                     
                     # Store info for conf with min loss from all iters
-                    min_loss_idx = np.argmin(losses_it)
+                    if np.all(~np.isfinite(losses_it)):
+                        min_loss_idx = 0
+                    else:
+                        min_loss_idx = np.nanargmin(losses_it)
                     yhat[i] = yhats_it[min_loss_idx]
                     sigma[i] = sigmas_it[min_loss_idx]
                     minL[i] = losses_it[min_loss_idx]
