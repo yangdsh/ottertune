@@ -273,15 +273,27 @@ class GPR(object):
         gc.collect()
 
 class GPR_GD(GPR):
+
+    DEFAULT_LENGTH_SCALE = 1.0
+    DEFAULT_MAGNITUDE = 1.0
+    DEFAULT_RIDGE = 1.0
+    DEFAULT_LEARNING_RATE = 0.01
+    DEFAULT_EPSILON = 1e-6
+    DEFAULT_MAX_ITER = 20
+    DEFAULT_RIDGE = 1.0
+    DEFAULT_SIGMA_MULTIPLIER = 2.0
     
-    def __init__(self, length_scale=1.0, magnitude=1.0,
-                 learning_rate=0.01, epsilon=1e-6, max_iter=5):
+    def __init__(self, length_scale=DEFAULT_LENGTH_SCALE,
+                 magnitude=DEFAULT_MAGNITUDE,
+                 learning_rate=DEFAULT_LEARNING_RATE,
+                 epsilon=DEFAULT_EPSILON,
+                 max_iter=DEFAULT_MAX_ITER):
         super(GPR_GD, self).__init__(length_scale, magnitude)
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.max_iter = max_iter
     
-    def fit(self, X_train, y_train, ridge=1.0):
+    def fit(self, X_train, y_train, ridge=DEFAULT_RIDGE):
         super(GPR_GD, self).fit(X_train, y_train, ridge)
 
         with tf.Session(graph=self.graph) as sess:
@@ -300,7 +312,7 @@ class GPR_GD(GPR):
             sig_val = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
             sig_val = tf.check_numerics(sig_val, message="sigma: ")
 
-            Loss = tf.squeeze(tf.sub(yhat_gd, sig_val)) 
+            Loss = tf.squeeze(tf.sub(yhat_gd, GPR_GD.DEFAULT_SIGMA_MULTIPLIER*sig_val)) 
             Loss = tf.check_numerics(Loss, "loss: ")
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate,
                                                epsilon=self.epsilon)

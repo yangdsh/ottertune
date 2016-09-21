@@ -141,7 +141,6 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                 flip = flips[flip_idx]
                 if flip:
                     current_val = conv_sample[current_idx:current_idx+nvals]
-                    #print "{}: current val={}".format(param.name, current_val)
                     assert np.all(np.logical_or(current_val == 0, current_val == 1)), "{0}: value not 0/1: {1}".format(param.name, current_val)
                     if param.isboolean:
                         current_val = current_val.squeeze()
@@ -152,7 +151,6 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                         r = np.zeros(nvals)
                         r[np.random.choice(choices)] = 1
                         assert np.sum(r) == 1
-                    #print "{}: changing from {} to {}".format(param.name, current_val, r)
                     conv_sample[current_idx:current_idx+nvals] = r
                     
                 current_idx += nvals

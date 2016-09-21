@@ -339,6 +339,7 @@ class PolynomialFeatures(Preprocess):
 class DummyEncoder(Preprocess):
     
     def __init__(self, n_values, feature_indices):
+        import warnings
         from sklearn.preprocessing import OneHotEncoder
         
         if not isinstance(n_values, np.ndarray):
@@ -353,7 +354,9 @@ class DummyEncoder(Preprocess):
         
         self.feature_indices = feature_indices
         self.n_values = n_values
-        self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
         self.columnlabels = None
         self.xform_start_indices = None
     
@@ -429,7 +432,6 @@ class DummyEncoder(Preprocess):
             else:
                 new_col = np.array(matrix[:, current_idx])
                 current_idx += 1
-            print new_matrix.shape, new_col.shape
             new_matrix[:, i] = new_col
         return new_matrix
 
@@ -506,8 +508,8 @@ def get_min_max(params, encoder=None):
             maxs[current_idx:current_idx+nvals] = 1
             current_idx += nvals
         else:
-            mins[current_idx] = param.valid_values[0]
-            maxs[current_idx] = param.valid_values[-1]
+            mins[current_idx] = param.true_range[0] #valid_values[0]
+            maxs[current_idx] = param.true_range[1] #valid_values[-1]
             current_idx += 1
     return mins, maxs
 
