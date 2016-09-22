@@ -34,8 +34,9 @@ class ParamConstraintHelper(ConstraintHelperInterface):
     def apply_constraints(self, sample, scaled=True, rescale=True):
         conv_sample = self._handle_scaling(sample, scaled)
 
-        n_values = self.encoder_.n_values
-        cat_start_indices = self.encoder_.xform_start_indices
+        if self.encoder_ is not None:
+            n_values = self.encoder_.n_values
+            cat_start_indices = self.encoder_.xform_start_indices
         current_idx = 0
         cat_offset = 0
         for (param, param_val) in zip(self.params_, conv_sample):
@@ -101,9 +102,10 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         
         if conv_sample.ndim == 1:
             conv_sample = conv_sample.reshape(1, -1)
-        conv_sample = self.encoder_.inverse_transform(conv_sample).squeeze()
+        if self.encoder_ is not None:
+            conv_sample = self.encoder_.inverse_transform(conv_sample)
 
-        conv_sample = self._handle_rescaling(conv_sample, rescale)
+        conv_sample = self._handle_rescaling(conv_sample.squeeze(), rescale)
         return conv_sample
     
     def randomize_categorical_features(self, sample, scaled=True, rescale=True):

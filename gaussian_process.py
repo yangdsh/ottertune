@@ -10,8 +10,8 @@ import numpy as np
 from common.timeutil import stopwatch
 
 JITTER = 1e-6
-N_LOCAL_POINTS = 10
-N_GLOBAL_POINTS = 0
+N_LOCAL_POINTS = 2
+N_GLOBAL_POINTS = 2
 
 def get_next_config(X_client, y_client, workload_name=None):
     from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -34,6 +34,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         featured_knobs = tuner.benchmark_featured_knobs
     else:
         featured_knobs = tuner.featured_knobs
+    # TODO: remove after debug
+    #featured_knobs=np.array(['innodb_buffer_pool_size', 'innodb_flush_method', 'innodb_log_file_size'])
     print ""
     print "featured knobs ({}):".format(tuner.gp_featured_knobs_scope)
     print featured_knobs
@@ -107,7 +109,6 @@ def get_next_config(X_client, y_client, workload_name=None):
             y_scaler = y_client_scaler
             
             # Concatenate workload and client matrices to create X_train/y_train
-            #ridge = hps['ridge'] * np.ones(X_train.data.shape[0])
             client_data_idxs = []
             for cidx, rowlabel in enumerate(X_client.rowlabels):
                 primary_idxs = np.array([idx for idx,rl in enumerate(X_train.rowlabels) \
@@ -115,21 +116,18 @@ def get_next_config(X_client, y_client, workload_name=None):
                 if len(primary_idxs) >= 1:
                     # Replace client results in workload matrix if overlap
                     y_train.data[primary_idxs] = y_client.data[cidx]
-                    #ridge[primary_idxs] = hps['ridge'] / 2.0
                     client_data_idxs.append(primary_idxs)
     
             client_data_idxs.append(np.arange(X_client.data.shape[0]) + X_train.data.shape[0])
             client_data_idxs = np.hstack(client_data_idxs)
             X_train = Matrix.vstack([X_train, X_client])
             y_train = Matrix.vstack([y_train, y_client])
-            #ridge = np.append(ridge, hps['ridge'] / 2.0 * np.ones(X_client.data.shape[0]))
         else:
             y_scaler = StandardScaler()
             y_client.data = y_scaler.fit_transform(y_client.data)
             
             X_train = X_client
             y_train = y_client
-            #ridge = hps['ridge'] / 2.0 * np.ones(X_train.data.shape[0])
             client_data_idxs = np.arange(X_train.data.shape[0])
         hps = get_hyperparameters(client_data_idxs,
                                   X_train.data.shape[0],
@@ -178,7 +176,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         #mins, maxs = prep.get_min_max(params, encoder)
         #X_scaler = prep.MinMaxScaler(mins=mins, maxs=maxs)
             X_scaler.partial_fit(X_test_data)
-        prep.fix_scaler(X_scaler, encoder, params)
+        if encoder is not None:
+            prep.fix_scaler(X_scaler, encoder, params)
         X_train.data = X_scaler.transform(X_train.data)
         if X_test_data is not None:
             X_test_data = X_scaler.transform(X_test_data)
@@ -258,9 +257,9 @@ def get_query_response_times():
     
 def get_hyperparameters(client_indices, ntrain, workload_name=None):
     hyperparams = {}
-    hyperparams['length_scale'] = 5.0
-    hyperparams['magnitude'] = 5.0
-    hyperparams['ridge'] = np.ones((ntrain,)) * 10.0
+    hyperparams['length_scale'] = 1.0
+    hyperparams['magnitude'] = 3.0
+    hyperparams['ridge'] = np.ones((ntrain,)) * 5.0
     hyperparams['ridge'][client_indices] = 1.0
     return hyperparams
 
