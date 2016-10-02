@@ -202,8 +202,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         gpres = gpr.predict(search_data, constraint_helper)
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
 
-    for i in range(n_local_points + n_global_points):
-        print "{}. y={}, sigma={}, minL={}, conf={}".format(i+1, gpres.ypreds[i], gpres.sigmas[i], gpres.minL[i], constraint_helper.get_valid_config(gpres.minL_conf[i], rescale=False))
+    #for i in range(n_local_points + n_global_points):
+    #    print "{}. y={}, sigma={}, minL={}, conf={}".format(i+1, gpres.ypreds[i], gpres.sigmas[i], gpres.minL[i], constraint_helper.get_valid_config(gpres.minL_conf[i], rescale=False))
 
     # Replace categorical features with original
     #print "ypreds: {}".format(gpres.ypreds)
@@ -263,7 +263,7 @@ def get_query_response_times():
 def get_hyperparameters(client_indices, ntrain, workload_name=None):
     hyperparams = {}
     hyperparams['length_scale'] = 1.0
-    hyperparams['magnitude'] = 3.0
+    hyperparams['magnitude'] = 1.5
     hyperparams['ridge'] = np.ones((ntrain,)) * 5.0
     hyperparams['ridge'][client_indices] = 1.0
     return hyperparams
