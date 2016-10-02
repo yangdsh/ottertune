@@ -277,7 +277,7 @@ class GPR_GD(GPR):
     DEFAULT_LENGTH_SCALE = 1.0
     DEFAULT_MAGNITUDE = 1.0
     DEFAULT_RIDGE = 1.0
-    DEFAULT_LEARNING_RATE = 0.1
+    DEFAULT_LEARNING_RATE = 0.01
     DEFAULT_EPSILON = 1e-6
     DEFAULT_MAX_ITER = 20
     DEFAULT_RIDGE = 1.0
@@ -331,7 +331,7 @@ class GPR_GD(GPR):
 
         return self
 
-    def predict(self, X_test, constraint_helper=None,
+    def predict(self, X_test, t, constraint_helper=None,
                 categorical_feature_method='hillclimbing',
                 categorical_feature_steps=3):
         from tensorflow.python.framework.errors import InvalidArgumentError
@@ -374,7 +374,7 @@ class GPR_GD(GPR):
                 minL = np.empty((batch_len, 1))
                 minL_conf = np.empty((batch_len, nfeats))
                 for i in range(batch_len):
-                    print "-------------------------------------------"
+                    #print "-------------------------------------------"
                     yhats_it = np.empty((self.max_iter+1,)) * np.nan
                     sigmas_it = np.empty((self.max_iter+1,)) * np.nan
                     losses_it = np.empty((self.max_iter+1,)) * np.nan
@@ -383,15 +383,15 @@ class GPR_GD(GPR):
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
                         try:
-                            print "Sample {}, iter {}:".format(i, step)
+                            #print "Sample {}, iter {}:".format(i, step)
                             yhats_it[step] = sess.run(yhat_gd)[0][0]
                             sigmas_it[step] = sess.run(sig_val)[0][0]
                             losses_it[step] = sess.run(Loss)
                             confs_it[step] = sess.run(xt_)
-                            print "    yhat:  {}".format(yhats_it[step])
-                            print "    sigma: {}".format(sigmas_it[step])
-                            print "    loss:  {}".format(losses_it[step])
-                            print "    conf:  {}".format(confs_it[step])
+                            #print "    yhat:  {}".format(yhats_it[step])
+                            #print "    sigma: {}".format(sigmas_it[step])
+                            #print "    loss:  {}".format(losses_it[step])
+                            #print "    conf:  {}".format(confs_it[step])
                             sess.run(train)
                             if constraint_helper is not None:
                                 xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
@@ -444,6 +444,13 @@ class GPR_GD(GPR):
         self.check_output(minL_confs)
 
         return GPR_GDResult(yhats, sigmas, minLs, minL_confs)
+
+    @staticmethod
+    def calculate_sigma_multiplier(t, ndim, bound=0.1):
+        assert t > 0
+        assert ndim > 0
+        assert bound > 0 and bound <= 1
+        return np.sqrt(2*np.log(ndim*t**2*np.pi**2/6*bound))
         
 
 def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3000):

@@ -10,8 +10,8 @@ import numpy as np
 from common.timeutil import stopwatch
 
 JITTER = 1e-6
-N_LOCAL_POINTS = 2
-N_GLOBAL_POINTS = 2
+N_LOCAL_POINTS = 20
+N_GLOBAL_POINTS = 200
 
 def get_next_config(X_client, y_client, workload_name=None):
     from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -61,7 +61,7 @@ def get_next_config(X_client, y_client, workload_name=None):
     y_client.rowlabels = X_client.rowlabels.copy()
     print X_client
     print y_client
-    
+    num_observations = X_client.data.shape[0] 
     n_values, cat_knob_indices, params = prep.dummy_encoder_helper(exp.dbms.name,
                                                                    featured_knobs)
     if n_values.size > 0:
@@ -161,15 +161,15 @@ def get_next_config(X_client, y_client, workload_name=None):
         else:
             X_test_data = None
 
-        if n_local_points > 0: # TODO: remove after debug
-            print ""
-            print "---------------------------------------"
-            print "LOCAL POINTS:"
-            best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
-            for row in X_train.rowlabels[best_indices]:
-                print row
-            print "---------------------------------------"
-            print ""
+        #if n_local_points > 0: # TODO: remove after debug
+        #    print ""
+        #    print "---------------------------------------"
+        #    print "LOCAL POINTS:"
+        #    best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
+        #    for row in X_train.rowlabels[best_indices]:
+        #        print row
+        #    print "---------------------------------------"
+        #    print ""
         if X_test_data is not None:
             if encoder is not None:
                 X_test_data = encoder.transform(X_test_data)
@@ -192,7 +192,12 @@ def get_next_config(X_client, y_client, workload_name=None):
     with stopwatch() as t:
         # Run GPR/GD
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
-        gpr = GPR_GD(length_scale=hps['length_scale'], magnitude=hps['magnitude'])
+        sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
+                                                             ndim=X_train.data.shape[1])
+        print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
+        gpr = GPR_GD(length_scale=hps['length_scale'],
+                     magnitude=hps['magnitude'],
+                     sigma_multiplier=sigma_multiplier)
         gpr.fit(X_train.data, y_train.data, hps['ridge'])
         gpres = gpr.predict(search_data, constraint_helper)
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
