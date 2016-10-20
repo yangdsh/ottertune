@@ -450,7 +450,11 @@ class GPR_GD(GPR):
         assert t > 0
         assert ndim > 0
         assert bound > 0 and bound <= 1
-        return np.sqrt(2*np.log(ndim*t**2*np.pi**2/6*bound))
+        beta = 2*np.log(ndim*(t**2)*(np.pi**2)/6*bound)
+        assert beta >= 0
+        if beta > 0:
+            beta = np.sqrt(beta)
+        return beta
         
 
 def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3000):

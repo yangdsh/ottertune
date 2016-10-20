@@ -34,8 +34,6 @@ def get_next_config(X_client, y_client, workload_name=None):
         featured_knobs = tuner.benchmark_featured_knobs
     else:
         featured_knobs = tuner.featured_knobs
-    # TODO: remove after debug
-    #featured_knobs=np.array(['innodb_buffer_pool_size', 'innodb_flush_method', 'innodb_log_file_size'])
     print ""
     print "featured knobs ({}):".format(tuner.gp_featured_knobs_scope)
     print featured_knobs
@@ -194,6 +192,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
         sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
                                                              ndim=X_train.data.shape[1])
+        #sigma_multiplier = 3.0
+        tuner.append_stat("gpr_sigma_multiplier", sigma_multiplier)
         print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
         gpr = GPR_GD(length_scale=hps['length_scale'],
                      magnitude=hps['magnitude'],
@@ -229,8 +229,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         print "{}: {}".format(k,v)
     print ""
     dbms_config = config_mgr.get_next_config(next_config_params)
-    abort_config = EarlyAbortConfig.create_config(latencies_us,
-                                                  abort_threshold_percentage=50)
+    #abort_config = EarlyAbortConfig.create_config(latencies_us,abort_threshold_percentage=50)
+    abort_config = EarlyAbortConfig.get_default_config()
     return dbms_config, abort_config
 
 def get_query_response_times():
