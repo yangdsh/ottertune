@@ -281,7 +281,10 @@ class GPR_GD(GPR):
     DEFAULT_EPSILON = 1e-6
     DEFAULT_MAX_ITER = 20
     DEFAULT_RIDGE = 1.0
-    DEFAULT_SIGMA_MULTIPLIER = 2.0
+    DEFAULT_SIGMA_MULTIPLIER = 3.0
+    
+    GP_BETA_UCB = "UCB"
+    GP_BETA_CONST = "CONST"
     
     def __init__(self, length_scale=DEFAULT_LENGTH_SCALE,
                  magnitude=DEFAULT_MAGNITUDE,

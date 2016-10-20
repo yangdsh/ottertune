@@ -190,9 +190,13 @@ def get_next_config(X_client, y_client, workload_name=None):
     with stopwatch() as t:
         # Run GPR/GD
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
-        sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
-                                                             ndim=X_train.data.shape[1])
-        #sigma_multiplier = 3.0
+        
+        if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
+            sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
+                                                                 ndim=X_train.data.shape[1])
+        else:
+            # Const
+            sigma_multiplier = 3.0
         tuner.append_stat("gpr_sigma_multiplier", sigma_multiplier)
         print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
         gpr = GPR_GD(length_scale=hps['length_scale'],
