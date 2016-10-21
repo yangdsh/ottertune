@@ -454,9 +454,10 @@ class GPR_GD(GPR):
         assert ndim > 0
         assert bound > 0 and bound <= 1
         beta = 2*np.log(ndim*(t**2)*(np.pi**2)/6*bound)
-        assert beta >= 0
         if beta > 0:
             beta = np.sqrt(beta)
+        else:
+            beta = 1
         return beta
         
 

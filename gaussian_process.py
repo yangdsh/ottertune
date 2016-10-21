@@ -192,6 +192,7 @@ def get_next_config(X_client, y_client, workload_name=None):
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
         
         if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
+            print "BETA: X_DIM =",X_train.data.shape[1]
             sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
                                                                  ndim=X_train.data.shape[1])
         else:
