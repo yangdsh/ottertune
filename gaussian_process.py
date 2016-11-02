@@ -11,7 +11,7 @@ from common.timeutil import stopwatch
 
 JITTER = 1e-6
 N_LOCAL_POINTS = 20
-N_GLOBAL_POINTS = 200
+N_GLOBAL_POINTS = 100
 
 def get_next_config(X_client, y_client, workload_name=None):
     from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -180,8 +180,14 @@ def get_next_config(X_client, y_client, workload_name=None):
     
     with stopwatch() as t:
         # Run GPR/GD
-        sigma_multiplier = 3.0
+        if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
+            sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
+                                                                 ndim=X_train.data.shape[1])
+        else:
+            # Const
+            sigma_multiplier = 3.0
         assert np.all(np.isfinite(sigma_multiplier))
+        tuner.append_stat("gpr_sigma_multiplier", sigma_multiplier)
         print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
 
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
@@ -232,10 +238,6 @@ def get_next_config(X_client, y_client, workload_name=None):
             # For each conf, run standard GPR with all combinations of
             # categoricalparams
             cat_grid = constraint_helper.get_grid()
-            #final_ypreds = np.empty_like(gpres.ypreds)
-            #final_sigmas = np.empty_like(gpres.sigmas)
-            #final_confs = np.empty((gpres.minL_conf.shape[0], X_train.data.shape[1]))
-            #final_minLs = np.empty_like(gpres.ypreds)
             final_ypreds = []
             final_sigmas = []
             final_confs = []
@@ -279,14 +281,6 @@ def get_next_config(X_client, y_client, workload_name=None):
                             .format(tuner.categorical_feature_method))
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
 
-    #for i in range(n_local_points + n_global_points):
-    #    print "{}. y={}, sigma={}, minL={}, conf={}".format(i+1, gpres.ypreds[i], gpres.sigmas[i], gpres.minL[i], constraint_helper.get_valid_config(gpres.minL_conf[i], rescale=False))
-
-    # Replace categorical features with original
-    #print "ypreds: {}".format(gpres.ypreds)
-    #print "sigmas: {}".format(gpres.sigmas)
-    #print "minL: {}".format(gpres.minL)
-    #print "minL_conf: {}".format(gpres.minL_conf.shape)
     print ""
     next_config_idx = np.nanargmin(gpres.minL.ravel())
     print "next_config_idx: {}, {}".format(next_config_idx, next_config_idx.shape)
@@ -306,8 +300,8 @@ def get_next_config(X_client, y_client, workload_name=None):
         print "{}: {}".format(k,v)
     print ""
     dbms_config = config_mgr.get_next_config(next_config_params)
-    abort_config = EarlyAbortConfig.create_config(latencies_us,
-                                                  abort_threshold_percentage=50)
+    #abort_config = EarlyAbortConfig.create_config(latencies_us,abort_threshold_percentage=50)
+    abort_config = EarlyAbortConfig.get_default_config()
     return dbms_config, abort_config
 
 def get_query_response_times():
