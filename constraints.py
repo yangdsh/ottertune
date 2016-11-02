@@ -5,6 +5,7 @@ Created on Sep 8, 2016
 '''
 
 from abc import ABCMeta, abstractmethod
+import copy
 import numpy as np
 
 class ConstraintHelperInterface(object):
@@ -16,6 +17,10 @@ class ConstraintHelperInterface(object):
         pass
 
 class ParamConstraintHelper(ConstraintHelperInterface):
+
+    @property
+    def num_categorical_params(self):
+        return self.cat_param_indices_.shape[0]
     
     def __init__(self, params, scaler, encoder):
         if not 'inverse_transform' in dir(scaler):
@@ -41,7 +46,6 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         cat_offset = 0
         for (param, param_val) in zip(self.params_, conv_sample):
             if param.iscategorical and not param.isboolean:
-                assert not param.isboolean
                 assert current_idx == cat_start_indices[cat_offset]
                 nvals = n_values[cat_offset]
                 
@@ -161,3 +165,86 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                 current_idx += 1
         conv_sample = self._handle_rescaling(conv_sample, rescale)
         return conv_sample
+
+    def get_numerical_mask(self):
+        mask = []
+        current_idx, cat_idx = 0, 0
+        for param in self.params_:
+            if param.iscategorical:
+                if param.isboolean:
+                    mask.append(False) 
+                else:
+                    assert current_idx == self.encoder_.xform_start_indices[cat_idx]
+                    nvals = self.encoder_.n_values[cat_idx]
+                    mask.extend([False for _ in range(nvals)])
+                    cat_idx += 1
+            else:
+                mask.append(True)
+            current_idx += 1
+        return np.array(mask)
+
+    def get_combinations_size(self):
+        if self.num_categorical_params == 0:
+            return 0
+        cat_count = 0
+        current_idx, cat_idx = 0, 0
+        for param in self.params_:
+            if param.iscategorical:
+                if param.isboolean:
+                    cat_count += 1
+                else:
+                    assert current_idx == self.encoder_.xform_start_indices[cat_idx]
+                    cat_count += self.encoder_.n_values[cat_idx]
+                    
+                    cat_idx += 1
+            current_idx += 1
+        assert cat_count > 0
+        return 2 ** cat_count
+
+    def get_grid(self, max_size=2048):
+        import itertools
+
+        possible_combos = self.get_combinations_size()
+        #print "possible combos:",possible_combos
+        assert possible_combos > 0
+        num_columns = int(np.log2(possible_combos))
+        if possible_combos > max_size:
+            # Grid too large so sample instead
+            combo_grid = np.random.binomial(1, 0.5, (max_size, num_columns))
+        else:
+            # Get entire grid
+            combo_grid = list(itertools.product([0, 1], repeat=num_columns))
+            assert len(combo_grid) == possible_combos
+            combo_grid = np.array(combo_grid)
+        # Scale the grid
+        cat_mask = ~self.get_numerical_mask()
+
+        X_scaler_cat = copy.deepcopy(self.scaler_) 
+        X_scaler_cat.mean_ = X_scaler_cat.mean_[cat_mask]
+        X_scaler_cat.scale_ = X_scaler_cat.scale_[cat_mask]
+        X_scaler_cat.var_ = X_scaler_cat.var_[cat_mask]
+        combo_grid = X_scaler_cat.transform(combo_grid)
+        return combo_grid
+
+
+    def merge_grid(self, combo_grid, numeric_param_conf):
+        #print "param grid top = ",combo_grid[:3,:], "\n"
+        #print "conf = ",numeric_param_conf, "\n"
+        nrows, ncols = combo_grid.shape[0], combo_grid.shape[1] + numeric_param_conf.shape[0]
+        #print "numeric_param_conf: shape={0}, size={1}".format(numeric_param_conf.shape, numeric_param_conf.size)
+        #print "nrows, ncols = {0}, {1}".format(nrows, ncols)
+        data_grid = np.ones((nrows, ncols))*np.nan
+
+        num_mask = self.get_numerical_mask()
+        assert num_mask.shape[0] == ncols
+        combo_idx, conf_idx = 0, 0
+        for i, isnumeric in enumerate(num_mask):
+            if isnumeric:
+                data_grid[:,i] = numeric_param_conf[conf_idx]
+                conf_idx += 1
+            else:
+                data_grid[:,i] = combo_grid[:,combo_idx]
+                combo_idx += 1
+        assert np.all(np.isfinite(data_grid))
+        return data_grid
+

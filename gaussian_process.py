@@ -17,7 +17,7 @@ def get_next_config(X_client, y_client, workload_name=None):
     from sklearn.preprocessing import StandardScaler, MinMaxScaler
     
     from .constraints import ParamConstraintHelper
-    from .gp_tf import GPR_GD
+    from .gp_tf import GPR, GPR_GD, GPR_GDResult
     from .matrix import Matrix
     from .util import get_exp_labels, get_unique_matrix
     import analysis.preprocessing as prep
@@ -34,8 +34,6 @@ def get_next_config(X_client, y_client, workload_name=None):
         featured_knobs = tuner.benchmark_featured_knobs
     else:
         featured_knobs = tuner.featured_knobs
-    # TODO: remove after debug
-    #featured_knobs=np.array(['innodb_buffer_pool_size', 'innodb_flush_method', 'innodb_log_file_size'])
     print ""
     print "featured knobs ({}):".format(tuner.gp_featured_knobs_scope)
     print featured_knobs
@@ -161,15 +159,6 @@ def get_next_config(X_client, y_client, workload_name=None):
         else:
             X_test_data = None
 
-        #if n_local_points > 0: # TODO: remove after debug
-        #    print ""
-        #    print "---------------------------------------"
-        #    print "LOCAL POINTS:"
-        #    best_indices = np.argsort(y_train.data.ravel())[:n_local_points]
-        #    for row in X_train.rowlabels[best_indices]:
-        #        print row
-        #    print "---------------------------------------"
-        #    print ""
         if X_test_data is not None:
             if encoder is not None:
                 X_test_data = encoder.transform(X_test_data)
@@ -191,15 +180,103 @@ def get_next_config(X_client, y_client, workload_name=None):
     
     with stopwatch() as t:
         # Run GPR/GD
-        constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
-        sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
-                                                             ndim=X_train.data.shape[1])
+        sigma_multiplier = 3.0
+        assert np.all(np.isfinite(sigma_multiplier))
         print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
-        gpr = GPR_GD(length_scale=hps['length_scale'],
-                     magnitude=hps['magnitude'],
-                     sigma_multiplier=sigma_multiplier)
-        gpr.fit(X_train.data, y_train.data, hps['ridge'])
-        gpres = gpr.predict(search_data, constraint_helper)
+
+        constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
+
+        # If there aren't any categorical params then simply
+        # run hillclimbing method
+        if constraint_helper.num_categorical_params == 0:
+            cat_method = "hillclimbing"
+        else:
+            cat_method = tuner.categorical_feature_method
+
+        if cat_method == "hillclimbing":
+            gpr = GPR_GD(length_scale=hps['length_scale'],
+                         magnitude=hps['magnitude'],
+                         sigma_multiplier=sigma_multiplier)
+            gpr.fit(X_train.data, y_train.data, hps['ridge'])
+            gpres = gpr.predict(search_data, constraint_helper)
+        elif cat_method == "sampling":
+            # Mask of numerical params only
+            numerical_mask = constraint_helper.get_numerical_mask()
+
+            # Select all numerical params
+            numerical_params = []
+            for p in params:
+                if not p.iscategorical:
+                    numerical_params.append(p)
+            assert len(numerical_params) == np.count_nonzero(numerical_mask)
+
+            # Create new X_scaler/constraint_helper for numerical features only        
+            X_scaler_num = copy.deepcopy(X_scaler) 
+            X_scaler_num.mean_ = X_scaler_num.mean_[numerical_mask]
+            X_scaler_num.scale_ = X_scaler_num.scale_[numerical_mask]
+            X_scaler_num.var_ = X_scaler_num.var_[numerical_mask]
+            constraint_helper_num = ParamConstraintHelper(numerical_params,
+                                                          X_scaler_num,
+                                                          None)
+            
+            # Run gradient descent on numerical features only
+            gpr = GPR_GD(length_scale=hps['length_scale'],
+                         magnitude=hps['magnitude'],
+                         sigma_multiplier=sigma_multiplier)
+            gpr.fit(X_train.data[:, numerical_mask],
+                    y_train.data,
+                    hps['ridge'])
+            gpres = gpr.predict(search_data[:, numerical_mask],
+                                constraint_helper_num)
+
+            # For each conf, run standard GPR with all combinations of
+            # categoricalparams
+            cat_grid = constraint_helper.get_grid()
+            #final_ypreds = np.empty_like(gpres.ypreds)
+            #final_sigmas = np.empty_like(gpres.sigmas)
+            #final_confs = np.empty((gpres.minL_conf.shape[0], X_train.data.shape[1]))
+            #final_minLs = np.empty_like(gpres.ypreds)
+            final_ypreds = []
+            final_sigmas = []
+            final_confs = []
+            final_minLs = []
+            gpr = GPR(length_scale=hps['length_scale'],
+                      magnitude=hps['magnitude'])
+            gpr.fit(X_train.data,
+                    y_train.data,
+                    hps['ridge'])
+            max_grid_len = 10000
+            current_grid_len = 0
+            data_grids = []
+            for i,conf in enumerate(gpres.minL_conf):
+                data_grid = constraint_helper.merge_grid(cat_grid, conf) 
+                current_grid_len += data_grid.shape[0]
+                data_grids.append(data_grid)
+                if current_grid_len > max_grid_len or \
+                        i == gpres.minL_conf.shape[0] - 1: 
+                    # Run predictions
+                    comb_data_grid = np.vstack(data_grids)
+                    gpres_final = gpr.predict(comb_data_grid)
+                    minLs = gpres_final.ypreds[:,0] - sigma_multiplier * gpres_final.sigmas[:,0]
+                    min_arg = np.nanargmin(minLs)
+                    final_ypreds.append(gpres_final.ypreds[min_arg,0])
+                    final_sigmas.append(gpres_final.sigmas[min_arg,0])
+                    final_minLs.append(np.array(minLs[min_arg]))
+                    final_confs.append(comb_data_grid[min_arg,:])
+                    current_grid_len = 0
+                    data_grids = []
+            assert len(final_ypreds) == len(final_sigmas) and \
+                    len(final_ypreds) == len(final_confs) and \
+                    len(final_ypreds) == len(final_minLs)
+
+            # Package up final result
+            gpres = GPR_GDResult(ypreds=np.array(final_ypreds),
+                                 sigmas=np.array(final_sigmas),
+                                 minL=np.array(final_minLs),
+                                 minL_conf=np.array(final_confs))
+        else:
+            raise Exception("Unknown categorical feature method: {}"
+                            .format(tuner.categorical_feature_method))
     tuner.append_stat("gpr_compute_time_sec", t.elapsed_seconds)
 
     #for i in range(n_local_points + n_global_points):

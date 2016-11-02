@@ -29,6 +29,9 @@ class GPR(object):
     BATCH_SIZE = 3000
     
     def __init__(self, length_scale=1.0, magnitude=1.0):
+        assert np.isscalar(length_scale)
+        assert np.isscalar(magnitude)
+        assert length_scale > 0 and magnitude > 0
         self.length_scale = length_scale
         self.magnitude = magnitude
         self.X_train = None

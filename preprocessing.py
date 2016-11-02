@@ -435,6 +435,7 @@ class DummyEncoder(Preprocess):
             new_matrix[:, i] = new_col
         return new_matrix
 
+
 def dummy_encoder_helper(dbms, featured_knobs):
     from dbms.param import ConfigManager
 
