@@ -333,9 +333,9 @@ def get_query_response_times():
     
 def get_hyperparameters(client_indices, ntrain, workload_name=None):
     hyperparams = {}
-    hyperparams['length_scale'] = 1.0
-    hyperparams['magnitude'] = 1.5
+    hyperparams['length_scale'] = 1.7
+    hyperparams['magnitude'] = 3.0
     hyperparams['ridge'] = np.ones((ntrain,)) * 5.0
-    hyperparams['ridge'][client_indices] = 1.0
+    hyperparams['ridge'][client_indices] = 1.7
     return hyperparams
 
