@@ -25,7 +25,7 @@ class GPR_GDResult(GPRResult):
 
 class GPR(object):
     
-    MAX_TRAIN_SIZE = 5000
+    MAX_TRAIN_SIZE = 7000
     BATCH_SIZE = 3000
     
     def __init__(self, length_scale=1.0, magnitude=1.0):
@@ -132,8 +132,8 @@ class GPR(object):
         from sklearn.utils.validation import check_X_y
         
         if X.shape[0] > GPR.MAX_TRAIN_SIZE:
-            raise Exception("X_train size cannot exceed {}"
-                            .format(self.max_train_size))
+            raise Exception("X_train size cannot exceed {} ({})"
+                            .format(GPR.MAX_TRAIN_SIZE, X.shape[0]))
         return check_X_y(X, y, multi_output=True,
                          allow_nd=True, y_numeric=True,
                          estimator="GPR")

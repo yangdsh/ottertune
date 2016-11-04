@@ -61,7 +61,7 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                     pmin, pmax = 0, 1
                     param_val = round(param_val)
                 else:
-                    assert param.true_range is not None
+                    assert param.true_range is not None, "param={}".format(param.name)
                     pmin, pmax = param.true_range
 
                 conv_sample[current_idx] = self._check_limits(param_val, pmin, pmax)
@@ -172,15 +172,17 @@ class ParamConstraintHelper(ConstraintHelperInterface):
         for param in self.params_:
             if param.iscategorical:
                 if param.isboolean:
-                    mask.append(False) 
+                    mask.append(False)
+                    current_idx += 1
                 else:
                     assert current_idx == self.encoder_.xform_start_indices[cat_idx]
                     nvals = self.encoder_.n_values[cat_idx]
                     mask.extend([False for _ in range(nvals)])
                     cat_idx += 1
+                    current_idx += nvals
             else:
                 mask.append(True)
-            current_idx += 1
+                current_idx += 1
         return np.array(mask)
 
     def get_combinations_size(self):
@@ -192,12 +194,15 @@ class ParamConstraintHelper(ConstraintHelperInterface):
             if param.iscategorical:
                 if param.isboolean:
                     cat_count += 1
+                    current_idx += 1
                 else:
                     assert current_idx == self.encoder_.xform_start_indices[cat_idx]
-                    cat_count += self.encoder_.n_values[cat_idx]
-                    
+                    nvals = self.encoder_.n_values[cat_idx]
+                    cat_count += nvals
                     cat_idx += 1
-            current_idx += 1
+                    current_idx += nvals
+            else:
+                current_idx += 1
         assert cat_count > 0
         return 2 ** cat_count
 

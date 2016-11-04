@@ -34,10 +34,22 @@ class WorkloadState(object):
     @staticmethod
     def compress(workload_state):
         return zlib.compress(pickle.dumps(workload_state))
+        #compressed = pickle.dumps(workload_state)
+        #try:
+        #    compressed = zlib.compress(compressed)
+        #except OverflowError:
+        #    pass
+        #return compressed
 
     @staticmethod
     def decompress(compressed_workload_state):
         return pickle.loads(zlib.decompress(compressed_workload_state))
+        #if isinstance(compressed_workload_state, str):
+        #    decompressed = compressed_workload_state
+        #else:
+        #    decompressed = zlib.decompress(compressed_workload_state)
+        #decompressed = pickle.loads(decompressed)
+        #return decompressed
 
 def worker_create_model((worker_id, workload_name, data, njobs, verbose)):
     if verbose:
@@ -98,17 +110,22 @@ class WorkloadMapper(object):
         self.verbose_ = verbose
         self.featured_knobs_ = tuner.featured_knobs
         self.workload_states_ = None
-        self.pool_ = multiprocessing.Pool(self.POOL_SIZE)
         
         dbms = exp.dbms.name
         cluster = exp.server.instance_type
         workload_dirs = glob.glob(os.path.join(Paths.DATADIR,
                                                "analysis*{}*{}*".format(dbms,
                                                                         cluster)))
-        assert len(workload_dirs) > 0
         target_wkld_desc = exp.exp_id(exp.benchmark)
         self.workload_dirs_ = [w for w in workload_dirs if not \
                                w.endswith(target_wkld_desc)]
+        assert len(self.workload_dirs_) > 0
+
+        pool_size = min(len(self.workload_dirs_), self.POOL_SIZE)
+        if pool_size > 1:
+            self.pool_ = multiprocessing.Pool(pool_size)
+        else:
+            self.pool_ = None
         self.initialize_models()
         assert self.workload_states_ is not None
         gc.collect()
@@ -185,8 +202,12 @@ class WorkloadMapper(object):
             njobs = len(data_map)
             iterable = [(i,wd,ws,njobs,self.verbose_) for i,(wd,ws) \
                         in enumerate(data_map.iteritems())]            
-            res = self.pool_.map(worker_create_model, iterable)
-            #p.terminate()
+            if self.pool_ is not None:
+                res = self.pool_.map(worker_create_model, iterable)
+            else:
+                res = []
+                for item in iterable:
+                    res.append(worker_create_model(item)) 
             self.workload_states_ = dict(res)
 
     def map_workload(self, X_client, y_client):
@@ -236,7 +257,12 @@ class WorkloadMapper(object):
                     for i,(wd,ws) in enumerate(self.workload_states_.iteritems())]
 
         with stopwatch("workload mapping - predictions"):
-            wkld_scores = self.pool_.map(worker_score_workload, iterable)
+            if self.pool_ is not None:
+                wkld_scores = self.pool_.map(worker_score_workload, iterable)
+            else:
+                wkld_scores = []
+                for item in iterable:
+                    wkld_scores.append(worker_score_workload(item))
 
         sorted_wkld_scores = sorted(wkld_scores, key=operator.itemgetter(1))
         if tuner.map_to == "worst":
