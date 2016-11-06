@@ -25,7 +25,7 @@ class LHSSampler(object):
         self.incomplete_samples_ = self.samples_.copy()
     
     def has_next_sample(self):
-        return self.incomplete_samples_ is not None
+        return self.incomplete_samples_ != None
 
     def get_next_sample(self):
         if self.incomplete_samples_ is not None:
@@ -36,8 +36,8 @@ class LHSSampler(object):
             if split[1].size == 0:
                 self.incomplete_samples_ = None
             else:
-                self.incomplete_samples_ = split[1].ravel()
-            return next_sample
+                self.incomplete_samples_ = split[1]
+            return next_sample.ravel()
         else:
             return None
     
@@ -54,9 +54,7 @@ class LHSSampler(object):
         exp = ExpContext()
         tuner = TunerContext()
         
-        if tuner.tuner_type is not "lhs":
-            return None
-        else:
+        if tuner.tuner_type == "lhs":
             n_samples = tuner.lhs_samples
             n_feats = tuner.max_knobs
             
@@ -75,10 +73,19 @@ class LHSSampler(object):
                     pmin,pmax = true_vals[0], true_vals[-1]
                 else:
                     pmin,pmax = p.true_range
+
+                if p.unit == "bytes":
+                    if pmin <= 0:
+                        pmin = 1
+                    pmin = np.ceil(np.log2(pmin))
+                    pmax = np.floor(np.log2(pmax))
+                    
                 locs[i] = pmin
-                scales[i] = pmax
+                scales[i] = pmax - pmin
 
             return LHSSampler(n_samples, locs, scales, feat_names)
+        else:
+            return None
             
 
 def gen_samples(n_feats, n_samples, criterion='m',
@@ -94,7 +101,7 @@ def gen_samples(n_feats, n_samples, criterion='m',
             assert isinstance(loc, np.ndarray)
             assert isinstance(scale, np.ndarray)
             for i in range(n_feats):
-                s[:,i] = gen_sample(loc, scale, s[:,i], distribution_type)
+                s[:,i] = gen_sample(loc[i], scale[i], s[:,i], distribution_type)
     return s
 
 def gen_sample(loc, scale, sample, distribution_type):

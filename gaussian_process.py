@@ -46,7 +46,7 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
         if not lhs_complete:
             return get_next_lhs_config(sampler, featured_knobs)
         else:
-            assert sampler.has_next_sample()
+            assert not sampler.has_next_sample()
     
     # Filter the featured knobs & metrics
     X_client = X_client.filter(featured_knobs, "columns")
@@ -336,19 +336,27 @@ def convert_to_dbms_config(next_config, featured_knobs):
     return dbms_config, abort_config
 
 def get_next_lhs_config(sampler, featured_knobs):
-    from experiment import TunerContext
+    from experiment import TunerContext, ExpContext
 
     assert sampler is not None
     assert sampler.has_next_sample()
     
     tuner = TunerContext()
-    next_sample = sampler.get_next_sample()
-    assert next_sample is not None
+    config_mgr = ExpContext().dbms.config_manager_
+
     sample_feat_knobs = sampler.get_feat_names()
     for knob_name in featured_knobs:
         assert knob_name in sample_feat_knobs
     if not tuner.incremental_knob_selection:
         assert np.array_equal(featured_knobs, sample_feat_knobs)
+
+    next_sample = sampler.get_next_sample()
+    assert next_sample is not None
+    for i,knob_name in enumerate(sample_feat_knobs):
+        param = config_mgr._find_param(knob_name)
+        if param.unit == "bytes":
+            next_sample[i] = np.floor(2**next_sample[i])
+
     dbms_config, abort_config = convert_to_dbms_config(next_sample, sample_feat_knobs)
     
     if not sampler.has_next_sample():
