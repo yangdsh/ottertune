@@ -34,22 +34,10 @@ class WorkloadState(object):
     @staticmethod
     def compress(workload_state):
         return zlib.compress(pickle.dumps(workload_state))
-        #compressed = pickle.dumps(workload_state)
-        #try:
-        #    compressed = zlib.compress(compressed)
-        #except OverflowError:
-        #    pass
-        #return compressed
 
     @staticmethod
     def decompress(compressed_workload_state):
         return pickle.loads(zlib.decompress(compressed_workload_state))
-        #if isinstance(compressed_workload_state, str):
-        #    decompressed = compressed_workload_state
-        #else:
-        #    decompressed = zlib.decompress(compressed_workload_state)
-        #decompressed = pickle.loads(decompressed)
-        #return decompressed
 
 def worker_create_model((worker_id, workload_name, data, njobs, verbose)):
     if verbose:
@@ -103,6 +91,7 @@ def worker_score_workload((worker_id, workload_name, workload_state,
 class WorkloadMapper(object):
 
     POOL_SIZE = 8
+    MAX_SAMPLES = 5000
     
     def __init__(self, verbose=False):
         exp = ExpContext()
@@ -158,6 +147,19 @@ class WorkloadMapper(object):
                 assert np.array_equal(X.columnlabels, self.featured_knobs_)
                 assert np.array_equal(y.columnlabels, tuner.featured_metrics)
                 assert np.array_equal(X.rowlabels, y.rowlabels)
+                num_samples = X.shape[0]
+                if num_samples > self.MAX_SAMPLES:
+                    print "Shrinking {} samples to {}".format(num_samples, self.MAX_SAMPLES)
+                    rand_indices = prep.get_shuffle_indices(num_samples)[:self.MAX_SAMPLES]
+                    X = Matrix(X.data[rand_indices],
+                               X.rowlabels[rand_indices],
+                               X.columnlabels)
+                    y = Matrix(y.data[rand_indices],
+                               y.rowlabels[rand_indices],
+                               y.columnlabels)
+                num_samples = X.shape[0]
+                assert num_samples <= self.MAX_SAMPLES
+                assert num_samples == y.shape[0]
  
                 # Dummy-code categorical knobs
                 if self.dummy_encoder_ is not None:

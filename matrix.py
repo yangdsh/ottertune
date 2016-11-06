@@ -49,8 +49,14 @@ class Matrix(object):
     def set_columnlabels(self, newcolumnlabels):
         self.__columnlabels = newcolumnlabels
         self._check_invariants()
-    
+
     columnlabels = property(get_columnlabels, set_columnlabels)
+
+    @property
+    def shape(self):
+        self._check_invariants()
+        return self.__data.shape
+    
 
     @staticmethod
     def vstack(matrices, require_equal_columnlabels=True):
