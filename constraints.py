@@ -61,8 +61,13 @@ class ParamConstraintHelper(ConstraintHelperInterface):
                     pmin, pmax = 0, 1
                     param_val = round(param_val)
                 else:
-                    assert param.true_range is not None, "param={}".format(param.name)
-                    pmin, pmax = param.true_range
+                    if param.true_range is not None:
+                        pmin, pmax = param.true_range
+                    else:
+                        true_vals = param.true_values
+                        assert true_vals is not None and len(true_vals) > 0, "param={}".format(param.name)
+                        pmin, pmax = true_vals[0], true_vals[-1]
+
 
                 conv_sample[current_idx] = self._check_limits(param_val, pmin, pmax)
                 current_idx += 1

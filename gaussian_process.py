@@ -191,7 +191,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
         # Run GPR/GD
         if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
             sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
-                                                                 ndim=X_train.data.shape[1])
+                                                                 ndim=X_train.data.shape[1],
+                                                                 bound=0.1)
         else:
             # Const
             sigma_multiplier = 3.0
