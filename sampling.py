@@ -7,26 +7,108 @@ Created on Sep 13, 2016
 import numpy as np
 from pyDOE import lhs
 from scipy.stats.distributions import norm
+from scipy.stats import uniform
 
-class Sampler(object):
+NORMAL_DISTRIBUTION_TYPE = 0
+UNIFORM_DISTRIBUTION_TYPE = 1
+
+class LHSSampler(object):
     
-    def __init__(self):
-        pass
+    def __init__(self, n_samples, locs, scales, feat_names):
+        n_feats = locs.size
+        assert scales.size == n_feats
+        assert n_samples > 0
+        self.feat_names_ = feat_names.copy()
+        self.samples_ = gen_samples(n_feats, n_samples,
+                              loc=locs, scale=scales,
+                              distribution_type=UNIFORM_DISTRIBUTION_TYPE)
+        self.incomplete_samples_ = self.samples_.copy()
     
-    def gen_lhs_configs(self):
-        pass
+    def has_next_sample(self):
+        return self.incomplete_samples_ != None
+
+    def get_next_sample(self):
+        if self.incomplete_samples_ is not None:
+            assert self.incomplete_samples_.size > 0
+            split = np.vsplit(self.incomplete_samples_, [1])
+            assert len(split) == 2
+            next_sample = split[0]
+            if split[1].size == 0:
+                self.incomplete_samples_ = None
+            else:
+                self.incomplete_samples_ = split[1]
+            return next_sample.ravel()
+        else:
+            return None
+    
+    def get_samples(self):
+        return self.samples_.copy()
+    
+    def get_feat_names(self):
+        return self.feat_names_.copy()
+    
+    @staticmethod
+    def create_sampler():
+        from experiment import TunerContext, ExpContext
+
+        exp = ExpContext()
+        tuner = TunerContext()
+        
+        if tuner.tuner_type == "lhs":
+            n_samples = tuner.lhs_samples
+            n_feats = tuner.max_knobs
+            
+            if tuner.gp_featured_knobs_scope == "benchmark":
+                feat_names = tuner.get_n_benchmark_featured_knobs(n_feats)
+            else:
+                feat_names = tuner.get_n_featured_knobs(n_feats)
+            config_mgr = exp.dbms.config_manager_
+            locs = np.empty(n_feats)
+            scales = np.empty(n_feats)
+            for i,fname in enumerate(feat_names):
+                p = config_mgr._find_param(fname)
+                if p.true_range is None:
+                    true_vals = p.true_values
+                    assert true_vals is not None
+                    pmin,pmax = true_vals[0], true_vals[-1]
+                else:
+                    pmin,pmax = p.true_range
+
+                if p.unit == "bytes":
+                    if pmin <= 0:
+                        pmin = 1
+                    pmin = np.ceil(np.log2(pmin))
+                    pmax = np.floor(np.log2(pmax))
+                    
+                locs[i] = pmin
+                scales[i] = pmax - pmin
+
+            return LHSSampler(n_samples, locs, scales, feat_names)
+        else:
+            return None
+            
 
 def gen_samples(n_feats, n_samples, criterion='m',
-                mean=None, std=None):
+                loc=None, scale=None,
+                distribution_type=UNIFORM_DISTRIBUTION_TYPE):
     s = lhs(n_feats, samples=n_samples, criterion=criterion)
-    if mean is not None:
-        assert std is not None
-        if np.isscalar(mean):
-            assert np.isscalar(std)
-            s = norm(loc=mean, scale=std).ppf(s)
+    if loc is not None:
+        assert scale is not None
+        if np.isscalar(loc):
+            assert np.isscalar(scale)
+            s = gen_sample(loc, scale, s, distribution_type)
         else:
-            assert isinstance(mean, np.ndarray)
-            assert isinstance(std, np.ndarray)
+            assert isinstance(loc, np.ndarray)
+            assert isinstance(scale, np.ndarray)
             for i in range(n_feats):
-                s[:,i] = norm(loc=mean[i], scale=std[i]).ppf(s[:,i])
+                s[:,i] = gen_sample(loc[i], scale[i], s[:,i], distribution_type)
     return s
+
+def gen_sample(loc, scale, sample, distribution_type):
+    if distribution_type == NORMAL_DISTRIBUTION_TYPE:
+        return norm(loc=loc, scale=scale).ppf(sample)
+    elif distribution_type == UNIFORM_DISTRIBUTION_TYPE:
+        return uniform(loc=loc, scale=scale).ppf(sample)
+    else:
+        raise Exception("Invalid distribution type: {}"
+                        .format(distribution_type))
