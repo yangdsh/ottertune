@@ -97,7 +97,6 @@ class WorkloadMapper(object):
         exp = ExpContext()
         tuner = TunerContext()
         self.verbose_ = verbose
-        self.featured_knobs_ = tuner.featured_knobs
         self.workload_states_ = None
         
         dbms = exp.dbms.name
@@ -105,6 +104,11 @@ class WorkloadMapper(object):
         workload_dirs = glob.glob(os.path.join(Paths.DATADIR,
                                                "analysis*{}*{}*".format(dbms,
                                                                         cluster)))
+        if tuner.incremental_knob_selection:
+            self.featured_knobs_ = tuner.get_n_featured_knobs(tuner.max_knobs)
+        else:
+            self.featured_knobs_ = tuner.featured_knobs
+
         target_wkld_desc = exp.exp_id(exp.benchmark)
         self.workload_dirs_ = [w for w in workload_dirs if not \
                                w.endswith(target_wkld_desc)]
@@ -216,18 +220,18 @@ class WorkloadMapper(object):
         tuner = TunerContext()
 
         with stopwatch("workload mapping - preprocessing"):
-            # Recompute the GPR models if the # of knobs to tune has
-            # changed (incremental knob selection feature is enabled)
-            tuner_feat_knobs = tuner.featured_knobs
-            if not np.array_equal(tuner_feat_knobs, self.featured_knobs_):
-                print ("# knobs: {} --> {}. Re-creating models"
-                       .format(tuner_feat_knobs.size,
-                               self.featured_knobs_.size))
-                assert tuner_feat_knobs.size != self.featured_knobs_.size
-                assert tuner.incremental_knob_selection == True
-                self.featured_knobs_ = tuner_feat_knobs
-                self.initialize_models()
-                gc.collect()
+#             # Recompute the GPR models if the # of knobs to tune has
+#             # changed (incremental knob selection feature is enabled)
+#             tuner_feat_knobs = tuner.featured_knobs
+#             if not np.array_equal(tuner_feat_knobs, self.featured_knobs_):
+#                 print ("# knobs: {} --> {}. Re-creating models"
+#                        .format(tuner_feat_knobs.size,
+#                                self.featured_knobs_.size))
+#                 assert tuner_feat_knobs.size != self.featured_knobs_.size
+#                 assert tuner.incremental_knob_selection == True
+#                 self.featured_knobs_ = tuner_feat_knobs
+#                 self.initialize_models()
+#                 gc.collect()
 
             # Filter be featured knobs & metrics
             X_client = X_client.filter(self.featured_knobs_, "columns")
