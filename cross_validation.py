@@ -8,7 +8,8 @@ import numpy as np
 from collections import namedtuple
 import cPickle as pickle
 import gc #multiprocessing
-from sklearn.model_selection import KFold
+#from sklearn.model_selection import KFold
+from sklearn.cross_validation import KFold
 from sklearn.utils.validation import _is_arraylike, check_X_y
 import tensorflow as tf
 

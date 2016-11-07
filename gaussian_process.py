@@ -94,6 +94,15 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             y_train = y_train.filter(np.array([tuner.optimization_metric]), "columns")
             assert np.array_equal(y_train.columnlabels, y_client.columnlabels)
 
+            # Shuffle data
+            shuffle_indices = prep.get_shuffle_indices(X_train.shape[0])
+            X_train = Matrix(X_train.data[shuffle_indices],
+                             X_train.rowlabels[shuffle_indices],
+                             X_train.columnlabels)
+            y_train = Matrix(y_train.data[shuffle_indices],
+                             y_train.rowlabels[shuffle_indices],
+                             y_train.columnlabels)
+
             if tuner.unique_training_data:
                 # Get X,y matrices with unique samples
                 X_train, y_train = get_unique_matrix(X_train, y_train)
