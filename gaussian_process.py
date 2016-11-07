@@ -136,7 +136,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             X_train = X_client
             y_train = y_client
             client_data_idxs = np.arange(X_train.data.shape[0])
-        hps = get_hyperparameters(client_data_idxs,
+        hps = get_hyperparameters(exp.dbms.name,
+                                  client_data_idxs,
                                   X_train.data.shape[0],
                                   workload_name)
 
@@ -390,11 +391,29 @@ def get_query_response_times():
     
     return median_exec_times
     
-def get_hyperparameters(client_indices, ntrain, workload_name=None):
+def get_hyperparameters(dbms, client_indices, ntrain, workload_name=None):
+    # old defaults: ls=1.7, mag=3.0, ridge=5.0, client_ridge=1.7
     hyperparams = {}
-    hyperparams['length_scale'] = 1.7
-    hyperparams['magnitude'] = 3.0
-    hyperparams['ridge'] = np.ones((ntrain,)) * 5.0
-    hyperparams['ridge'][client_indices] = 1.7
+    if dbms == "postgres":
+        ls = 10.0
+        mag = 3.0
+        ridge = 7.85
+        client_ridge = 5.0
+    elif dbms == "mysql":
+        ls = 10.0
+        mag = 9.0
+        ridge = 6.0
+        client_ridge = 3.0
+    elif dbms == "vectorwise":
+        ls = 10.0
+        mag = 7.0
+        ridge = 2
+        client_ridge = 1
+    else:
+        raise Exception("Invalid DBMS: {}".format(dbms))
+    hyperparams['length_scale'] = ls
+    hyperparams['magnitude'] = mag
+    hyperparams['ridge'] = np.ones((ntrain,)) * ridge
+    hyperparams['ridge'][client_indices] = client_ridge
     return hyperparams
 
