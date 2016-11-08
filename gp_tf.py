@@ -27,6 +27,7 @@ class GPR(object):
     
     MAX_TRAIN_SIZE = 7000
     BATCH_SIZE = 3000
+    NUM_THREADS = 4
     
     def __init__(self, length_scale=1.0, magnitude=1.0):
         assert np.isscalar(length_scale)
@@ -165,7 +166,8 @@ class GPR(object):
         assert ridge.ndim == 1
 
         X_dists = np.zeros((sample_size, sample_size), dtype=np.float32)
-        with tf.Session(graph=self.graph) as sess:
+        with tf.Session(graph=self.graph, config=tf.ConfigProto(
+                intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
             dist_op = self.ops['dist_op']
             v1, v2 = self.vars['v1_h'], self.vars['v2_h']
             for i in range(sample_size):
@@ -199,7 +201,9 @@ class GPR(object):
         arr_offset = 0
         yhats = np.zeros([test_size, 1])
         sigmas = np.zeros([test_size, 1])
-        with tf.Session(graph=self.graph) as sess:
+        #with tf.Session(graph=self.graph) as sess:
+        with tf.Session(graph=self.graph, config=tf.ConfigProto(
+                intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
             # Nodes for distance operation
             dist_op = self.ops['dist_op']
             v1 = self.vars['v1_h']
@@ -307,7 +311,9 @@ class GPR_GD(GPR):
     def fit(self, X_train, y_train, ridge=DEFAULT_RIDGE):
         super(GPR_GD, self).fit(X_train, y_train, ridge)
 
-        with tf.Session(graph=self.graph) as sess:
+        #with tf.Session(graph=self.graph) as sess:
+        with tf.Session(graph=self.graph, config=tf.ConfigProto(
+                intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
             xt_ = tf.Variable(self.X_train[0], tf.float32)
             xt_ph = tf.placeholder(tf.float32)
             xt_assign_op = xt_.assign(xt_ph)
@@ -356,7 +362,9 @@ class GPR_GD(GPR):
         minLs = np.zeros([test_size, 1])
         minL_confs = np.zeros([test_size, nfeats])
 
-        with tf.Session(graph=self.graph) as sess:
+        #with tf.Session(graph=self.graph) as sess:
+        with tf.Session(graph=self.graph, config=tf.ConfigProto(
+                intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
             while arr_offset < test_size:
                 if arr_offset + GPR.BATCH_SIZE > test_size:
                     end_offset = test_size
