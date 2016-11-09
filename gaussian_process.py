@@ -145,10 +145,6 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             X_train = X_client
             y_train = y_client
             client_data_idxs = np.arange(X_train.data.shape[0])
-        hps = get_hyperparameters(exp.dbms.name,
-                                  client_data_idxs,
-                                  X_train.data.shape[0],
-                                  workload_name)
 
         # Encode/scale X_train
         if encoder is not None:
@@ -199,16 +195,17 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
     
     with stopwatch() as t:
         # Run GPR/GD
-        if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
-            sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=num_observations,
-                                                                 ndim=X_train.data.shape[1],
-                                                                 bound=0.1)
-        else:
-            # Const
-            sigma_multiplier = 3.0
+        hps = get_hyperparameters(client_data_idxs,
+                                  X_train.data.shape[0],
+                                  X_train.data.shape[1],
+                                  num_observations)
+        sigma_multiplier = hps['sigma_multiplier']
+        mu_multiplier = hps['mu_multiplier']
         assert np.all(np.isfinite(sigma_multiplier))
         tuner.append_stat("gpr_sigma_multiplier", sigma_multiplier)
-        print "SIGMA MULTIPLIER: {0:.2f}".format(sigma_multiplier)
+        print "\nhyperparameters:"
+        print hps
+        print ""
 
         constraint_helper = ParamConstraintHelper(params, X_scaler, encoder)
 
@@ -222,7 +219,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
         if cat_method == "hillclimbing":
             gpr = GPR_GD(length_scale=hps['length_scale'],
                          magnitude=hps['magnitude'],
-                         sigma_multiplier=sigma_multiplier)
+                         sigma_multiplier=sigma_multiplier,
+                         mu_multiplier=mu_multiplier)
             gpr.fit(X_train.data, y_train.data, hps['ridge'])
             gpres = gpr.predict(search_data, constraint_helper)
         elif cat_method == "sampling":
@@ -248,7 +246,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             # Run gradient descent on numerical features only
             gpr = GPR_GD(length_scale=hps['length_scale'],
                          magnitude=hps['magnitude'],
-                         sigma_multiplier=sigma_multiplier)
+                         sigma_multiplier=sigma_multiplier,
+                         mu_multiplier=mu_multiplier)
             gpr.fit(X_train.data[:, numerical_mask],
                     y_train.data,
                     hps['ridge'])
@@ -314,17 +313,6 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
     
     return convert_to_dbms_config(next_config, featured_knobs)
     
-#     # Decode config into actual config parameters
-#     param_pairs = [(k, v) for k,v in zip(featured_knobs, next_config)]
-#     next_config_params = config_mgr.decode_params(param_pairs)
-#     tuner.append_dbms_config(next_config_params)
-#     for k,v in sorted(next_config_params.iteritems()):
-#         print "{}: {}".format(k,v)
-#     print ""
-#     dbms_config = config_mgr.get_next_config(next_config_params)
-#     #abort_config = EarlyAbortConfig.create_config(latencies_us,abort_threshold_percentage=50)
-#     abort_config = EarlyAbortConfig.get_default_config()
-#     return dbms_config, abort_config
 
 def convert_to_dbms_config(next_config, featured_knobs):
     from experiment import ExpContext, TunerContext
@@ -400,29 +388,60 @@ def get_query_response_times():
     
     return median_exec_times
     
-def get_hyperparameters(dbms, client_indices, ntrain, workload_name=None):
+def get_hyperparameters(client_indices, ntrain, nfeats, t):
     # old defaults: ls=1.7, mag=3.0, ridge=5.0, client_ridge=1.7
+    import os.path
+
+    from .gp_tf import GPR_GD
+    from common.typeutil import to_float
+    from experiment import ExpContext, TunerContext
+    from globals import Paths
+
+    exp = ExpContext()
+    tuner = TunerContext()
+    dbms = exp.dbms.name
+    benchmark = exp.benchmark.bench_name
+    filename = "{}_{}_hyperparameters.txt".format(dbms, benchmark)
+    path = os.path.join(Paths.BASEDIR, "analysis",
+                        "gp_hyperparameters", filename)
+    assert os.path.exists(path), "Path does not exist: {}".format(path)
+
+    required_params = ['length_scale',
+                       'magnitude',
+                       'train_ridge',
+                       'test_ridge']
+    optional_params = ['sigma_multiplier',
+                       'mu_multiplier']
+    with open(path, 'r') as f:
+        lines = f.readlines()
+
     hyperparams = {}
-    if dbms == "postgres":
-        ls = 10.0
-        mag = 3.0
-        ridge = 7.85
-        client_ridge = 5.0
-    elif dbms == "mysql":
-        ls = 10.0
-        mag = 9.0
-        ridge = 6.0
-        client_ridge = 3.0
-    elif dbms == "vectorwise":
-        ls = 10.0
-        mag = 7.0
-        ridge = 2
-        client_ridge = 1
-    else:
-        raise Exception("Invalid DBMS: {}".format(dbms))
-    hyperparams['length_scale'] = ls
-    hyperparams['magnitude'] = mag
-    hyperparams['ridge'] = np.ones((ntrain,)) * ridge
-    hyperparams['ridge'][client_indices] = client_ridge
+    for line in lines:
+        pname,pval = line.strip().split('=')
+        assert pname in required_params or \
+                pname in optional_params
+        pval = to_float(pval)
+        assert pval is not None
+        hyperparams[pname] = pval
+
+    for param in required_params:
+        assert param in hyperparams, "Missing {}".format(param)
+
+    ridge = np.ones(ntrain) * hyperparams['train_ridge']
+    ridge[client_indices] = hyperparams['test_ridge']
+    hyperparams['ridge'] = ridge
+
+    if 'mu_multiplier' not in hyperparams:
+        hyperparams['mu_multiplier'] = 1.0
+    if 'sigma_multiplier' not in hyperparams:
+        if (tuner.gp_beta == GPR_GD.GP_BETA_UCB):
+            sigma_multiplier = GPR_GD.calculate_sigma_multiplier(t=t,
+                                                                 ndim=nfeats,
+                                                                 bound=0.1)
+        else:
+            # Const
+            sigma_multiplier = 3.0
+        hyperparams['sigma_multiplier'] = sigma_multiplier
+
     return hyperparams
 

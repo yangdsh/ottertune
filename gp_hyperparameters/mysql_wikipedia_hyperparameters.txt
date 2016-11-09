@@ -1,0 +1,4 @@
+length_scale=0.5
+magnitude=3.0
+train_ridge=5.0
+test_ridge=1.7
