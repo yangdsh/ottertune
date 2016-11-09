@@ -352,8 +352,15 @@ def get_next_lhs_config(sampler, featured_knobs):
     assert next_sample is not None
     for i,knob_name in enumerate(sample_feat_knobs):
         param = config_mgr._find_param(knob_name)
-        if param.unit == "bytes":
-            next_sample[i] = np.floor(2**next_sample[i])
+        if param.iscategorical:
+            true_vals = param.valid_values
+            val_idx = int(next_sample[i])
+            assert val_idx >= 0 and val_idx < len(true_vals), \
+                    "idx={}, # vals = {}".format(val_idx, len(true_vals))
+            next_sample[i] = val_idx
+        else:
+            if param.unit == "bytes":
+                next_sample[i] = np.floor(2**next_sample[i])
 
     dbms_config, abort_config = convert_to_dbms_config(next_sample, sample_feat_knobs)
     

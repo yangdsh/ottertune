@@ -67,18 +67,22 @@ class LHSSampler(object):
             scales = np.empty(n_feats)
             for i,fname in enumerate(feat_names):
                 p = config_mgr._find_param(fname)
-                if p.true_range is None:
-                    true_vals = p.true_values
-                    assert true_vals is not None
-                    pmin,pmax = true_vals[0], true_vals[-1]
+                if p.iscategorical:
+                    true_vals = p.valid_values
+                    pmin,pmax = 0, len(true_vals) - 1e-6
                 else:
-                    pmin,pmax = p.true_range
-
-                if p.unit == "bytes":
-                    if pmin <= 0:
-                        pmin = 1
-                    pmin = np.ceil(np.log2(pmin))
-                    pmax = np.floor(np.log2(pmax))
+                    if p.true_range is None:
+                        true_vals = p.true_values
+                        assert true_vals is not None
+                        pmin,pmax = true_vals[0], true_vals[-1]
+                    else:
+                        pmin,pmax = p.true_range
+    
+                    if p.unit == "bytes":
+                        if pmin <= 0:
+                            pmin = 1
+                        pmin = np.ceil(np.log2(pmin))
+                        pmax = np.floor(np.log2(pmax))
                     
                 locs[i] = pmin
                 scales[i] = pmax - pmin
