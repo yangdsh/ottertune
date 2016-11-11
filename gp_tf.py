@@ -391,7 +391,7 @@ class GPR_GD(GPR):
                 minL = np.empty((batch_len, 1))
                 minL_conf = np.empty((batch_len, nfeats))
                 for i in range(batch_len):
-                    #print "-------------------------------------------"
+                    print "-------------------------------------------"
                     yhats_it = np.empty((self.max_iter+1,)) * np.nan
                     sigmas_it = np.empty((self.max_iter+1,)) * np.nan
                     losses_it = np.empty((self.max_iter+1,)) * np.nan
@@ -400,15 +400,15 @@ class GPR_GD(GPR):
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
                         try:
-                            #print "Sample {}, iter {}:".format(i, step)
+                            print "Sample {}, iter {}:".format(i, step)
                             yhats_it[step] = sess.run(yhat_gd)[0][0]
                             sigmas_it[step] = sess.run(sig_val)[0][0]
                             losses_it[step] = sess.run(Loss)
                             confs_it[step] = sess.run(xt_)
-                            #print "    yhat:  {}".format(yhats_it[step])
-                            #print "    sigma: {}".format(sigmas_it[step])
-                            #print "    loss:  {}".format(losses_it[step])
-                            #print "    conf:  {}".format(confs_it[step])
+                            print "    yhat:  {}".format(yhats_it[step])
+                            print "    sigma: {}".format(sigmas_it[step])
+                            print "    loss:  {}".format(losses_it[step])
+                            print "    conf:  {}".format(confs_it[step])
                             sess.run(train)
                             if constraint_helper is not None:
                                 xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
