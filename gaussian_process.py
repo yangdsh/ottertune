@@ -220,7 +220,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             gpr = GPR_GD(length_scale=hps['length_scale'],
                          magnitude=hps['magnitude'],
                          sigma_multiplier=sigma_multiplier,
-                         mu_multiplier=mu_multiplier)
+                         mu_multiplier=mu_multiplier,
+                         learning_rate=hps['learning_rate'])
             gpr.fit(X_train.data, y_train.data, hps['ridge'])
             gpres = gpr.predict(search_data, constraint_helper)
         elif cat_method == "sampling":
@@ -247,7 +248,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
             gpr = GPR_GD(length_scale=hps['length_scale'],
                          magnitude=hps['magnitude'],
                          sigma_multiplier=sigma_multiplier,
-                         mu_multiplier=mu_multiplier)
+                         mu_multiplier=mu_multiplier,
+                         learning_rate=hps['learning_rate'])
             gpr.fit(X_train.data[:, numerical_mask],
                     y_train.data,
                     hps['ridge'])
