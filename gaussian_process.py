@@ -10,8 +10,8 @@ import numpy as np
 from common.timeutil import stopwatch
 
 JITTER = 1e-6
-N_LOCAL_POINTS = 20
-N_GLOBAL_POINTS = 100
+N_LOCAL_POINTS = 5
+N_GLOBAL_POINTS = 15
 
 def get_next_config(X_client, y_client, workload_name=None, sampler=None):
     from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -449,6 +449,8 @@ def get_hyperparameters(client_indices, ntrain, nfeats, t):
             # Const
             sigma_multiplier = 3.0
         hyperparams['sigma_multiplier'] = sigma_multiplier
+    if 'learning_rate' not in hyperparams:
+        hyperparams['learning_rate'] = 0.01
 
     return hyperparams
 
