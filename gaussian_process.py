@@ -420,7 +420,8 @@ def get_hyperparameters(client_indices, ntrain, nfeats, t):
                        'train_ridge',
                        'test_ridge']
     optional_params = ['sigma_multiplier',
-                       'mu_multiplier']
+                       'mu_multiplier',
+                       'learning_rate']
     with open(path, 'r') as f:
         lines = f.readlines()
 
