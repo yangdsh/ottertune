@@ -211,6 +211,8 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
 
         # If there aren't any categorical params then simply
         # run hillclimbing method
+        if exp.dbms.name == "greenplum":
+            cat_method = "simple"
         if constraint_helper.num_categorical_params == 0:
             cat_method = "hillclimbing"
         else:
@@ -297,6 +299,20 @@ def get_next_config(X_client, y_client, workload_name=None, sampler=None):
                                  sigmas=np.array(final_sigmas),
                                  minL=np.array(final_minLs),
                                  minL_conf=np.array(final_confs))
+        elif cat_method == "simple":
+            print "PERFORMING SIMPLE GPR!!!"
+            gpr = GPR(length_scale=hps['length_scale'],
+                      magnitude=hps['magnitude'])
+            gpr.fit(X_train.data,
+                    y_train.data,
+                    hps['ridge'])
+            gpres_initial = gpr.predict(search_data)
+            minLs = gpres_initial.ypreds[:,0] - sigma_multiplier * gpres_initial.sigmas[:,0]
+            gpres = GPR_GDResult(gpres_initial.ypreds,
+                                 gpres_initial.sigmas,
+                                 minLs,
+                                 search_data)
+            
         else:
             raise Exception("Unknown categorical feature method: {}"
                             .format(tuner.categorical_feature_method))
