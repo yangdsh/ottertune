@@ -100,6 +100,10 @@ def run_lasso(dbms, basepaths, savedir, featured_metrics, knobs_to_ignore,
     with stopwatch("lasso paths"):
         # Fit the model to calculate the components
         alphas, coefs, _ = get_coef_range(X.data, y.data)
+    # Save model
+    np.savez(os.path.join(savedir, "lasso_path.npz"),
+             alphas=alphas,
+             coefs=coefs)
     
     with stopwatch("lasso processing"):
         nfeats = X.columnlabels.shape[0]
