@@ -68,7 +68,7 @@ def run_lasso(dbms, basepaths, savedir, featured_metrics, knobs_to_ignore,
         print "\ncolumnlabels:",X.columnlabels
         
         # Dummy-code categorical features
-        cat_feat_indices, n_values = dummy_encoder_helper(dbms, X.columnlabels)
+        n_values,cat_feat_indices,_  = dummy_encoder_helper(dbms, X.columnlabels)
         if len(cat_feat_indices) > 0:
             encoder = DummyEncoder(n_values, cat_feat_indices)
             encoder.fit(X.data, columnlabels=X.columnlabels)
