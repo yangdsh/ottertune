@@ -21,7 +21,7 @@ def get_featured_metrics(dbms, cluster, benchmark=None, num_clusters=None):
     path = "{}_{}".format(dbms, cluster)
     if benchmark is not None:
         path  += "_{}".format(benchmark)
-    
+
     datadir = os.path.join(Paths.DATADIR,
                            "factor_analysis",
                            path)
@@ -36,11 +36,11 @@ def get_featured_metrics(dbms, cluster, benchmark=None, num_clusters=None):
 
 def get_featured_knobs(dbms, cluster, benchmark=None):
     from globals import Paths
-    
-    path = "{}_{}".format(dbms, cluster)
+
+    path = "final_{}_{}".format(dbms, cluster)
     if benchmark is not None:
         path  += "_{}".format(benchmark)
-    
+
     datadir = os.path.join(Paths.DATADIR,
                            "lasso",
                            path)
@@ -99,7 +99,7 @@ def get_knob_range(dbms, cluster):
 
 def combine_workloads(paths, savedirs):
     from collections import Counter
-    
+
     exp_counter = Counter()
     for path in paths:
         y = Matrix.load_matrix(os.path.join(path, "y_data_wkld.npz"))
@@ -111,5 +111,5 @@ def array_tostring(arr):
     arr = arr.ravel()
     arr = np.array([str(a) for a in arr])
     return arr.reshape(arr_shape)
-    
-        
+
+
