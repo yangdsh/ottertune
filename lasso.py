@@ -55,9 +55,10 @@ def run_lasso(dbms, basepaths, savedir, featured_metrics, knobs_to_ignore,
     with stopwatch("preprocessing"):
         # Filter out columns with near zero standard
         # deviation (i.e., constant columns)
-        column_mask = ~stdev_zero(y.data, axis=0)
-        filtered_columns = y.columnlabels[column_mask]
-        y = y.filter(filtered_columns, 'columns')
+        if y.shape[1] > 1:
+            column_mask = ~stdev_zero(y.data, axis=0)
+            filtered_columns = y.columnlabels[column_mask]
+            y = y.filter(filtered_columns, 'columns')
         column_mask = ~stdev_zero(X.data, axis=0)
         removed_columns = X.columnlabels[~column_mask]
         print "removed columns = {}".format(removed_columns)
