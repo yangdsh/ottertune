@@ -7,7 +7,8 @@ Created on Jul 8, 2016
 from collections import Counter
 import numpy as np
 import os.path
-from sklearn.linear_model import enet_path
+#from sklearn.linear_model import enet_path
+from sklearn.linear_model import lasso_path
 from sklearn.preprocessing import StandardScaler
 
 from .matrix import Matrix
@@ -18,8 +19,19 @@ from common.timeutil import stopwatch
 def get_coef_range(X, y):
     print "starting experiment"
     with stopwatch("lasso paths"):
-        alphas, coefs, dual_gaps = enet_path(X, y, l1_ratio=1.0, verbose=True,
-                return_models=False, positive=False, max_iter=1000)
+        #alphas, coefs, dual_gaps = enet_path(X, y, 
+        #                                     l1_ratio=1.0, 
+        #                                     verbose=True,
+        #                                     return_models=False, 
+        #                                     positive=False, 
+        #                                     max_iter=1000)
+
+        alphas, coefs, dual_gaps = lasso_path(X, y, 
+                                             #l1_ratio=1.0, 
+                                             verbose=True,
+                                             #return_models=False, 
+                                             positive=False, 
+                                             max_iter=1000)
 
     return alphas, coefs, dual_gaps
 
@@ -104,7 +116,9 @@ def run_lasso(dbms, basepaths, savedir, featured_metrics, knobs_to_ignore,
     # Save model
     np.savez(os.path.join(savedir, "lasso_path.npz"),
              alphas=alphas,
-             coefs=coefs)
+             coefs=coefs,
+             feats=X.columnlabels,
+             metrics=y.columnlabels)
     
     with stopwatch("lasso processing"):
         nfeats = X.columnlabels.shape[0]
@@ -232,7 +246,9 @@ class Lasso(object):
         alpha_idx = self._master_idxs[self._master_sorted_idxs][:n][-1]
         max_alpha_idx = len(self._alphas) - 1
         alpha_idx = alpha_idx+1 if alpha_idx < max_alpha_idx else max_alpha_idx
-        top_coefs = self.get_top_coefs(n=n)[:,alpha_idx]
+        top_coefs = self.get_top_coefs(n=n)
+        print "top_coefs_shape={}, alpha_idx={}, n={}".format(top_coefs.shape, alpha_idx, n)
+        top_coefs = top_coefs[:,int(alpha_idx)]
 
         # Print summary
         c1 = len("RANK") + 2

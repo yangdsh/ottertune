@@ -37,7 +37,7 @@ def get_featured_metrics(dbms, cluster, benchmark=None, num_clusters=None):
 def get_featured_knobs(dbms, cluster, benchmark=None):
     from globals import Paths
 
-    path = "final_{}_{}".format(dbms, cluster)
+    path = "{}_{}".format(dbms, cluster)
     if benchmark is not None:
         path  += "_{}".format(benchmark)
 

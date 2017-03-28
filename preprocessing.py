@@ -306,14 +306,21 @@ class PolynomialFeatures(Preprocess):
         if n_features != self.n_input_features_:
             raise ValueError("X shape does not match training shape")
 
+        is_numeric_type = is_numeric_matrix(matrix)
+        is_lexical_type = is_lexical_matrix(matrix)
+        if is_lexical_type:
+            strs = matrix.reshape((matrix.size,))
+            maxlen = max([len(s) for s in strs])
+            dtype = "S{}".format(maxlen * 2 + 1)
+        else:
+            dtype = matrix.dtype
+
         # allocate output data
-        poly_matrix = np.empty((n_samples, self.n_output_features_), dtype=matrix.dtype)
+        poly_matrix = np.empty((n_samples, self.n_output_features_), dtype=dtype)
 
         combinations = self._combinations(n_features, self.degree_,
                                           self.interaction_only_,
                                           self.include_bias_)
-        is_numeric_type = is_numeric_matrix(matrix)
-        is_lexical_type = is_lexical_matrix(matrix)
         for i, c in enumerate(combinations):
             if is_numeric_type:
                 poly_matrix[:, i] = matrix[:, c].prod(1)
