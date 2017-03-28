@@ -145,6 +145,26 @@ class Matrix(object):
         else:
             return newmatrix
     
+    def shuffle_matrix(self, rows_or_columns, shuffle_indices=None):
+        from .preprocessing import get_shuffle_indices
+        
+        assert rows_or_columns == 'rows' or rows_or_columns == 'columns'
+        length = self.shape[0] if rows_or_columns == 'rows' else self.shape[1]
+        if shuffle_indices is not None:
+            assert shuffle_indices.ndim == 1 and shuffle_indices.size == length
+        else:
+            shuffle_indices = get_shuffle_indices(length)
+
+        if rows_or_columns == 'rows':
+            newmatrix = Matrix(self.data[shuffle_indices],
+                               self.rowlabels[shuffle_indices],
+                               self.columnlabels.copy())
+        else:
+            newmatrix = Matrix(self.data[:, shuffle_indices],
+                               self.rowlabels.copy(),
+                               self.columnlabels[shuffle_indices])
+        return newmatrix, shuffle_indices
+    
     def _check_invariants(self):
         assert self.__data is not None
         assert self.__rowlabels is not None
