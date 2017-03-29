@@ -145,7 +145,7 @@ class Matrix(object):
         else:
             return newmatrix
     
-    def shuffle_matrix(self, rows_or_columns, shuffle_indices=None):
+    def shuffle_matrix(self, rows_or_columns, shuffle_indices=None, seed=None):
         from .preprocessing import get_shuffle_indices
         
         assert rows_or_columns == 'rows' or rows_or_columns == 'columns'
@@ -153,7 +153,7 @@ class Matrix(object):
         if shuffle_indices is not None:
             assert shuffle_indices.ndim == 1 and shuffle_indices.size == length
         else:
-            shuffle_indices = get_shuffle_indices(length)
+            shuffle_indices = get_shuffle_indices(length, seed)
 
         if rows_or_columns == 'rows':
             newmatrix = Matrix(self.data[shuffle_indices],
