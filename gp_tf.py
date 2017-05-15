@@ -4,6 +4,7 @@ Created on Aug 18, 2016
 @author: Bohan Zhang, Dana Van Aken
 '''
 
+import sys
 import numpy as np
 import tensorflow as tf
 from time import time
@@ -58,8 +59,8 @@ class GPR(object):
             # Nodes for distance computation
             v1 = tf.placeholder(tf.float32, name="v1")
             v2 = tf.placeholder(tf.float32, name="v2")
-            dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(v1, v2), 2), 1), name='dist_op')
-            dist_op = tf.check_numerics(dist_op, "dist_op: ")
+            dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(v1, v2), 2), 1), name='dist_op')
+            #dist_op = tf.check_numerics(dist_op, "dist_op: ")
             
             self.vars['v1_h'] = v1
             self.vars['v2_h'] = v2
@@ -69,9 +70,9 @@ class GPR(object):
             X_dists = tf.placeholder(tf.float32, name='X_dists')
             ridge_ph = tf.placeholder(tf.float32, name='ridge')
             K_op = mag_const * tf.exp(-X_dists / ls_const)
-            K_op = tf.check_numerics(K_op, "K_op: ")
+            #K_op = tf.check_numerics(K_op, "K_op: ")
             K_ridge_op = K_op + tf.diag(ridge_ph)
-            K_ridge_op = tf.check_numerics(K_ridge_op, "K_ridge_op: ")
+            #K_ridge_op = tf.check_numerics(K_ridge_op, "K_ridge_op: ")
             
             self.vars['X_dists_h'] = X_dists
             self.vars['ridge_h'] = ridge_ph
@@ -83,8 +84,10 @@ class GPR(object):
             K_inv = tf.placeholder(tf.float32, name='K_inv')
             xy_ = tf.placeholder(tf.float32, name='xy_')
             yt_ = tf.placeholder(tf.float32, name='yt_')
-            K_inv_op = tf.check_numerics(tf.matrix_inverse(K), "K_inv: ")
-            xy_op = tf.check_numerics(tf.matmul(K_inv, yt_), "xy_: ")
+            K_inv_op = tf.matrix_inverse(K)
+            #K_inv_op = tf.check_numerics(K_inv_op, "K_inv: ")
+            xy_op = tf.matmul(K_inv, yt_)
+            #xy_op = tf.check_numerics(xy_op, "xy_: ")
             
             self.vars['K_h'] = K
             self.vars['K_inv_h'] = K_inv
@@ -97,11 +100,11 @@ class GPR(object):
             K2 = tf.placeholder(tf.float32, name="K2")
             K3 = tf.placeholder(tf.float32, name="K3")
             yhat_ =  tf.cast(tf.matmul( tf.transpose(K2), xy_), tf.float32);
-            yhat_ = tf.check_numerics(yhat_, "yhat_: ")
+            #yhat_ = tf.check_numerics(yhat_, "yhat_: ")
             sv1 = tf.matmul(tf.transpose(K2), tf.matmul(K_inv, K2))
-            sv1 = tf.check_numerics(sv1, "sv1: ")
+            #sv1 = tf.check_numerics(sv1, "sv1: ")
             sig_val = tf.cast((tf.sqrt(tf.diag_part(K3 - sv1))), tf.float32)
-            sig_val = tf.check_numerics(sig_val, "sig_val: ")
+            #sig_val = tf.check_numerics(sig_val, "sig_val: ")
 
             self.vars['K2_h'] = K2
             self.vars['K3_h'] = K3
@@ -110,7 +113,7 @@ class GPR(object):
             
             # Compute y_best (min y)
             y_best_op = tf.cast(tf.reduce_min(yt_, 0, True), tf.float32)
-            y_best_op = tf.check_numerics(y_best_op, "y_best_op: ")
+            #y_best_op = tf.check_numerics(y_best_op, "y_best_op: ")
             self.ops['y_best_op'] = y_best_op
 
             sigma = tf.placeholder(tf.float32, name='sigma')
@@ -317,20 +320,24 @@ class GPR_GD(GPR):
             xt_ = tf.Variable(self.X_train[0], tf.float32)
             xt_ph = tf.placeholder(tf.float32)
             xt_assign_op = xt_.assign(xt_ph)
-            xt_ = tf.check_numerics(xt_, "xt_: ")
-            init = tf.initialize_all_variables()
+            #xt_ = tf.check_numerics(xt_, "xt_: ")
+            init = tf.global_variables_initializer()
             sess.run(init)
-            K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, self.X_train), 2),1)), 0))
-            K2_mat = tf.check_numerics(K2_mat, "K2_mat: ")
+            K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(xt_, self.X_train), 2),1)), 0))
+            #K2_mat = tf.check_numerics(K2_mat, "K2_mat: ")
             K2__ = tf.cast(self.magnitude * tf.exp(-K2_mat/self.length_scale),tf.float32)
-            K2__ = tf.check_numerics(K2__, "K2__: ")
+            #K2__ = tf.check_numerics(K2__, "K2__: ")
             yhat_gd =  tf.cast(tf.matmul( tf.transpose(K2__) , self.xy_),tf.float32)
-            yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
+            #yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
             sig_val = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
-            sig_val = tf.check_numerics(sig_val, message="sigma: ")
+            #sig_val = tf.check_numerics(sig_val, message="sigma: ")
+#             print ""
+#             print "yhat_gd : {}".format(sess.run(yhat_gd))
+#             print ""
+#             print "sig_val : {}".format(sess.run(sig_val))
 
-            Loss = tf.squeeze(tf.sub(self.mu_multiplier * yhat_gd, self.sigma_multiplier * sig_val)) 
-            Loss = tf.check_numerics(Loss, "loss: ")
+            Loss = tf.squeeze(tf.subtract(self.mu_multiplier * yhat_gd, self.sigma_multiplier * sig_val)) 
+            #Loss = tf.check_numerics(Loss, "loss: ")
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate,
                                                epsilon=self.epsilon)
             #optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
@@ -346,10 +353,10 @@ class GPR_GD(GPR):
 
         return self
 
-    def predict(self, X_test, t, constraint_helper=None,
+    def predict(self, X_test, constraint_helper=None,
                 categorical_feature_method='hillclimbing',
                 categorical_feature_steps=3):
-        from tensorflow.python.framework.errors import InvalidArgumentError
+        #from tensorflow.python.framework.errors import InvalidArgumentError
 
         self.check_fitted()
         X_test = np.float32(self.check_array(X_test))
@@ -375,7 +382,7 @@ class GPR_GD(GPR):
                 batch_len = end_offset - arr_offset
 
                 xt_ = self.vars['xt_']
-                init = tf.initialize_all_variables()
+                init = tf.global_variables_initializer()
                 sess.run(init)
 
                 sig_val = self.ops['sig_val2']
@@ -399,35 +406,35 @@ class GPR_GD(GPR):
                     
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
-                        try:
-                            print "Sample {}, iter {}:".format(i, step)
-                            yhats_it[step] = sess.run(yhat_gd)[0][0]
-                            sigmas_it[step] = sess.run(sig_val)[0][0]
-                            losses_it[step] = sess.run(Loss)
-                            confs_it[step] = sess.run(xt_)
-                            print "    yhat:  {}".format(yhats_it[step])
-                            print "    sigma: {}".format(sigmas_it[step])
-                            print "    loss:  {}".format(losses_it[step])
-                            print "    conf:  {}".format(confs_it[step])
-                            sess.run(train)
-                            if constraint_helper is not None:
-                                xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
-                                sess.run(assign_op, feed_dict={xt_ph:xt_valid})
-
-                                if categorical_feature_method == 'hillclimbing':
-                                    if step % categorical_feature_steps == 0:
-                                        current_xt = sess.run(xt_)
-                                        current_loss = sess.run(Loss)
-                                        new_xt = constraint_helper.randomize_categorical_features(current_xt)
-                                        sess.run(assign_op, feed_dict={xt_ph:new_xt})
-                                        new_loss = sess.run(Loss)
-                                        if current_loss < new_loss:
-                                            sess.run(assign_op, feed_dict={xt_ph:current_xt})
-                                else:
-                                    raise Exception("Unknown categorical feature method: {}"
-                                    .format(categorical_feature_method))
-                        except:
-                            break
+#                         try:
+                        print "Sample {}, iter {}:".format(i, step)
+                        yhats_it[step] = sess.run(yhat_gd)[0][0]
+                        sigmas_it[step] = sess.run(sig_val)[0][0]
+                        losses_it[step] = sess.run(Loss)
+                        confs_it[step] = sess.run(xt_)
+                        print "    yhat:  {}".format(yhats_it[step])
+                        print "    sigma: {}".format(sigmas_it[step])
+                        print "    loss:  {}".format(losses_it[step])
+                        print "    conf:  {}".format(confs_it[step])
+                        sess.run(train)
+#                             if constraint_helper is not None:
+#                                 xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
+#                                 sess.run(assign_op, feed_dict={xt_ph:xt_valid})
+# 
+#                                 if categorical_feature_method == 'hillclimbing':
+#                                     if step % categorical_feature_steps == 0:
+#                                         current_xt = sess.run(xt_)
+#                                         current_loss = sess.run(Loss)
+#                                         new_xt = constraint_helper.randomize_categorical_features(current_xt)
+#                                         sess.run(assign_op, feed_dict={xt_ph:new_xt})
+#                                         new_loss = sess.run(Loss)
+#                                         if current_loss < new_loss:
+#                                             sess.run(assign_op, feed_dict={xt_ph:current_xt})
+#                                 else:
+#                                     raise Exception("Unknown categorical feature method: {}"
+#                                     .format(categorical_feature_method))
+#                         except:
+#                             break
                     if step == self.max_iter - 1:
                         # Record results from final iteration
                         yhats_it[-1] = sess.run(yhat_gd)[0][0]
@@ -475,98 +482,115 @@ class GPR_GD(GPR):
         return beta
         
 
-def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3000):
-    with tf.Graph().as_default():
-        y_best = tf.cast(tf.reduce_min(y_train, 0, True), tf.float32)
-        sample_size = X_train.shape[0]
-        train_size = X_test.shape[0]
-        arr_offset = 0
-        yhats = np.zeros([train_size, 1])
-        sigmas = np.zeros([train_size, 1])
-        eips = np.zeros([train_size, 1])
-        X_train = np.float32(X_train)
-        y_train = np.float32(y_train)
-        X_test = np.float32(X_test)
-        ridge = np.float32(ridge)
-    
-        v1 = tf.placeholder(tf.float32,name="v1")
-        v2 = tf.placeholder(tf.float32,name="v2")
-        dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(v1, v2), 2), 1))
-        try:
-            sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
-        
-            dists = np.zeros([sample_size,sample_size])
-            for i in range(sample_size):
-                dists[i] = sess.run(dist_op,feed_dict={v1:X_train[i], v2:X_train})
-        
-        
-            dists = tf.cast(dists, tf.float32)
-            K = magnitude * tf.exp(-dists/length_scale) + tf.diag(ridge);
-        
-            K2 = tf.placeholder(tf.float32, name="K2")
-            K3 = tf.placeholder(tf.float32, name="K3")
-        
-            x = tf.matmul(tf.matrix_inverse(K), y_train)
-            yhat_ =  tf.cast(tf.matmul(tf.transpose(K2), x), tf.float32);
-            sig_val = tf.cast((tf.sqrt(tf.diag_part(K3 -  tf.matmul(tf.transpose(K2),
-                                                                    tf.matmul(tf.matrix_inverse(K),
-                                                                              K2))))),
-                              tf.float32)
-    
-            u = tf.placeholder(tf.float32, name="u")
-            phi1 = 0.5 * tf.erf(u / np.sqrt(2.0)) + 0.5
-            phi2 = (1.0 / np.sqrt(2.0 * np.pi)) * tf.exp(tf.square(u) * (-0.5));
-            eip = (tf.mul(u, phi1) + phi2);
-        
-            while arr_offset < train_size:
-                if arr_offset + batch_size > train_size:
-                    end_offset = train_size
-                else:
-                    end_offset = arr_offset + batch_size;
-        
-                xt_ = X_test[arr_offset:end_offset];
-                batch_len = end_offset - arr_offset
-        
-                dists = np.zeros([sample_size, batch_len])
-                for i in range(sample_size):
-                    dists[i] = sess.run(dist_op, feed_dict={v1:X_train[i], v2:xt_})
-        
-                K2_ = magnitude * tf.exp(-dists / length_scale);
-                K2_ = sess.run(K2_)
-        
-                dists = np.zeros([batch_len, batch_len])
-                for i in range(batch_len):
-                    dists[i] = sess.run(dist_op, feed_dict={v1:xt_[i], v2:xt_})
-                K3_ = magnitude * tf.exp(-dists / length_scale);
-                K3_ = sess.run(K3_)
-        
-                yhat = sess.run(yhat_, feed_dict={K2:K2_})
-        
-                sigma = np.zeros([1, batch_len], np.float32)
-                sigma[0] = (sess.run(sig_val, feed_dict={K2:K2_, K3:K3_}))
-                sigma = np.transpose(sigma)
-        
-                u_ = tf.cast(tf.div(tf.sub(y_best, yhat), sigma), tf.float32)
-                u_ = sess.run(u_)
-                eip_p = sess.run(eip, feed_dict={u:u_})
-                eip_ = tf.mul(sigma, eip_p) 
-                yhats[arr_offset:end_offset] = yhat
-                sigmas[arr_offset:end_offset] =  sigma;
-                eips[arr_offset:end_offset] = sess.run(eip_);
-                arr_offset = end_offset
-            
-        finally:
-            sess.close()
-    
-        return yhats, sigmas, eips
+#def gp_tf(X_train, y_train, X_test, ridge, length_scale, magnitude, batch_size=3000):
+#    with tf.Graph().as_default():
+#        y_best = tf.cast(tf.reduce_min(y_train, 0, True), tf.float32)
+#        sample_size = X_train.shape[0]
+#        train_size = X_test.shape[0]
+#        arr_offset = 0
+#        yhats = np.zeros([train_size, 1])
+#        sigmas = np.zeros([train_size, 1])
+#        eips = np.zeros([train_size, 1])
+#        X_train = np.float32(X_train)
+#        y_train = np.float32(y_train)
+#        X_test = np.float32(X_test)
+#        ridge = np.float32(ridge)
+#    
+#        v1 = tf.placeholder(tf.float32,name="v1")
+#        v2 = tf.placeholder(tf.float32,name="v2")
+#        dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(v1, v2), 2), 1))
+#        try:
+#            sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+#        
+#            dists = np.zeros([sample_size,sample_size])
+#            for i in range(sample_size):
+#                dists[i] = sess.run(dist_op,feed_dict={v1:X_train[i], v2:X_train})
+#        
+#        
+#            dists = tf.cast(dists, tf.float32)
+#            K = magnitude * tf.exp(-dists/length_scale) + tf.diag(ridge);
+#        
+#            K2 = tf.placeholder(tf.float32, name="K2")
+#            K3 = tf.placeholder(tf.float32, name="K3")
+#        
+#            x = tf.matmul(tf.matrix_inverse(K), y_train)
+#            yhat_ =  tf.cast(tf.matmul(tf.transpose(K2), x), tf.float32);
+#            sig_val = tf.cast((tf.sqrt(tf.diag_part(K3 -  tf.matmul(tf.transpose(K2),
+#                                                                    tf.matmul(tf.matrix_inverse(K),
+#                                                                              K2))))),
+#                              tf.float32)
+#    
+#            u = tf.placeholder(tf.float32, name="u")
+#            phi1 = 0.5 * tf.erf(u / np.sqrt(2.0)) + 0.5
+#            phi2 = (1.0 / np.sqrt(2.0 * np.pi)) * tf.exp(tf.square(u) * (-0.5));
+#            eip = (tf.multiply(u, phi1) + phi2);
+#        
+#            while arr_offset < train_size:
+#                if arr_offset + batch_size > train_size:
+#                    end_offset = train_size
+#                else:
+#                    end_offset = arr_offset + batch_size;
+#        
+#                xt_ = X_test[arr_offset:end_offset];
+#                batch_len = end_offset - arr_offset
+#        
+#                dists = np.zeros([sample_size, batch_len])
+#                for i in range(sample_size):
+#                    dists[i] = sess.run(dist_op, feed_dict={v1:X_train[i], v2:xt_})
+#        
+#                K2_ = magnitude * tf.exp(-dists / length_scale);
+#                K2_ = sess.run(K2_)
+#        
+#                dists = np.zeros([batch_len, batch_len])
+#                for i in range(batch_len):
+#                    dists[i] = sess.run(dist_op, feed_dict={v1:xt_[i], v2:xt_})
+#                K3_ = magnitude * tf.exp(-dists / length_scale);
+#                K3_ = sess.run(K3_)
+#        
+#                yhat = sess.run(yhat_, feed_dict={K2:K2_})
+#        
+#                sigma = np.zeros([1, batch_len], np.float32)
+#                sigma[0] = (sess.run(sig_val, feed_dict={K2:K2_, K3:K3_}))
+#                sigma = np.transpose(sigma)
+#        
+#                u_ = tf.cast(tf.div(tf.subtract(y_best, yhat), sigma), tf.float32)
+#                u_ = sess.run(u_)
+#                eip_p = sess.run(eip, feed_dict={u:u_})
+#                eip_ = tf.multiply(sigma, eip_p) 
+#                yhats[arr_offset:end_offset] = yhat
+#                sigmas[arr_offset:end_offset] =  sigma;
+#                eips[arr_offset:end_offset] = sess.run(eip_);
+#                arr_offset = end_offset
+#            
+#        finally:
+#            sess.close()
+#    
+#        return yhats, sigmas, eips
 
-def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
+def euclidean_mat(X,Y,sess):
+    x_n = X.shape[0]
+    y_n = Y.shape[0] 
+    Z = np.zeros([x_n,y_n])
+    for i in range(x_n):
+        v1 = X[i]
+        tmp = []
+        for j in range(y_n):
+            v2 = Y[j]      
+            tmp.append( tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(v1, v2), 2))))
+        Z[i] = (sess.run(tmp))    
+    return Z 
+
+def gd_tf(xs, ys, xt, ridge, length_scale=1.0, magnitude=1.0, max_iter=50):
+    print "xs = {}".format(xs.shape)
+    print "ys = {}".format(ys.shape)
+    print "xt = {}".format(xt.shape)
     with tf.Graph().as_default():
-        y_best = tf.cast(tf.reduce_min(ys,0,True),tf.float32);   #array
+        #y_best = tf.cast(tf.reduce_min(ys,0,True),tf.float32);   #array
+        #yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
         sample_size = xs.shape[0]
         nfeats = xs.shape[1]
         test_size = xt.shape[0]
-        arr_offset = 0
+        #arr_offset = 0
         ini_size = xt.shape[0]
     
         yhats = np.zeros([test_size,1])
@@ -579,15 +603,16 @@ def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
         ############## 
         xt_ = tf.Variable(xt[0],tf.float32) 
     
-        sess = tf.Session()
-        init = tf.initialize_all_variables()
+        #sess = tf.Session()
+        sess = tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8))
+        init = tf.global_variables_initializer()
         sess.run(init)
     
         ridge = np.float32(ridge)
 
         v1 = tf.placeholder(tf.float32,name="v1")
         v2 = tf.placeholder(tf.float32,name="v2")
-        dist = tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(v1, v2), 2),1))
+        dist = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(v1, v2), 2),1))
     
         tmp = np.zeros([sample_size,sample_size])
         for i in range(sample_size):
@@ -596,20 +621,29 @@ def gd_tf(xs, ys, xt, ridge, length_scale, magnitude, max_iter):
     
         tmp = tf.cast(tmp,tf.float32)
         K = magnitude * tf.exp(-tmp/length_scale) + tf.diag(ridge);
+        #print "K = {}".format(sess.run(K).shape)
     
-        K2_mat =  tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(xt_, xs), 2),1))
+        K2_mat =  tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(xt_, xs), 2),1))
         K2_mat = tf.transpose(tf.expand_dims(K2_mat,0))
-        K2 = tf.cast(magnitude * tf.exp(-K2_mat/length_scale),tf.float32)
+        K2 = tf.cast(tf.exp(-K2_mat/length_scale),tf.float32)
     
         x = tf.matmul(tf.matrix_inverse(K) , ys)
+        x = sess.run(x)
         yhat_ =  tf.cast(tf.matmul( tf.transpose(K2) ,x),tf.float32)
         sig_val = tf.cast((tf.sqrt(magnitude -  tf.matmul( tf.transpose(K2) ,tf.matmul(tf.matrix_inverse(K) , K2)) )),tf.float32)
     
-        Loss = tf.squeeze(tf.sub(yhat_,sig_val))
-    #    optimizer = tf.train.GradientDescentOptimizer(0.1)    
+        print sess.run(yhat_).shape
+        print sess.run(sig_val).shape
+        yhat_ = tf.check_numerics(yhat_, message='yhat: ')
+        sig_val = tf.check_numerics(sig_val, message='sig_val: ')
+        Loss = tf.squeeze(tf.subtract(yhat_,sig_val))
+        Loss = tf.check_numerics(Loss, message='Loss: ')
+    #    optimizer = tf.train.GradientDescentOptimizer(0.1)
+        print sess.run(Loss)
+        #sys.exit(0) 
         optimizer = tf.train.AdamOptimizer(0.1)
         train = optimizer.minimize(Loss)
-        init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
         sess.run(init)
 
         for i in range(ini_size):
@@ -660,19 +694,19 @@ def check_equivalence():
 
 def check_gd_equivalence():
     X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=2)
-#     print "Running GPR method..."
-#     start = time()
-#     yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
-#                                length_scale, magnitude)
-#     print "Done."
-#     print "GPR method: {0:.3f} seconds\n".format(time() - start)
-        
-    print "Running GD method..."
-    start = time()
-    yhats1, sigmas1, minL, minL_conf = gd_tf(X_train, y_train, X_test, ridge,
-                                  length_scale, magnitude, max_iter=5)
-    print "Done."
-    print "GD method: {0:.3f} seconds\n".format(time() - start)
+    #print "Running GPR method..."
+    #start = time()
+    #yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
+    #                            length_scale, magnitude)
+    #print "Done."
+    #print "GPR method: {0:.3f} seconds\n".format(time() - start)
+       
+#    print "Running GD method..."
+#    start = time()
+#    yhats1, sigmas1, minL, minL_conf = gd_tf(X_train, y_train, X_test, ridge,
+#                                  length_scale, magnitude, max_iter=5)
+#    print "Done."
+#    print "GD method: {0:.3f} seconds\n".format(time() - start)
       
 #     print "Running GPR class..."
 #     start = time()
@@ -692,10 +726,10 @@ def check_gd_equivalence():
 #     assert np.allclose(sigmas1, sigmas3, atol=1e-4)
 #     assert np.allclose(yhats1, gpres1.ypreds, atol=1e-4)
 #     assert np.allclose(sigmas1, gpres1.sigmas, atol=1e-4)
-    assert np.allclose(yhats1, gpres2.ypreds, atol=1e-4)
-    assert np.allclose(sigmas1, gpres2.sigmas, atol=1e-4)
-    assert np.allclose(minL, gpres2.minL, atol=1e-4)
-    assert np.allclose(minL_conf, gpres2.minL_conf, atol=1e-4)
+    #assert np.allclose(yhats1, gpres2.ypreds, atol=1e-4)
+    #assert np.allclose(sigmas1, gpres2.sigmas, atol=1e-4)
+    #assert np.allclose(minL, gpres2.minL, atol=1e-4)
+    #assert np.allclose(minL_conf, gpres2.minL_conf, atol=1e-4)
 
 def test_constraints():
     import os.path
