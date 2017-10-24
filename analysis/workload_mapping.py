@@ -7,9 +7,9 @@ Created on Jul 11, 2016
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import os.path, sys
+import os.path
 import gc, copy
-import glob, zlib
+import zlib
 import dill as pickle
 import multiprocessing
 import numpy as np
@@ -17,12 +17,10 @@ import operator
 from sklearn.preprocessing import StandardScaler
 
 from .gp_tf import GPR
-from .matrix import Matrix
+from common.matrix import Matrix
 from .util import get_unique_matrix
 import analysis.preprocessing as prep
-from experiment import ExpContext, TunerContext
-from globals import Paths
-from common.timeutil import stopwatch
+from .util import stopwatch
 
 class WorkloadState(object):
 
@@ -93,25 +91,24 @@ class WorkloadMapper(object):
     POOL_SIZE = 8
     MAX_SAMPLES = 5000
     
-    def __init__(self, verbose=False):
-        exp = ExpContext()
-        tuner = TunerContext()
+    def __init__(self, dbms_name, featured_knobs, featured_metrics,
+                 target_workload_name, workload_repo_dirs, verbose=False):
         self.verbose_ = verbose
         self.workload_states_ = None
-        
-        dbms = exp.dbms.name
-        cluster = exp.server.instance_type
-        workload_dirs = glob.glob(os.path.join(Paths.DATADIR,
-                                               "analysis*{}*{}*".format(dbms,
-                                                                        cluster)))
-        if tuner.incremental_knob_selection:
-            self.featured_knobs_ = tuner.get_n_featured_knobs(tuner.max_knobs)
-        else:
-            self.featured_knobs_ = tuner.featured_knobs
+        self.dbms_name_ = dbms_name
 
-        target_wkld_desc = exp.exp_id(exp.benchmark)
-        self.workload_dirs_ = [w for w in workload_dirs if not \
-                               w.endswith(target_wkld_desc)]
+#         workload_dirs = glob.glob(os.path.join(Paths.DATADIR,
+#                                                "analysis*{}*{}*".format(dbms,
+#                                                                         cluster)))
+#         if tuner.incremental_knob_selection:
+#             self.featured_knobs_ = tuner.get_n_featured_knobs(tuner.max_knobs)
+#         else:
+        self.featured_knobs_ = featured_knobs
+        self.featured_metrics_ = featured_metrics
+
+#         target_wkld_desc = exp.exp_id(exp.benchmark)
+        self.workload_dirs_ = [w for w in workload_repo_dirs if not \
+                               w.endswith(target_workload_name)]
         assert len(self.workload_dirs_) > 0
 
         pool_size = min(len(self.workload_dirs_), self.POOL_SIZE)
@@ -124,14 +121,11 @@ class WorkloadMapper(object):
         gc.collect()
 
     def initialize_models(self):
-        exp = ExpContext()
-        tuner = TunerContext()
-
         if self.verbose_:
             print ("Initializing models for # knobs={}\n"
                    .format(self.featured_knobs_.size))
         with stopwatch("workload mapping model creation"):
-            n_values, cat_indices, params = prep.dummy_encoder_helper(exp.dbms.name,
+            n_values, cat_indices, params = prep.dummy_encoder_helper(self.dbms_name,
                                                                       self.featured_knobs_)
             if n_values.size > 0:
                 self.dummy_encoder_ = prep.DummyEncoder(n_values, cat_indices)
@@ -147,9 +141,9 @@ class WorkloadMapper(object):
                 X = Matrix.load_matrix(Xpath)
                 y = Matrix.load_matrix(ypath)
                 X = X.filter(self.featured_knobs_, "columns")
-                y = y.filter(tuner.featured_metrics, "columns")
+                y = y.filter(self.featured_metrics_, "columns")
                 assert np.array_equal(X.columnlabels, self.featured_knobs_)
-                assert np.array_equal(y.columnlabels, tuner.featured_metrics)
+                assert np.array_equal(y.columnlabels, self.featured_metrics_)
                 assert np.array_equal(X.rowlabels, y.rowlabels)
                 num_samples = X.shape[0]
                 if num_samples > self.MAX_SAMPLES:
@@ -217,7 +211,7 @@ class WorkloadMapper(object):
             self.workload_states_ = dict(res)
 
     def map_workload(self, X_client, y_client):
-        tuner = TunerContext()
+#         tuner = TunerContext()
 
         with stopwatch("workload mapping - preprocessing"):
 #             # Recompute the GPR models if the # of knobs to tune has
@@ -235,7 +229,7 @@ class WorkloadMapper(object):
 
             # Filter be featured knobs & metrics
             X_client = X_client.filter(self.featured_knobs_, "columns")
-            y_client = y_client.filter(tuner.featured_metrics, "columns")
+            y_client = y_client.filter(self.featured_metrics_, "columns")
              
             # Generate unique X,y matrices
             X_client, y_client = get_unique_matrix(X_client, y_client)
@@ -271,12 +265,7 @@ class WorkloadMapper(object):
                     wkld_scores.append(worker_score_workload(item))
 
         sorted_wkld_scores = sorted(wkld_scores, key=operator.itemgetter(1))
-        if tuner.map_to == "worst":
-            sorted_wkld_scores = sorted_wkld_scores[::-1]
-        else:
-            assert tuner.map_to == "best"
-        
-        #if self.verbose_:
+
         print ""
         print "WORKLOAD SCORES"
         for wkld, score in sorted_wkld_scores:

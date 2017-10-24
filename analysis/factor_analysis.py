@@ -11,10 +11,9 @@ from sklearn.decomposition import FactorAnalysis
 from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
-from .matrix import Matrix
+from common.matrix import Matrix
 from .preprocessing import get_shuffle_indices
-from .util import stdev_zero
-from common.timeutil import stopwatch
+from .util import stdev_zero, stopwatch
 
 OPT_METRICS = ["99th_lat_ms", "throughput_req_per_sec"]
 

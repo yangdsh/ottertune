@@ -11,10 +11,10 @@ import os.path
 from sklearn.linear_model import lasso_path
 from sklearn.preprocessing import StandardScaler
 
-from .matrix import Matrix
+from common.matrix import Matrix
 from .preprocessing import PolynomialFeatures, Shuffler, dummy_encoder_helper, DummyEncoder
 from .util import stdev_zero
-from common.timeutil import stopwatch
+from .util import stopwatch
 
 def get_coef_range(X, y):
     print "starting experiment"
