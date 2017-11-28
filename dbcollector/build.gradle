@@ -1,0 +1,38 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'findbugs'
+apply plugin: 'application'
+
+mainClassName = "com.dbcollector.Main"
+
+test.testLogging { exceptionFormat "full"; events "failed", "passed", "skipped" }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    runtime fileTree(dir: 'lib', include: '*.jar')
+    compile group: 'net.sourceforge.collections', name: 'collections-generic', version: '4.01'
+    compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
+    compile group: 'log4j', name: 'log4j', version: '1.2.17'
+    compile group: 'com.google.code.gson', name: 'gson', version: '1.7.2'
+}
+
+findbugs {
+    ignoreFailures = true
+}
+
+tasks.withType(FindBugs) {
+    reports {
+        xml.enabled false
+        html.enabled true
+    }
+}
+
+buildscript{
+    repositories {
+        mavenCentral()
+    }
+}
