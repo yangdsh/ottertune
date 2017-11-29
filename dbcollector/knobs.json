@@ -1,5 +1,5 @@
 {
- "global": {
+ "global": {"global": {
   "DateStyle": "ISO, MDY",
   "IntervalStyle": "postgres",
   "TimeZone": "America/New_York",
@@ -269,6 +269,6 @@
   "xmlbinary": "base64",
   "xmloption": "content",
   "zero_damaged_pages": "off"
- },
+ }},
  "local": null
 }

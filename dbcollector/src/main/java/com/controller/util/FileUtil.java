@@ -15,7 +15,7 @@
  ******************************************************************************/
 
 
-package com.dbcollector.util;
+package com.controller.util;
 
 import java.io.*;
 

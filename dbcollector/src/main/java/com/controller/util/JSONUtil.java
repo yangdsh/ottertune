@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector.util;
+package com.controller.util;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,10 +34,10 @@ import java.util.Stack;
 
 import org.apache.log4j.Logger;
 
-import com.dbcollector.util.json.JSONArray;
-import com.dbcollector.util.json.JSONException;
-import com.dbcollector.util.json.JSONObject;
-import com.dbcollector.util.json.JSONStringer;
+import com.controller.util.json.JSONArray;
+import com.controller.util.json.JSONException;
+import com.controller.util.json.JSONObject;
+import com.controller.util.json.JSONStringer;
 
 /**
  * @author pavlo

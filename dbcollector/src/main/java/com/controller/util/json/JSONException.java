@@ -14,18 +14,31 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector.util;
+package com.controller.util.json;
 
-import java.io.IOException;
+/**
+ * The JSONException is thrown by the JSON.org classes then things are amiss.
+ * @author JSON.org
+ * @version 2008-09-18
+ */
+public class JSONException extends Exception {
+    private static final long serialVersionUID = 1L;
+    private Throwable cause;
 
-import com.dbcollector.util.json.JSONException;
-import com.dbcollector.util.json.JSONObject;
-import com.dbcollector.util.json.JSONString;
-import com.dbcollector.util.json.JSONStringer;
+    /**
+     * Constructs a JSONException with an explanatory message.
+     * @param message Detail about the reason for the exception.
+     */
+    public JSONException(String message) {
+        super(message);
+    }
 
-public interface JSONSerializable extends JSONString {
-    public void save(String output_path) throws IOException;
-    public void load(String input_path) throws IOException;
-    public void toJSON(JSONStringer stringer) throws JSONException;
-    public void fromJSON(JSONObject json_object) throws JSONException;
+    public JSONException(Throwable t) {
+        super(t.getMessage());
+        this.cause = t;
+    }
+
+    public Throwable getCause() {
+        return this.cause;
+    }
 }

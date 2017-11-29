@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector.util.json;
+package com.controller.util.json;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -22,7 +22,7 @@ import java.util.Map;
 import java.io.StringWriter;
 
 /**
- * Test class. This file is not formally a member of the com.dbcollector.util.json library.
+ * Test class. This file is not formally a member of the com.controller.util.json library.
  * It is just a casual test tool.
  */
 public class Test {

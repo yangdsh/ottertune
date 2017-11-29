@@ -1,11 +1,11 @@
-package com.dbcollector;
+package com.controller;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 
 /**
- * Created by MacadamiaKitten on 11/20/17.
+ * Controller main.
  */
 public class Main {
     public static void main(String[] args) {

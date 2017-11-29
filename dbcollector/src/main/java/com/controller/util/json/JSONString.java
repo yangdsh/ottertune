@@ -14,49 +14,21 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector;
-
-import com.dbcollector.util.JSONUtil;
-import org.apache.log4j.Logger;
-
-import java.util.Map;
-import java.util.TreeMap;
-
-public class DBCollector implements DBParameterCollector {
-
-    private static final Logger LOG = Logger.getLogger(DBCollector.class);
-
-    static final String JSON_GLOBAL_KEY = "global";
-    static final String JSON_LOCAL_KEY = "local";
-
-    protected final Map<String, String> dbParameters = new TreeMap<String, String>();
-
-    protected final Map<String, String> dbMetrics = new TreeMap<String, String>();
-
-    protected final StringBuilder version = new StringBuilder();
-
-    @Override
-    public boolean hasParameters() {
-        return (dbParameters.isEmpty() == false);
-    }
-
-    @Override
-    public boolean hasMetrics() {
-    	return (dbMetrics.isEmpty() == false);
-    }
-
-    @Override
-    public String collectParameters() {
-    	return JSONUtil.format(JSONUtil.toJSONString(dbParameters));
-    }
-
-    @Override
-    public String collectMetrics() {
-    	return JSONUtil.format(JSONUtil.toJSONString(dbMetrics));
-    }
-
-    @Override
-    public String collectVersion() {
-        return version.toString();
-    }
+package com.controller.util.json;
+/**
+ * The <code>JSONString</code> interface allows a <code>toJSONString()</code> 
+ * method so that a class can change the behavior of 
+ * <code>JSONObject.toString()</code>, <code>JSONArray.toString()</code>,
+ * and <code>JSONWriter.value(</code>Object<code>)</code>. The 
+ * <code>toJSONString</code> method will be used instead of the default behavior 
+ * of using the Object's <code>toString()</code> method and quoting the result.
+ */
+public interface JSONString {
+    /**
+     * The <code>toJSONString</code> method allows a class to produce its own JSON 
+     * serialization. 
+     * 
+     * @return A strictly syntactically correct JSON text.
+     */
+    public String toJSONString();
 }

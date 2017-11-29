@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector.util.json;
+package com.controller.util.json;
 
 /*
 Copyright (c) 2006 JSON.org

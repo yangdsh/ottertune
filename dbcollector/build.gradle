@@ -3,7 +3,7 @@ apply plugin: 'maven'
 apply plugin: 'findbugs'
 apply plugin: 'application'
 
-mainClassName = "com.dbcollector.Main"
+mainClassName = "com.controller.Main"
 
 test.testLogging { exceptionFormat "full"; events "failed", "passed", "skipped" }
 

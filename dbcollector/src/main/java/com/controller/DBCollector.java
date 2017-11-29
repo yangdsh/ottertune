@@ -14,12 +14,49 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.dbcollector;
+package com.controller;
 
-public interface DBParameterCollector {
-    boolean hasParameters();
-    boolean hasMetrics();
-    String collectParameters();
-    String collectMetrics();
-    String collectVersion();
+import com.controller.util.JSONUtil;
+import org.apache.log4j.Logger;
+
+import java.util.Map;
+import java.util.TreeMap;
+
+public class DBCollector implements DBParameterCollector {
+
+    private static final Logger LOG = Logger.getLogger(DBCollector.class);
+
+    static final String JSON_GLOBAL_KEY = "global";
+    static final String JSON_LOCAL_KEY = "local";
+
+    protected final Map<String, String> dbParameters = new TreeMap<String, String>();
+
+    protected final Map<String, String> dbMetrics = new TreeMap<String, String>();
+
+    protected final StringBuilder version = new StringBuilder();
+
+    @Override
+    public boolean hasParameters() {
+        return (dbParameters.isEmpty() == false);
+    }
+
+    @Override
+    public boolean hasMetrics() {
+    	return (dbMetrics.isEmpty() == false);
+    }
+
+    @Override
+    public String collectParameters() {
+    	return JSONUtil.format(JSONUtil.toJSONString(dbParameters));
+    }
+
+    @Override
+    public String collectMetrics() {
+    	return JSONUtil.format(JSONUtil.toJSONString(dbMetrics));
+    }
+
+    @Override
+    public String collectVersion() {
+        return version.toString();
+    }
 }
