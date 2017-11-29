@@ -72,11 +72,16 @@ urlpatterns = [
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', admin.site.urls),
+
+    url(r'^static/(?P<path>.*)$', never_cache(serve)), 
+
 ]
+
 
 if settings.DEBUG:
     import debug_toolbar
 
     urlpatterns = [
         url(r'^__debug__/', include(debug_toolbar.urls)),
-    ] + urlpatterns + [url(r'^static/(?P<path>.*)$', never_cache(serve)), ]
+    ] + urlpatterns
+
