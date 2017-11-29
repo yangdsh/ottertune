@@ -30,12 +30,15 @@ class GPR(object):
     BATCH_SIZE = 3000
     NUM_THREADS = 4
     
-    def __init__(self, length_scale=1.0, magnitude=1.0):
+    def __init__(self, length_scale=1.0, magnitude=1.0, check_numerics=True,
+                 debug=False):
         assert np.isscalar(length_scale)
         assert np.isscalar(magnitude)
         assert length_scale > 0 and magnitude > 0
         self.length_scale = length_scale
         self.magnitude = magnitude
+        self.check_numerics = check_numerics
+        self.debug = debug
         self.X_train = None
         self.y_train = None
         self.xy_ = None
@@ -60,7 +63,8 @@ class GPR(object):
             v1 = tf.placeholder(tf.float32, name="v1")
             v2 = tf.placeholder(tf.float32, name="v2")
             dist_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(v1, v2), 2), 1), name='dist_op')
-            #dist_op = tf.check_numerics(dist_op, "dist_op: ")
+            if self.check_numerics:
+                dist_op = tf.check_numerics(dist_op, "dist_op: ")
             
             self.vars['v1_h'] = v1
             self.vars['v2_h'] = v2
@@ -70,9 +74,11 @@ class GPR(object):
             X_dists = tf.placeholder(tf.float32, name='X_dists')
             ridge_ph = tf.placeholder(tf.float32, name='ridge')
             K_op = mag_const * tf.exp(-X_dists / ls_const)
-            #K_op = tf.check_numerics(K_op, "K_op: ")
+            if self.check_numerics:
+                K_op = tf.check_numerics(K_op, "K_op: ")
             K_ridge_op = K_op + tf.diag(ridge_ph)
-            #K_ridge_op = tf.check_numerics(K_ridge_op, "K_ridge_op: ")
+            if self.check_numerics:
+                K_ridge_op = tf.check_numerics(K_ridge_op, "K_ridge_op: ")
             
             self.vars['X_dists_h'] = X_dists
             self.vars['ridge_h'] = ridge_ph
@@ -85,9 +91,11 @@ class GPR(object):
             xy_ = tf.placeholder(tf.float32, name='xy_')
             yt_ = tf.placeholder(tf.float32, name='yt_')
             K_inv_op = tf.matrix_inverse(K)
-            #K_inv_op = tf.check_numerics(K_inv_op, "K_inv: ")
+            if self.check_numerics:
+                K_inv_op = tf.check_numerics(K_inv_op, "K_inv: ")
             xy_op = tf.matmul(K_inv, yt_)
-            #xy_op = tf.check_numerics(xy_op, "xy_: ")
+            if self.check_numerics:
+                xy_op = tf.check_numerics(xy_op, "xy_: ")
             
             self.vars['K_h'] = K
             self.vars['K_inv_h'] = K_inv
@@ -100,11 +108,14 @@ class GPR(object):
             K2 = tf.placeholder(tf.float32, name="K2")
             K3 = tf.placeholder(tf.float32, name="K3")
             yhat_ =  tf.cast(tf.matmul( tf.transpose(K2), xy_), tf.float32);
-            #yhat_ = tf.check_numerics(yhat_, "yhat_: ")
+            if self.check_numerics:
+                yhat_ = tf.check_numerics(yhat_, "yhat_: ")
             sv1 = tf.matmul(tf.transpose(K2), tf.matmul(K_inv, K2))
-            #sv1 = tf.check_numerics(sv1, "sv1: ")
+            if self.check_numerics:
+                sv1 = tf.check_numerics(sv1, "sv1: ")
             sig_val = tf.cast((tf.sqrt(tf.diag_part(K3 - sv1))), tf.float32)
-            #sig_val = tf.check_numerics(sig_val, "sig_val: ")
+            if self.check_numerics:
+                sig_val = tf.check_numerics(sig_val, "sig_val: ")
 
             self.vars['K2_h'] = K2
             self.vars['K3_h'] = K3
@@ -113,7 +124,8 @@ class GPR(object):
             
             # Compute y_best (min y)
             y_best_op = tf.cast(tf.reduce_min(yt_, 0, True), tf.float32)
-            #y_best_op = tf.check_numerics(y_best_op, "y_best_op: ")
+            if self.check_numerics:
+                y_best_op = tf.check_numerics(y_best_op, "y_best_op: ")
             self.ops['y_best_op'] = y_best_op
 
             sigma = tf.placeholder(tf.float32, name='sigma')
@@ -121,7 +133,6 @@ class GPR(object):
 
             self.vars['sigma_h'] = sigma
             self.vars['yhat_h'] = yhat
-
 
     def __repr__(self):
         rep = ""
@@ -314,30 +325,35 @@ class GPR_GD(GPR):
     def fit(self, X_train, y_train, ridge=DEFAULT_RIDGE):
         super(GPR_GD, self).fit(X_train, y_train, ridge)
 
-        #with tf.Session(graph=self.graph) as sess:
         with tf.Session(graph=self.graph, config=tf.ConfigProto(
                 intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
             xt_ = tf.Variable(self.X_train[0], tf.float32)
             xt_ph = tf.placeholder(tf.float32)
             xt_assign_op = xt_.assign(xt_ph)
-            #xt_ = tf.check_numerics(xt_, "xt_: ")
+            if self.check_numerics is True:
+                xt_ = tf.check_numerics(xt_, "xt_: ")
             init = tf.global_variables_initializer()
             sess.run(init)
             K2_mat =  tf.transpose(tf.expand_dims(tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(xt_, self.X_train), 2),1)), 0))
-            #K2_mat = tf.check_numerics(K2_mat, "K2_mat: ")
+            if self.check_numerics is True:
+                K2_mat = tf.check_numerics(K2_mat, "K2_mat: ")
             K2__ = tf.cast(self.magnitude * tf.exp(-K2_mat/self.length_scale),tf.float32)
-            #K2__ = tf.check_numerics(K2__, "K2__: ")
+            if self.check_numerics is True:
+                K2__ = tf.check_numerics(K2__, "K2__: ")
             yhat_gd =  tf.cast(tf.matmul( tf.transpose(K2__) , self.xy_),tf.float32)
-            #yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
+            if self.check_numerics is True:
+                yhat_gd = tf.check_numerics(yhat_gd, message="yhat: ")
             sig_val = tf.cast((tf.sqrt(self.magnitude -  tf.matmul( tf.transpose(K2__) ,tf.matmul(self.K_inv, K2__)) )),tf.float32)
-            #sig_val = tf.check_numerics(sig_val, message="sigma: ")
+            if self.check_numerics is True:
+                sig_val = tf.check_numerics(sig_val, message="sigma: ")
 #             print ""
 #             print "yhat_gd : {}".format(sess.run(yhat_gd))
 #             print ""
 #             print "sig_val : {}".format(sess.run(sig_val))
 
-            Loss = tf.squeeze(tf.subtract(self.mu_multiplier * yhat_gd, self.sigma_multiplier * sig_val)) 
-            #Loss = tf.check_numerics(Loss, "loss: ")
+            Loss = tf.squeeze(tf.subtract(self.mu_multiplier * yhat_gd, self.sigma_multiplier * sig_val))
+            if self.check_numerics is True: 
+                Loss = tf.check_numerics(Loss, "loss: ")
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate,
                                                epsilon=self.epsilon)
             #optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
@@ -398,7 +414,8 @@ class GPR_GD(GPR):
                 minL = np.empty((batch_len, 1))
                 minL_conf = np.empty((batch_len, nfeats))
                 for i in range(batch_len):
-                    print "-------------------------------------------"
+                    if self.debug is True:
+                        print "-------------------------------------------"
                     yhats_it = np.empty((self.max_iter+1,)) * np.nan
                     sigmas_it = np.empty((self.max_iter+1,)) * np.nan
                     losses_it = np.empty((self.max_iter+1,)) * np.nan
@@ -407,15 +424,17 @@ class GPR_GD(GPR):
                     sess.run(assign_op, feed_dict={xt_ph:X_test_batch[i]})
                     for step in range(self.max_iter):
 #                         try:
-                        print "Sample {}, iter {}:".format(i, step)
+                        if self.debug is True:
+                            print "Sample {}, iter {}:".format(i, step)
                         yhats_it[step] = sess.run(yhat_gd)[0][0]
                         sigmas_it[step] = sess.run(sig_val)[0][0]
                         losses_it[step] = sess.run(Loss)
                         confs_it[step] = sess.run(xt_)
-                        print "    yhat:  {}".format(yhats_it[step])
-                        print "    sigma: {}".format(sigmas_it[step])
-                        print "    loss:  {}".format(losses_it[step])
-                        print "    conf:  {}".format(confs_it[step])
+                        if self.debug is True:
+                            print "    yhat:  {}".format(yhats_it[step])
+                            print "    sigma: {}".format(sigmas_it[step])
+                            print "    loss:  {}".format(losses_it[step])
+                            print "    conf:  {}".format(confs_it[step])
                         sess.run(train)
 #                             if constraint_helper is not None:
 #                                 xt_valid = constraint_helper.apply_constraints(sess.run(xt_))
