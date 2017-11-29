@@ -40,14 +40,6 @@
         <td>{{ value|floatformat:2 }} {{ metric_meta|get_item:key|get_attr:"unit" }}</td>
     </tr>
     {% endfor %}
-    <tr>
-        <td><div class="text-right">{{ labels.sampled_data }}</div></td>
-        <td><a href="/get_result_data_file/?id={{ result.pk }}&type=samples">Download</a></td>
-    </tr>
-    <tr>
-        <td><div class="text-right">{{ labels.raw_data }}</div></td>
-        <td><a href="/get_result_data_file/?id={{ result.pk }}&type=raw">Download</a></td>
-    </tr>
     {% if status %}
     <tr>
         <td><div class="text-right">{{ labels.status }}</div></td>
@@ -66,7 +58,7 @@
 </table>
 </div>
 
-<hr>
+<!-- <hr>
 
 
 <div class="container">
@@ -122,7 +114,7 @@
 
 
 </div>
-</div>
+</div> -->
 
 <script type="text/javascript" src="{{ STATIC_URL }}js/jqplot/jqplot.cursor.min.js"></script>
 <script type="text/javascript" src="{{ STATIC_URL }}js/jqplot/jqplot.highlighter.min.js"></script>
@@ -136,7 +128,7 @@
 <script type="text/javascript" src="{{ STATIC_URL }}js/result10.js"></script>
 <script type="text/javascript" src="{{ STATIC_URL }}js/jquery.jqpagination.min.js"></script>
 
-<script type="text/javascript">
+<!--  <script type="text/javascript">
  $(function() {
    ResultTimeline.init({
         result: {{ result.pk }},
@@ -145,7 +137,7 @@
         metrics: [{% for metric in default_metrics %}"{{ metric }}", {% endfor %}],
     });
 }); 
-</script>
+</script> -->
 
 <script type="text/javascript">
 $(document).ready(function() {

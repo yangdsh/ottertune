@@ -142,6 +142,7 @@ def recreate_website_dbms():
     local("mysql -u {} -p{} -N -B -e \"CREATE DATABASE {}\"".format(
             user, passwd, name))
     local('rm -rf ./website/migrations/')
+    local('rm -rf ./website/data/media*')
     local('python manage.py makemigrations website')
     local('python manage.py migrate website')
     local('python manage.py migrate')
