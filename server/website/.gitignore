@@ -1,49 +1,12 @@
-*.py[cod]
-
-# Compiled source #
-###################
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
-
-# Packages #
-############
-# it's better to unpack these files and commit the raw source
-# git has its own built in compression methods
-*.7z
-*.dmg
-*.gz
-*.iso
-*.jar
-*.rar
-*.tar
-*.zip
-
-# Logs and databases #
-######################
+# Logs and settings #
+#####################
 log/
 *.log
-*.sql
-*.sqlite
+local_settings.py
 
-# OS generated files #
-######################
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Eclipse #
-###########
-.project
-.pydevproject
-.settings
+# celery beat schedule file #
+#############################
+celerybeat-schedule
 
 # Raw data files #
 ##################
