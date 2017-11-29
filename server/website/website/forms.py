@@ -10,8 +10,6 @@ from .models import Application, Project
 
 class NewResultForm(forms.Form):
     upload_code = forms.CharField(max_length=30)
-    sample_data = forms.FileField()
-    raw_data = forms.FileField(required=False)
     db_parameters_data = forms.FileField()
     db_metrics_data = forms.FileField()
     benchmark_conf_data = forms.FileField()

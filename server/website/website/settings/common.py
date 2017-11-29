@@ -3,19 +3,8 @@ Common Django settings for the OtterTune project.
 
 """
 
-import sys, os
-from os.path import abspath, dirname, exists, expanduser, join
-
-try:
-    from credentials import (ADMINS, ALLOWED_HOSTS, DATABASES, DEBUG,
-                             LOG_FILE, MANAGERS, OTTERTUNE_LIBS, SECRET_KEY)
-except ImportError as err:
-    print ('Copy settings/credentials_TEMPLATE.py to '
-           'credentials.py and update settings.')
-    raise
-
-# Add OtterTune library to path
-sys.path.insert(0, OTTERTUNE_LIBS)
+import sys
+from os.path import abspath, dirname, join
 
 ## ==============================================
 ## PATH CONFIGURATION
@@ -39,14 +28,28 @@ PRELOAD_DIR = join(PROJECT_ROOT, 'preload')
 # Path to the base DBMS configuration files
 CONFIG_DIR = join(PROJECT_ROOT, 'config')
 
+# Where the log files are stored
+LOG_DIR = join(PROJECT_ROOT, 'log')
+
 # File/directory upload permissions
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o664
 FILE_UPLOAD_PERMISSIONS = 0o664
+
+# Path to OtterTune's ML modules
+OTTERTUNE_LIBS = dirname(PROJECT_ROOT)#join(dirname(PROJECT_ROOT), 'analysis')
+
+## ==============================================
+## Python path setup
+## ==============================================
+
+# Add OtterTune's ML modules to path
+sys.path.insert(0, OTTERTUNE_LIBS)
 
 ## ==============================================
 ## DEBUG CONFIGURATION
 ## ==============================================
 
+DEBUG = False
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 INTERNAL_IPS = ['127.0.0.1']
 
@@ -233,7 +236,7 @@ LOGGING = {
         'logfile': {
             'level':'DEBUG',
             'class':'logging.handlers.RotatingFileHandler',
-            'filename': LOG_FILE,
+            'filename': join(LOG_DIR, 'website.log'),
             'maxBytes': 50000,
             'backupCount': 2,
             'formatter': 'standard',
@@ -327,4 +330,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ## ==============================================
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
+
+try:
+    from credentials import *
+except ImportError as err:
+    print ('Copy settings/credentials_TEMPLATE.py to '
+           'credentials.py and update settings.')
+    raise
 

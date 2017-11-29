@@ -8,12 +8,14 @@ from django.utils.timezone import now
 from djcelery.models import TaskMeta
 from sklearn.preprocessing import StandardScaler
 
+from analysis.gp_tf import GPR, GPR_GD
+from analysis.preprocessing import bin_by_decile, Bin
 from website.models import (DBMSCatalog, Hardware, KnobCatalog, PipelineResult,
                             Result, ResultData, WorkloadCluster)
 from website.settings import PIPELINE_DIR
 from website.types import KnobUnitType, PipelineTaskType, VarType
 from website.utils import (ConversionUtil, DataUtil, DBMSUtil, JSONUtil,
-                           MediaUtil,PostgresUtilImpl)
+                           MediaUtil, PostgresUtilImpl)
 
 
 class UpdateTask(Task):
@@ -98,8 +100,6 @@ def aggregate_target_results(result_id):
 
 @task(base=ConfigurationRecommendation, name='configuration_recommendation')
 def configuration_recommendation(target_data):
-    from cmudbottertune.analysis.gp_tf import GPR_GD
-
     if target_data['scores'] is None:
         raise NotImplementedError('Implement me!')
     best_wkld_id = target_data['mapped_workload'][0]
@@ -226,9 +226,6 @@ def configuration_recommendation(target_data):
 
 @task(base=MapWorkload, name='map_workload')
 def map_workload(target_data):
-    from cmudbottertune.analysis.gp_tf import GPR
-    from cmudbottertune.analysis.preprocessing import bin_by_decile
-
     newest_result = Result.objects.get(pk=target_data['newest_result_id'])
     dbms = newest_result.dbms.pk
     hardware = newest_result.application.hardware.pk
@@ -336,8 +333,6 @@ def aggregate_results():
 
 @task(name='create_workload_mapping_data')
 def create_workload_mapping_data():
-    from cmudbottertune.analysis.preprocessing import Bin
-
     agg_datas = PipelineResult.objects.filter(
         task_type=PipelineTaskType.AGGREGATED_DATA)
     dbmss = set([ad.dbms.pk for ad in agg_datas])

@@ -186,36 +186,6 @@ class StatsManager(models.Manager):
         stats.save()
         return stats
 
-    def create_sample_stats(self, sample_csv, result):
-        label_map = {v.pprint: k for k, v in self.METRIC_META.iteritems()}
-        sample_lines = sample_csv.split('\n')
-        header = []
-        for label in sample_lines[0].split(','):
-            label = label.strip().rsplit(' ', 1)[0]
-            try:
-                header.append(label_map[label])
-            except KeyError:
-                if label == self.TIME_LABEL:
-                    header.append(self.TIME)
-
-        all_stats = []
-        for line in sample_lines[1:]:
-            if line == '':
-                continue
-            stats = Statistics()
-            stats.data_result = result
-            stats.type = StatsType.SAMPLES
-            entries = line.strip().split(',')
-            for name, entry in zip(header, entries):
-                if name == self.TIME:
-                    entry = int(entry)
-                else:
-                    entry = float(entry)
-                setattr(stats, name, entry)
-            stats.save()
-            all_stats.append(stats)
-        return all_stats
-
     def get_external_metrics(self, summary):
         stats = {}
         for k, v in self.METRIC_META.iteritems():
@@ -253,7 +223,6 @@ class Application(models.Model, BaseModel):
             if self.target_objective is None:
                 raise ValidationError('If this is a tuning session then '
                                       'the target objective cannot be null')
-#                 self.target_objective = StatsManager.P99_LATENCY
 
     def delete(self, using=None):
         targets = DBConf.objects.filter(application=self)
@@ -409,7 +378,7 @@ class DBMSMetrics(DBModel):
 class ResultManager(models.Manager):
 
     def create_result(self, app, dbms, bench_config, dbms_config,
-                      dbms_metrics, summary, samples, timestamp,
+                      dbms_metrics, summary, timestamp,
                       summary_stats=None, task_ids=None,
                       most_similar=None):
         return self.create(application=app,
@@ -418,7 +387,6 @@ class ResultManager(models.Manager):
                            dbms_config=dbms_config,
                            dbms_metrics=dbms_metrics,
                            summary=summary,
-                           samples=samples,
                            timestamp=timestamp,
                            summary_stats=summary_stats,
                            task_ids=task_ids,
@@ -436,7 +404,6 @@ class Result(models.Model, BaseModel):
 
     creation_time = models.DateTimeField()
     summary = models.TextField()
-    samples = models.TextField()
     task_ids = models.CharField(max_length=180, null=True)
     summary_stats = models.ForeignKey('Statistics', null=True)
     timestamp = models.DateTimeField()

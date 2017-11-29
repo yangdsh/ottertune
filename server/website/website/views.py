@@ -450,7 +450,6 @@ def handle_result_files(app, files, cluster_name):
         ''.join(files['db_parameters_data'].chunks()))
     db_metrics = JSONUtil.loads(''.join(files['db_metrics_data'].chunks()))
     benchmark_config_str = ''.join(files['benchmark_conf_data'].chunks())
-    samples = ''.join(files['sample_data'].chunks())
 
     benchmark_config = BenchmarkConfig.objects.create_benchmark_config(
         app, benchmark_config_str, summary['Benchmark Type'].upper())
@@ -472,12 +471,10 @@ def handle_result_files(app, files, cluster_name):
         timezone("UTC"))
     result = Result.objects.create_result(
         app, dbms_object, benchmark_config, db_conf, dbms_metrics,
-        JSONUtil.dumps(summary, pprint=True, sort=True), samples,
-        timestamp)
+        JSONUtil.dumps(summary, pprint=True, sort=True), timestamp)
     result.summary_stats = Statistics.objects.create_summary_stats(
         summary, result, benchmark_config.time)
     result.save()
-    Statistics.objects.create_sample_stats(samples, result)
 
     wkld_cluster = WorkloadCluster.objects.create_workload_cluster(
         dbms_object, app.hardware, cluster_name)
@@ -508,7 +505,6 @@ def handle_result_files(app, files, cluster_name):
 
     path_prefix = MediaUtil.get_result_data_path(result.pk)
     paths = [
-        (path_prefix + '.samples', 'sample_data'),
         (path_prefix + '.summary', 'summary_data'),
         (path_prefix + '.params', 'db_parameters_data'),
         (path_prefix + '.metrics', 'db_metrics_data'),
@@ -518,11 +514,6 @@ def handle_result_files(app, files, cluster_name):
     for path, content_name in paths:
         with open(path, 'w') as f:
             for chunk in files[content_name].chunks():
-                f.write(chunk)
-
-    if 'raw_data' in files:
-        with open('{}.csv.tgz'.format(path_prefix), 'w') as f:
-            for chunk in files['raw_data'].chunks():
                 f.write(chunk)
 
     if app.tuning_session is False:

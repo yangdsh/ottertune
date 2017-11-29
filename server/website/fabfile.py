@@ -4,12 +4,13 @@ Admin tasks
 @author: dvanaken
 '''
 
-import os.path
+import os
 from collections import namedtuple
 from fabric.api import env, execute, local, quiet, settings, sudo, task
 from fabric.state import output as fabric_output
 
-from website.settings import PRELOAD_DIR, PROJECT_ROOT
+from website.settings import DATABASES, LOG_DIR, PRELOAD_DIR, PROJECT_ROOT
+
 
 # Fabric environment settings
 env.hosts = ['localhost']
@@ -130,8 +131,9 @@ def print_status(status, task_name):
 
 @task
 def recreate_website_dbms():
-    from website.settings import DATABASES
-
+    ## WARNING: This will delete everything in the database and Django
+    ## migrations files and recreate them
+    local('mkdir -p {}'.format(LOG_DIR))
     user = DATABASES['default']['USER']
     passwd = DATABASES['default']['PASSWORD']
     name = DATABASES['default']['NAME']
@@ -140,12 +142,13 @@ def recreate_website_dbms():
     local("mysql -u {} -p{} -N -B -e \"CREATE DATABASE {}\"".format(
             user, passwd, name))
     local('rm -rf ./website/migrations/')
+    local('rm -rf ./website/data/media*')
     local('python manage.py makemigrations website')
     local('python manage.py migrate website')
     local('python manage.py migrate')
     local(("echo \"from django.contrib.auth.models import User; "
            "User.objects.filter(email='user@email.com').delete(); "
-           "User.objects.create_superuser('user', 'user@email.com', '123')\" "
+           "User.objects.create_superuser('user', 'user@email.com', 'abcd123')\" "
            "| python manage.py shell"))
     local('python manage.py loaddata {}'.format(
             os.path.join(PRELOAD_DIR, '*')))
