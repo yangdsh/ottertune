@@ -2,8 +2,7 @@ import numpy as np
 from itertools import chain, combinations, combinations_with_replacement
 from abc import ABCMeta, abstractmethod
 
-from .util import NEARZERO
-from .util import is_numeric_matrix, is_lexical_matrix
+from .util import is_numeric_matrix, is_lexical_matrix, NEARZERO
 
 ##==========================================================
 ##  Preprocessing Base Class

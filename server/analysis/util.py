@@ -9,7 +9,7 @@ import datetime
 import numpy as np
 from numbers import Number
 
-from common.matrix import Matrix
+from .matrix import Matrix
 
 NEARZERO = 1.e-8
 
@@ -61,6 +61,12 @@ def get_data_base(arr):
 
 def arrays_share_data(x, y):
     return get_data_base(x) is get_data_base(y)
+
+def array_tostring(arr):
+    arr_shape = arr.shape
+    arr = arr.ravel()
+    arr = np.array([str(a) for a in arr])
+    return arr.reshape(arr_shape)
 
 def is_numeric_matrix(matrix):
     assert matrix.size > 0

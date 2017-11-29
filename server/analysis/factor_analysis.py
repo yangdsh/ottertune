@@ -11,7 +11,7 @@ from sklearn.decomposition import FactorAnalysis
 from sklearn.preprocessing import StandardScaler
 
 from .cluster import KMeans_, KSelection
-from common.matrix import Matrix
+from .matrix import Matrix
 from .preprocessing import get_shuffle_indices
 from .util import stdev_zero, stopwatch
 

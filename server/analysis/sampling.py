@@ -48,49 +48,34 @@ class LHSSampler(object):
         return self.feat_names_.copy()
     
     @staticmethod
-    def create_sampler():
-        from experiment import TunerContext, ExpContext
-
-        exp = ExpContext()
-        tuner = TunerContext()
-        
-        if tuner.tuner_type == "lhs":
-            n_samples = tuner.lhs_samples
-            n_feats = tuner.max_knobs
-            
-            if tuner.gp_featured_knobs_scope == "benchmark":
-                feat_names = tuner.get_n_benchmark_featured_knobs(n_feats)
+    def create_sampler(featured_knobs, knob_catalog, sampling_type="lhs"):
+        n_feats = len(featured_knobs)
+        locs = np.empty(n_feats)
+        scales = np.empty(n_feats)
+        for i,fname in enumerate(featured_knobs):
+            p = knob_catalog[fname]
+            if p.iscategorical:
+                true_vals = p.valid_values
+                pmin,pmax = 0, len(true_vals) - 1e-6
             else:
-                feat_names = tuner.get_n_featured_knobs(n_feats)
-            config_mgr = exp.dbms.config_manager_
-            locs = np.empty(n_feats)
-            scales = np.empty(n_feats)
-            for i,fname in enumerate(feat_names):
-                p = config_mgr._find_param(fname)
-                if p.iscategorical:
-                    true_vals = p.valid_values
-                    pmin,pmax = 0, len(true_vals) - 1e-6
+                if p.true_range is None:
+                    true_vals = p.true_values
+                    assert true_vals is not None
+                    pmin,pmax = true_vals[0], true_vals[-1]
                 else:
-                    if p.true_range is None:
-                        true_vals = p.true_values
-                        assert true_vals is not None
-                        pmin,pmax = true_vals[0], true_vals[-1]
-                    else:
-                        pmin,pmax = p.true_range
-    
-                    if p.unit == "bytes":
-                        if pmin <= 0:
-                            pmin = 1
-                        pmin = np.ceil(np.log2(pmin))
-                        pmax = np.floor(np.log2(pmax))
-                    
-                locs[i] = pmin
-                scales[i] = pmax - pmin
+                    pmin,pmax = p.true_range
 
-            return LHSSampler(n_samples, locs, scales, feat_names)
-        else:
-            return None
-            
+                if p.unit == "bytes":
+                    if pmin <= 0:
+                        pmin = 1
+                    pmin = np.ceil(np.log2(pmin))
+                    pmax = np.floor(np.log2(pmax))
+                
+            locs[i] = pmin
+            scales[i] = pmax - pmin
+
+        return LHSSampler(locs, scales, featured_knobs)
+
 
 def gen_samples(n_feats, n_samples, criterion='m',
                 loc=None, scale=None,

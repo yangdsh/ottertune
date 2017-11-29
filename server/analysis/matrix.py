@@ -6,6 +6,8 @@ Created on Mar 23, 2016
 
 import numpy as np
 
+from .util import array_tostring
+
 class Matrix(object):
     """
     Attributes:
@@ -232,8 +234,6 @@ class Matrix(object):
         return Matrix(data, rowlabels, columnlabels)
     
     def get_membership_mask(self, labels, rows_or_columns):
-        from .util import array_tostring
-
         assert rows_or_columns in ['rows', 'columns']
         assert isinstance(labels, np.ndarray)
         assert labels.size > 0

@@ -4,10 +4,8 @@ Created on Aug 18, 2016
 @author: Bohan Zhang, Dana Van Aken
 '''
 
-import sys
 import numpy as np
 import tensorflow as tf
-from time import time
 
 
 class GPRResult(object):
@@ -678,7 +676,8 @@ def gd_tf(xs, ys, xt, ridge, length_scale=1.0, magnitude=1.0, max_iter=50):
         return yhats, sigmas, minL, new_conf
 
 def main():
-    check_gd_equivalence()
+    pass
+#     check_gd_equivalence()
 
 def create_random_matrices(n_samples=3000, n_feats=12, n_test=4444):
     X_train = np.random.rand(n_samples, n_feats)
@@ -691,28 +690,28 @@ def create_random_matrices(n_samples=3000, n_feats=12, n_test=4444):
     
     return X_train, y_train, X_test, length_scale, magnitude, ridge
 
-def check_equivalence():
-    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices()
-    
-    print "Running GPR method..."
-    start = time()
-    yhats1, sigmas1, eips1 = gp_tf(X_train, y_train, X_test, ridge,
-                                   length_scale, magnitude)
-    print "GPR method: {0:.3f} seconds".format(time() - start)
-    
-    print "Running GPR class..."
-    start = time()
-    gpr = GPR(length_scale, magnitude)
-    gpr.fit(X_train, y_train, ridge)
-    yhats2, sigmas2, eips2 = gpr.predict(X_test)
-    print "GPR class: {0:.3f} seconds".format(time() - start)
- 
-    assert np.allclose(yhats1, yhats2)
-    assert np.allclose(sigmas1, sigmas2)
-    assert np.allclose(eips1, eips2)
+# def check_equivalence():
+#     X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices()
+#     
+#     print "Running GPR method..."
+#     start = time()
+#     yhats1, sigmas1, eips1 = gp_tf(X_train, y_train, X_test, ridge,
+#                                    length_scale, magnitude)
+#     print "GPR method: {0:.3f} seconds".format(time() - start)
+#     
+#     print "Running GPR class..."
+#     start = time()
+#     gpr = GPR(length_scale, magnitude)
+#     gpr.fit(X_train, y_train, ridge)
+#     yhats2, sigmas2, eips2 = gpr.predict(X_test)
+#     print "GPR class: {0:.3f} seconds".format(time() - start)
+#  
+#     assert np.allclose(yhats1, yhats2)
+#     assert np.allclose(sigmas1, sigmas2)
+#     assert np.allclose(eips1, eips2)
 
-def check_gd_equivalence():
-    X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=2)
+# def check_gd_equivalence():
+#     X_train, y_train, X_test, length_scale, magnitude, ridge = create_random_matrices(n_test=2)
     #print "Running GPR method..."
     #start = time()
     #yhats3, sigmas3, _ = gp_tf(X_train, y_train, X_test, ridge,
@@ -733,13 +732,13 @@ def check_gd_equivalence():
 #     gpr.fit(X_train, y_train, ridge)
 #     gpres1 = gpr.predict(X_test)
 #     print "GPR class: {0:.3f} seconds\n".format(time() - start)
-
-    print "Running GPR_GD class..."
-    start = time()
-    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=5)
-    gpr_gd.fit(X_train, y_train, ridge)
-    gpres2 = gpr_gd.predict(X_test)
-    print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
+# 
+#     print "Running GPR_GD class..."
+#     start = time()
+#     gpr_gd = GPR_GD(length_scale, magnitude, max_iter=5)
+#     gpr_gd.fit(X_train, y_train, ridge)
+#     gpres2 = gpr_gd.predict(X_test)
+#     print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
 
 #     assert np.allclose(yhats1, yhats3, atol=1e-4)
 #     assert np.allclose(sigmas1, sigmas3, atol=1e-4)
@@ -750,49 +749,49 @@ def check_gd_equivalence():
     #assert np.allclose(minL, gpres2.minL, atol=1e-4)
     #assert np.allclose(minL_conf, gpres2.minL_conf, atol=1e-4)
 
-def test_constraints():
-    import os.path
-    from .constraints import ParamConstraintHelper
-    from .matrix import Matrix
-    from .preprocessing import DummyEncoder, dummy_encoder_helper, fix_scaler, get_min_max, MinMaxScaler
-    from .util import get_featured_knobs
-    from dbms.param import ConfigManager
-    from sklearn.preprocessing import StandardScaler
-    
-    n_feats = 12
-    test_size = 5
-
-    datadir = '/usr0/home/dvanaken/Dropbox/Apps/ottertune/data/analysis_20160910-204945_exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w50-0-0-50-0-0_s0.6'
-    X_train = Matrix.load_matrix(os.path.join(datadir, "X_data_enc.npz"))
-    y_train = Matrix.load_matrix(os.path.join(datadir, "y_data_enc.npz"))
-    length_scale, magnitude, ridge_const = 10.0, 10.0, 7.15
-    featured_knobs = get_featured_knobs("mysql", "m3.xlarge")[:n_feats]
-    X_train = X_train.filter(featured_knobs, 'columns')
-    y_train = y_train.filter(np.array(['99th_lat_ms']), 'columns')
-
-    config_mgr = ConfigManager.get_config_manager('mysql')
-    X_test = config_mgr.get_param_grid(X_train.columnlabels)
-    X_test = X_test[np.random.choice(np.arange(X_test.shape[0]), test_size, replace=False)]
-    
-    cat_knob_indices, n_values = dummy_encoder_helper("mysql", X_train.columnlabels)
-    encoder = DummyEncoder(n_values, cat_knob_indices)
-    encoder.fit(X_train.data, columnlabels=X_train.columnlabels)
-    X_train_enc = Matrix(encoder.transform(X_train.data),
-                         X_train.rowlabels,
-                         encoder.columnlabels)
-    X_test_enc = encoder.transform(X_test)
-
-    param_list = []
-    for pname in X_train.columnlabels:
-        param = config_mgr._find_param(pname)
-        print param.name, param.data_type
-        param_list.append(param)
-    print len(param_list)
-    
-    mins, maxs = get_min_max(encoder, param_list)
-    X_scaler = MinMaxScaler(mins, maxs)
-    print mins
-    print maxs
+# def test_constraints():
+#     import os.path
+#     from .constraints import ParamConstraintHelper
+#     from .matrix import Matrix
+#     from .preprocessing import DummyEncoder, dummy_encoder_helper, fix_scaler, get_min_max, MinMaxScaler
+#     from .util import get_featured_knobs
+#     from dbms.param import ConfigManager
+#     from sklearn.preprocessing import StandardScaler
+#     
+#     n_feats = 12
+#     test_size = 5
+# 
+#     datadir = '/usr0/home/dvanaken/Dropbox/Apps/ottertune/data/analysis_20160910-204945_exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w50-0-0-50-0-0_s0.6'
+#     X_train = Matrix.load_matrix(os.path.join(datadir, "X_data_enc.npz"))
+#     y_train = Matrix.load_matrix(os.path.join(datadir, "y_data_enc.npz"))
+#     length_scale, magnitude, ridge_const = 10.0, 10.0, 7.15
+#     featured_knobs = get_featured_knobs("mysql", "m3.xlarge")[:n_feats]
+#     X_train = X_train.filter(featured_knobs, 'columns')
+#     y_train = y_train.filter(np.array(['99th_lat_ms']), 'columns')
+# 
+#     config_mgr = ConfigManager.get_config_manager('mysql')
+#     X_test = config_mgr.get_param_grid(X_train.columnlabels)
+#     X_test = X_test[np.random.choice(np.arange(X_test.shape[0]), test_size, replace=False)]
+#     
+#     cat_knob_indices, n_values = dummy_encoder_helper("mysql", X_train.columnlabels)
+#     encoder = DummyEncoder(n_values, cat_knob_indices)
+#     encoder.fit(X_train.data, columnlabels=X_train.columnlabels)
+#     X_train_enc = Matrix(encoder.transform(X_train.data),
+#                          X_train.rowlabels,
+#                          encoder.columnlabels)
+#     X_test_enc = encoder.transform(X_test)
+# 
+#     param_list = []
+#     for pname in X_train.columnlabels:
+#         param = config_mgr._find_param(pname)
+#         print param.name, param.data_type
+#         param_list.append(param)
+#     print len(param_list)
+#     
+#     mins, maxs = get_min_max(encoder, param_list)
+#     X_scaler = MinMaxScaler(mins, maxs)
+#     print mins
+#     print maxs
 #     X_scaler = StandardScaler()
     #X_scaler.fit(X_train_enc.data)
     #X_scaler.partial_fit(X_test_enc)
@@ -800,30 +799,30 @@ def test_constraints():
 #     premean = np.array(X_scaler.mean_)
 #     fix_scaler(X_scaler, encoder, param_list)
 #     assert not np.array_equal(premean, X_scaler.mean_)
-    X_train_data = X_scaler.transform(X_train_enc.data)
-    X_test_data = X_scaler.transform(X_test_enc)
-
-    y_scaler = StandardScaler()
-    y_train_data = y_scaler.fit_transform(y_train.data)
-    
-    print X_train_data
-    print X_train_enc.columnlabels
-
-    constraint_helper = ParamConstraintHelper(param_list, X_scaler, encoder)
-    
-    ridge = np.ones(X_train_data.shape[0])* ridge_const
-    print "Running GPR_GD class..."
-    start = time()
-    gpr_gd = GPR_GD(length_scale, magnitude, max_iter=30)
-    gpr_gd.fit(X_train_data, y_train_data, ridge)
-    gpres2 = gpr_gd.predict(X_test_data, constraint_helper)
-    print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
-    
-    best_idx = np.argmin(gpres2.minL)
-    print ""
-    best_conf = constraint_helper.get_valid_config(gpres2.minL_conf[best_idx], rescale=False)
-    for n,v in zip(X_train.columnlabels, best_conf):
-        print "{}: {}".format(n,v) 
+#     X_train_data = X_scaler.transform(X_train_enc.data)
+#     X_test_data = X_scaler.transform(X_test_enc)
+# 
+#     y_scaler = StandardScaler()
+#     y_train_data = y_scaler.fit_transform(y_train.data)
+#     
+#     print X_train_data
+#     print X_train_enc.columnlabels
+# 
+#     constraint_helper = ParamConstraintHelper(param_list, X_scaler, encoder)
+#     
+#     ridge = np.ones(X_train_data.shape[0])* ridge_const
+#     print "Running GPR_GD class..."
+#     start = time()
+#     gpr_gd = GPR_GD(length_scale, magnitude, max_iter=30)
+#     gpr_gd.fit(X_train_data, y_train_data, ridge)
+#     gpres2 = gpr_gd.predict(X_test_data, constraint_helper)
+#     print "GPR_GD class: {0:.3f} seconds\n".format(time() - start)
+#     
+#     best_idx = np.argmin(gpres2.minL)
+#     print ""
+#     best_conf = constraint_helper.get_valid_config(gpres2.minL_conf[best_idx], rescale=False)
+#     for n,v in zip(X_train.columnlabels, best_conf):
+#         print "{}: {}".format(n,v) 
 
 if __name__ == "__main__":
     main()

@@ -11,10 +11,9 @@ import os.path
 from sklearn.linear_model import lasso_path
 from sklearn.preprocessing import StandardScaler
 
-from common.matrix import Matrix
+from .matrix import Matrix
 from .preprocessing import PolynomialFeatures, Shuffler, dummy_encoder_helper, DummyEncoder
-from .util import stdev_zero
-from .util import stopwatch
+from .util import stdev_zero, stopwatch
 
 def get_coef_range(X, y):
     print "starting experiment"
@@ -260,7 +259,7 @@ class Lasso(object):
         sep="{n:{fil}{al}{w}}\n".format(w=table_width, al='<', fil='-', n="")
         summary = sep + summary + sep
         if title:
-            sep2="{n:{fil}{al}{w}}\n".format(w=table_width, al='<', fil='*', n="")
+#             sep2="{n:{fil}{al}{w}}\n".format(w=table_width, al='<', fil='*', n="")
             summary = sep + "{0:{al}{w}}\n".format(title.upper(),al="^",w=table_width) + summary
         for i,feat,coef in zip(range(n),top_feats,top_coefs):
             summary += "{0:{al}{w1}}{1:{al}{w2}}{2:+0.3f}\n".format(str(i+1) + ".",feat,coef,w1=c1,w2=c2,w3=c3,al="<")
