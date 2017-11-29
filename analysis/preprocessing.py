@@ -3,7 +3,7 @@ from itertools import chain, combinations, combinations_with_replacement
 from abc import ABCMeta, abstractmethod
 
 from .util import NEARZERO
-from common.typeutil import is_numeric_matrix, is_lexical_matrix
+from .util import is_numeric_matrix, is_lexical_matrix
 
 ##==========================================================
 ##  Preprocessing Base Class
@@ -344,11 +344,11 @@ class PolynomialFeatures(Preprocess):
 ##==========================================================
 
 class DummyEncoder(Preprocess):
-    
+     
     def __init__(self, n_values, feature_indices):
         import warnings
         from sklearn.preprocessing import OneHotEncoder
-        
+         
         if not isinstance(n_values, np.ndarray):
             n_values = np.array(n_values)
         if not isinstance(feature_indices, np.ndarray):
@@ -358,7 +358,7 @@ class DummyEncoder(Preprocess):
         for nv in n_values:
             if nv <= 2:
                 raise Exception("Categorical features must have 3+ labels") 
-        
+         
         self.feature_indices = feature_indices
         self.n_values = n_values
         with warnings.catch_warnings():
@@ -366,18 +366,18 @@ class DummyEncoder(Preprocess):
             self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
         self.columnlabels = None
         self.xform_start_indices = None
-    
+     
     def fit(self, matrix, copy=True, columnlabels=None):
         assert isinstance(matrix, np.ndarray)
         cat_X = matrix[:, self.feature_indices]
         self.encoder.fit(cat_X)
-
+ 
         self.xform_start_indices = np.empty_like(self.feature_indices)
         for i,(idx,nvals) in enumerate(zip(self.feature_indices, self.n_values)):
             start_idx = idx + np.sum(self.n_values[:i]) - np.sum(self.n_values[:i].size)
             self.xform_start_indices[i] = start_idx
         print self.xform_start_indices
-
+ 
         if columnlabels is not None:
             labels = []
             cat_index = 0
@@ -393,13 +393,13 @@ class DummyEncoder(Preprocess):
                     labels.append(orig_label)
             self.columnlabels = np.array(labels)
         return self
-
+ 
     def transform(self, matrix, copy=True):
         num_cat_feats = self.feature_indices.size
         cat_X = matrix[:, self.feature_indices]
         X_enc = self.encoder.transform(cat_X)
         assert X_enc.shape[1] == np.sum(self.n_values)
-        
+         
         nfeats = matrix.shape[1] - num_cat_feats + np.sum(self.n_values)
         offset = 0
         cat_index = 0
@@ -413,11 +413,11 @@ class DummyEncoder(Preprocess):
                 cat_index += 1
             else:
                 new_matrix.append(matrix[:,i].reshape(matrix.shape[0], 1))
-
+ 
         new_matrix = np.hstack(new_matrix)
         assert new_matrix.shape == (matrix.shape[0], nfeats)
         return new_matrix
-
+ 
     def inverse_transform(self, matrix, copy=True):
         assert matrix.ndim == 2
         n_cat_feats = self.n_values.size
@@ -441,12 +441,13 @@ class DummyEncoder(Preprocess):
                 current_idx += 1
             new_matrix[:, i] = new_col
         return new_matrix
-
-
+ 
+ 
 def dummy_encoder_helper(dbms, featured_knobs):
-    from dbms.param import ConfigManager
-
-    config_mgr = ConfigManager.get_config_manager(dbms)
+    # Note: this function will not work without a config manager.
+    # It just needs the type information about each of the knobs
+    # being passed in.
+    config_mgr = None #ConfigManager.get_config_manager(dbms)
     cat_knob_indices = []
     n_values = []
     params = []
@@ -581,7 +582,7 @@ class MinMaxScaler(Preprocess):
 def test_preprocess_module():
     import warnings
     from sklearn import preprocessing as skpp
-    from common.optutil import arrays_share_data
+    from .util import arrays_share_data
     
     warnings.filterwarnings('error')
     

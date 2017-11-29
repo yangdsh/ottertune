@@ -12,8 +12,7 @@ import gc #multiprocessing
 from sklearn.cross_validation import KFold
 from sklearn.utils.validation import _is_arraylike, check_X_y
 import tensorflow as tf
-
-from common.timeutil import stopwatch
+from .util import stopwatch
 
 GridScore = namedtuple('GridScore', ['parameters', 'mean_scores', 'cv_scores'])
 
