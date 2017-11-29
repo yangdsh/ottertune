@@ -13,4 +13,4 @@ For more information, see our [paper](http://db.cs.cmu.edu/papers/2017/p1009-van
 * [Dana Van Aken](http://www.cs.cmu.edu/~dvanaken/)
 * [Andy Pavlo](http://www.cs.cmu.edu/~pavlo/)
 * [Geoff Gordon](http://www.cs.cmu.edu/~ggordon/)
-* Bohan Zhang
+* [Bohan Zhang](https://bohanjason.github.io/bohan/)
