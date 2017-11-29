@@ -19,13 +19,8 @@ sudo pip install -r requirements.txt
 
 ## Installation Instructions
 
-##### 1. Clone the repository
 
-```
-git clone https://github.com/oltpbenchmark/website.git
-```
-
-##### 2. Update the Django settings
+##### 1. Update the Django settings
 
 Navigate to the settings directory:
 
@@ -41,29 +36,29 @@ cp credentials_TEMPLATE.py credentials.py
 
 Edit `credentials.py` and update the secret key and database information.
 
-##### 3. Create the MySQL database if it does not already exist
+##### 2. Create the MySQL database if it does not already exist
 
 ```
 mysqladmin create -u <username> -p ottertune
 ```
 
-##### 4. Migrate the Django models into the database
+##### 3. Migrate the Django models into the database
 
 ```
 python manage.py makemigrations website
-python manage.py migrate website
+python manage.py migrate
 ```
 
-##### 5. Create the super user
+##### 4. Create the super user
 
 ```
 python manage.py createsuperuser
 ```
     
-##### 6. Preload the static database data
+##### 5. Preload the static database data
 
 ```
-python manage.py loaddata ./script/preload/*
+python manage.py loaddata ./preload/*
 ```
     
 ##### 7. Start the message broker, celery worker, and website server
