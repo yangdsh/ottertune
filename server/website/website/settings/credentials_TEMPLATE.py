@@ -32,6 +32,7 @@ DATABASES = {
 ## DEBUG CONFIGURATION
 ## ==============================================
 
+# Can override the DEBUG setting here
 DEBUG = False
 
 ## ==============================================
@@ -52,11 +53,3 @@ MANAGERS = ADMINS
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = []
-
-## ==============================================
-## OTTERTUNE PATH CONFIGURATION
-## ==============================================
-
-LOG_FILE = '/path/to/website/log'
-
-OTTERTUNE_LIBS = '/path/to/ottertune/MLlibs'
