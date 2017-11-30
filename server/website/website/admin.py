@@ -3,7 +3,7 @@ from djcelery.models import TaskMeta
 
 from .models import (Application, DBConf, DBMSCatalog,
                      DBMSMetrics, KnobCatalog, MetricCatalog, PipelineResult,
-                     Project, Result, ResultData, Statistics, Workload)
+                     Project, Result, ResultData, Workload)
 
 
 class DBMSCatalogAdmin(admin.ModelAdmin):
@@ -102,11 +102,6 @@ class PipelineResultAdmin(admin.ModelAdmin):
         return obj.hardware.name
 
 
-class StatisticsAdmin(admin.ModelAdmin):
-    list_display = ['id', 'type', 'time']
-    list_filter = ['type']
-
-
 class WorkloadAdmin(admin.ModelAdmin):
     list_display = ['cluster_id', 'name']
 
@@ -125,5 +120,4 @@ admin.site.register(TaskMeta, TaskMetaAdmin)
 admin.site.register(Result, ResultAdmin)
 admin.site.register(ResultData, ResultDataAdmin)
 admin.site.register(PipelineResult, PipelineResultAdmin)
-admin.site.register(Statistics, StatisticsAdmin)
 admin.site.register(Workload, WorkloadAdmin)

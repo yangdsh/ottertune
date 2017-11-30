@@ -13,14 +13,10 @@ import string
 from abc import ABCMeta, abstractmethod, abstractproperty
 from collections import OrderedDict
 from random import choice
-
-import mimetypes
-from django.http import StreamingHttpResponse
 from django.utils.text import capfirst
-from wsgiref.util import FileWrapper
 
 from .models import DBMSCatalog, KnobCatalog, MetricCatalog
-from .settings import CONFIG_DIR, UPLOAD_DIR
+from .settings import CONFIG_DIR
 from .types import (BooleanType, DBMSType, LabelStyleType, MetricType,
                     VarType, KnobUnitType)
 
@@ -50,31 +46,11 @@ class JSONUtil(object):
 
 
 class MediaUtil(object):
-
-    @staticmethod
-    def get_result_data_path(result_id):
-        result_path = os.path.join(UPLOAD_DIR, str(result_id % 100))
-        try:
-            os.makedirs(result_path)
-        except OSError as e:
-            if e.errno == 17:
-                pass
-        return os.path.join(result_path, str(int(result_id) / 100l))
-
     @staticmethod
     def upload_code_generator(size=20,
                               chars=string.ascii_uppercase + string.digits):
         new_upload_code = ''.join(choice(chars) for _ in range(size))
         return new_upload_code
-
-    @staticmethod
-    def download_file(filepath, chunk_size=8192):
-        filename = os.path.basename(filepath)
-        response = StreamingHttpResponse(FileWrapper(open(filepath, 'rb'), chunk_size),
-                                         content_type=mimetypes.guess_type(filepath)[0])
-        response['Content-Length'] = os.path.getsize(filepath)
-        response['Content-Disposition'] = "attachment; filename=%s" % filename
-        return response
 
 
 class DataUtil(object):

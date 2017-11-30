@@ -20,7 +20,7 @@ from djcelery.models import TaskMeta
 
 from .forms import ApplicationForm, NewResultForm, ProjectForm
 from .models import (Application, DBConf, DBMSCatalog,
-                     DBMSMetrics, Hardware, KnobCatalog, MetricCatalog, PipelineResult, Project, Result,
+                     DBMSMetrics, Hardware, KnobCatalog, MetricCatalog, MetricManager, PipelineResult, Project, Result,
                      ResultData, Workload)
 from tasks import aggregate_target_results, map_workload, configuration_recommendation
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType, PipelineTaskType,
@@ -147,7 +147,6 @@ def get_task_status(tasks):
 
 @login_required(login_url=reverse_lazy('login'))
 def ml_info(request, project_id, app_id, result_id):
-#     result_id = request.GET['id']
     res = Result.objects.get(pk=result_id)
 
     task_ids = res.task_ids.split(',')
@@ -182,7 +181,6 @@ def ml_info(request, project_id, app_id, result_id):
 
 @login_required(login_url=reverse_lazy('login'))
 def project(request, project_id):
-#     project_id = request.GET['id']
     applications = Application.objects.filter(project=project_id)
     project = Project.objects.get(pk=project_id)
     labels = Application.get_labels()
@@ -222,14 +220,6 @@ def application(request, project_id, app_id):
 
     lastrevisions = [10, 50, 100]
     dbs = OrderedDict(sorted(dbs.items()))
-#     filters = []
-#     for field in BenchmarkConfig.FILTER_FIELDS:
-#         value_dict = {}
-#         for res in results:
-#             value_dict[getattr(res.benchmark_conf, field['field'])] = True
-#         f = {'values': [key for key in value_dict.iterkeys()],
-#              'print': field['print'], 'field': field['field']}
-#         filters.append(f)
 
     if len(workloads) > 0:
         default_workload, default_confs = workloads.iteritems().next()
@@ -238,13 +228,11 @@ def application(request, project_id, app_id):
         default_workload = 'show_none'
         default_confs = 'none'
 
-    default_metrics = [ app.target_objective ]
-    numeric_metrics = MetricCatalog.objects.filter(
-        dbms=app.dbms,metric_type=MetricType.COUNTER).values_list('name', flat=True)
+    default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
 
     labels = Application.get_labels()
     labels['title'] = "Application Info"
-    metric_meta = Statistics.objects.metric_meta
     context = {
         'project': project,
         'dbmss': dbs,
@@ -381,7 +369,7 @@ def update_application(request, project_id, app_id=''):
                         type=DBMSType.POSTGRES, version='9.6'),
                     'hardware': Hardware.objects.get(
                         type=HardwareType.EC2_M3XLARGE),
-                    'target_objective': Statistics.objects.P99_LATENCY,
+                    'target_objective': 'throughput_txn_per_sec',
                 })
         context = {
             'project': project,
@@ -417,7 +405,7 @@ def handle_result_files(app, files):
 
     # Load controller's summary file and verify that we support this DBMS & version
 #     summary = JSONUtil.loads(''.join(files['summary_data'].chunks()))
-    dbms_type = 'postgres' #DBMSType.type(summary['DBMS Type'])
+    dbms_type = DBMSType.type('postgres')#summary['DBMS Type'])
     dbms_version = "9.6"  ## FIXME
     workload_name = 'default'  ## BENCHFIXME
     execution_time = 300  # BENCHFIXME
@@ -467,13 +455,10 @@ def handle_result_files(app, files):
     result = Result.objects.create_result(
         app, dbms_object, workload, db_conf, dbms_metrics,
         start_timestamp, end_timestamp, execution_time)
-#     result.summary_stats = Statistics.objects.create_summary_stats(
-#         summary, result, execution_time)
     result.save()
 
     param_data = DBMSUtil.convert_dbms_params(
         dbms_object.pk, db_conf_dict)
-#     external_metrics = Statistics.objects.get_external_metrics(summary)
     metric_data = DBMSUtil.convert_dbms_metrics(
         dbms_object.pk, db_metrics_dict, int(execution_time))
 
@@ -494,18 +479,6 @@ def handle_result_files(app, files):
         app.nondefault_settings = JSONUtil.dumps(nondefault_settings)
     app.project.save()
     app.save()
-
-    path_prefix = MediaUtil.get_result_data_path(result.pk)
-    paths = [
-#         (path_prefix + '.summary', 'summary_data'),
-        (path_prefix + '.params', 'db_parameters_data'),
-        (path_prefix + '.metrics', 'db_metrics_data'),
-    ]
-
-    for path, content_name in paths:
-        with open(path, 'w') as f:
-            for chunk in files[content_name].chunks():
-                f.write(chunk)
 
     if app.tuning_session is False:
         return HttpResponse("Store success!")
@@ -676,7 +649,7 @@ def workload_info(request, project_id, app_id, wkld_id):
                                         workload=workload)
         if len(results) == 0:
             continue
-        result = results.latest('timestamp')
+        result = results.latest('end_timestamp')
         all_db_confs.append(conf.pk)
         conf_map[conf.name] = [conf, result]
     if len(conf_map) > 0:
@@ -684,13 +657,16 @@ def workload_info(request, project_id, app_id, wkld_id):
     else:
         dbs = {}
 
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
+    default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
+
     labels = Workload.get_labels()
     labels['title'] = 'Workload Information'
     context = {'workload': workload,
                'dbs': dbs,
-               'metric_meta': Statistics.objects.metric_meta,
+               'metric_meta': metric_meta,
                'default_dbconf': all_db_confs,
-               'default_metrics': ['throughput', 'p99_latency'],
+               'default_metrics': default_metrics,
                'labels': labels,
                'proj_id': project_id,
                'app_id': app_id}
@@ -713,22 +689,22 @@ def get_workload_data(request):
         return render(request, '404.html')
 
     results = Result.objects.filter(workload=workload)
-    results = sorted(results, cmp=lambda x,
-                     y: int(y.summary_stats.throughput - x.summary_stats.throughput))
+    result_data = {r.pk: JSONUtil.loads(ResultData.objects.get(result=r).metric_data) for r in results}
+    results = sorted(results, cmp=lambda x, y: int(result_data[y.pk][MetricManager.THROUGHPUT] -
+                                                   result_data[x.pk][MetricManager.THROUGHPUT]))
 
-    metrics = data.get('met')
-    if metrics is not None:
-        metrics = metrics.split(',')
-    else:
-        metrics = Statistics.objects.default_metrics
-    if app.tuning_session and app.target_objective not in metrics:
-        metrics.append(app.target_objective)
+    default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
+    metrics = request.GET.get('met', ','.join(default_metrics)).split(',')
+    metrics = [m for m in metrics if m != 'none']
+    if len(metrics) == 0:
+        metrics = default_metrics
         
     data_package = {'results': [],
                     'error': 'None',
                     'metrics': metrics}
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
     for met in data_package['metrics']:
-        met_info = Statistics.objects.get_meta(met)
+        met_info = metric_meta[met]
         data_package['results'].append({'data': [[]], 'tick': [],
                                         'unit': met_info.unit,
                                         'lessisbetter': met_info.improvement,
@@ -738,12 +714,16 @@ def get_workload_data(request):
         db_confs = data['db'].split(',')
         i = len(db_confs)
         for r in results:
+            metric_data = JSONUtil.loads(ResultData.objects.get(result=r).metric_data)
             if r.dbms_config.pk in added or str(r.dbms_config.pk) not in db_confs:
                 continue
             added[r.dbms_config.pk] = True
+            data_val = metric_data[met] * met_info.scale
             data_package['results'][-1]['data'][0].append([
-                i, getattr(r.summary_stats, met) * met_info.scale,
-                r.pk, getattr(r.summary_stats, met) * met_info.scale])
+                i,
+                data_val,
+                r.pk,
+                data_val])
             data_package['results'][-1]['tick'].append(r.dbms_config.name)
             i -= 1
         data_package['results'][-1]['data'].reverse()
@@ -789,15 +769,6 @@ def result_same(a, b):
     return True
 
 
-# def result_same(a, b):
-#     db_conf_a = JSONUtil.loads(a.dbms_config.configuration)
-#     db_conf_b = JSONUtil.loads(b.dbms_config.configuration)
-#     for k, v in db_conf_a.iteritems():
-#         if k not in db_conf_b or v != db_conf_b[k]:
-#             return False
-#     return True
-
-
 @login_required(login_url=reverse_lazy('login'))
 def update_similar(request):
     raise Http404()
@@ -809,9 +780,9 @@ def result(request, project_id, app_id, result_id):
     if app.user != request.user:
         raise Http404()
     data_package = {}
-    results = Result.objects.filter(application=target.application,
+    results = Result.objects.filter(application=app,
                                     dbms=app.dbms,
-                                    benchmark_config=target.benchmark_config)
+                                    workload=target.workload)
     same_dbconf_results = filter(
         lambda x: x.pk != target.pk and result_same(x, target), results)
     ranked_knobs = JSONUtil.loads(PipelineResult.get_latest(
@@ -821,7 +792,7 @@ def result(request, project_id, app_id, result_id):
         ([target.pk] + [r.pk for r in same_dbconf_results]) and \
         result_similar(x, target, ranked_knobs), results)
 
-    metric_meta = Statistics.objects.metric_meta
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
     for metric, metric_info in metric_meta.iteritems():
         data_package[metric] = {
             'data': {},
@@ -840,21 +811,24 @@ def result(request, project_id, app_id, result_id):
                 data_package[metric]['data'][int(x)].extend(tmp)
                 continue
 
-            ts = Statistics.objects.filter(data_result=x, type=StatsType.SAMPLES)
-            if len(ts) > 0:
-                offset = ts[0].time
-                if len(ts) > 1:
-                    offset -= ts[1].time - ts[0].time
-                data_package[metric]['data'][int(x)] = []
-                for t in ts:
-                    data_package[metric]['data'][int(x)].append(
-                        [t.time - offset, getattr(t, metric) * metric_info.scale])
-                cache.set(key, data_package[metric]['data'][int(x)], 60 * 5)
+            # We no longer collect timeseries data (but this may change)
+#             ts = Statistics.objects.filter(data_result=x, type=StatsType.SAMPLES)
+#             if len(ts) > 0:
+#                 offset = ts[0].time
+#                 if len(ts) > 1:
+#                     offset -= ts[1].time - ts[0].time
+#                 data_package[metric]['data'][int(x)] = []
+#                 for t in ts:
+#                     data_package[metric]['data'][int(x)].append(
+#                         [t.time - offset, getattr(t, metric) * metric_info.scale])
+#                 cache.set(key, data_package[metric]['data'][int(x)], 60 * 5)
 
-    default_metrics = {}
-    for met in Statistics.objects.default_metrics:
-        default_metrics[met] = (getattr(target.summary_stats, met) *
-                                Statistics.objects.get_meta(metric).scale)
+    default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
+    metric_data = JSONUtil.loads(ResultData.objects.get(result=target).metric_data)
+
+    default_metrics = {mname: metric_data[mname] * metric_meta[mname].scale
+                       for mname in default_metrics}
 
     status = None
     if target.task_ids is not None:
@@ -871,8 +845,6 @@ def result(request, project_id, app_id, result_id):
     next_conf_available = True if status == 'SUCCESS' else False
     labels = Result.get_labels()
     labels.update(LabelUtil.style_labels({
-        'sampled_data': 'sampled data',
-        'raw_data': 'raw data',
         'status': 'status',
         'next_conf_available': 'next configuration'
     }))
@@ -893,26 +865,6 @@ def result(request, project_id, app_id, result_id):
     return render(request, 'result.html', context)
 
 
-@login_required(login_url=reverse_lazy('login'))
-def get_result_data_file(request):
-    target = get_object_or_404(Result, pk=request.GET['id'])
-    if target.application.user != request.user:
-        return render(request, '404.html')
-
-    result_id = int(request.GET['id'])
-    result_type = request.GET['type']
-
-    prefix = MediaUtil.get_result_data_path(result_id)
-
-    if result_type == 'samples':
-        filepath = prefix + '.samples'
-    elif result_type == 'raw':
-        filepath = prefix + '.raw'
-    elif result_type == 'next_conf':
-        filepath = prefix + '.next_conf'
-    return MediaUtil.download_file(filepath)
-
-
 # Data Format:
 #    error
 #    results
@@ -924,7 +876,6 @@ def get_result_data_file(request):
 @login_required(login_url=reverse_lazy('login'))
 def get_timeline_data(request):
     result_labels = Result.get_labels()
-    table_metrics = [Statistics.objects.THROUGHPUT, Statistics.objects.P99_LATENCY]
     columnnames = [
         result_labels['id'],
         result_labels['creation_time'],
@@ -932,70 +883,64 @@ def get_timeline_data(request):
         result_labels['dbms_metrics'],
         result_labels['workload'],
     ]
-    for met in table_metrics:
-        met_info = Statistics.objects.get_meta(met)
-        columnnames.append(
-            met_info.pprint + ' (' + 
-            met_info.short_unit + ')') 
-
     data_package = {
         'error': 'None',
         'timelines': [], 
         'columnnames': columnnames,
     }
 
-    application = get_object_or_404(Application, pk=request.GET['app'])
-    if application.user != request.user:
+    print request.GET
+    app = get_object_or_404(Application, pk=request.GET['app'])
+    if app.user != request.user:
         return HttpResponse(JSONUtil.dumps(data_package), content_type='application/json')
+
+    default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
+
+    metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
+    for met in default_metrics:
+        met_info = metric_meta[met]
+        columnnames.append(
+            met_info.pprint + ' (' + 
+            met_info.short_unit + ')') 
 
     revs = int(request.GET['revs'])
 
-    # Get all results related to the selected DBMS, sort by time
-    results = Result.objects.filter(application=application)
-#     results = filter(lambda x: x.dbms.key in request.GET[
-#                      'db'].split(','), results)
+    # Get all results related to the selected application, sort by time
+    results = Result.objects.filter(application=app)
     results = sorted(results, cmp=lambda x, y: int(
-        (x.timestamp - y.timestamp).total_seconds()))
+        (x.end_timestamp - y.end_timestamp).total_seconds()))
 
-    default_metrics = Statistics.objects.default_metrics
-    if application.tuning_session is True and \
-            application.target_objective not in default_metrics:
-        default_metrics.append(application.target_objective)
     display_type = request.GET['ben']
     if display_type == 'show_none':
         workloads = []
         metrics = default_metrics
         results = []
         pass
-#     elif display_type == 'grid':
-#         metrics = default_metrics
-#         benchmarks = set()
-#         benchmark_confs = []
-#         for result in results:
-#             benchmarks.add(result.benchmark_config.benchmark_type)
-#             benchmark_confs.append(result.benchmark_config)
-#         benchmarks = list(benchmarks)
     else:
         metrics = request.GET.get(
             'met', ','.join(default_metrics)).split(',')
+        metrics = [m for m in metrics if m != 'none']
+        if len(metrics) == 0:
+            metrics = default_metrics
         workloads = [display_type]
         workload_confs = filter(lambda x: x != '', request.GET[
                                  'spe'].strip().split(','))
         results = filter(lambda x: str(x.workload.pk)
                          in workload_confs, results)
-    
+
+    metric_datas = {r.pk: JSONUtil.loads(ResultData.objects.get(result=r).metric_data) for r in results}
     result_list = []
     for x in results:
         entry = [
             x.pk,
-            x.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            x.end_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             x.dbms_config.name,
             x.dbms_metrics.name,
             x.workload.name]
-        for met in table_metrics:
-            entry.append(getattr(x.summary_stats, met) *
-                         Statistics.objects.get_meta(met).scale)
+        for met in metrics:
+            entry.append(metric_datas[x.pk][met] * metric_meta[met].scale)
         entry.extend([
+            '',
             x.dbms_config.pk,
             x.dbms_metrics.pk,
             x.workload.pk
@@ -1005,7 +950,7 @@ def get_timeline_data(request):
 
     # For plotting charts
     for metric in metrics:
-        met_info = Statistics.objects.get_meta(metric)
+        met_info = metric_meta[metric]
         for wkld in workloads:
             w_r = filter(
                 lambda x: x.workload.name == wkld, results)
@@ -1025,14 +970,15 @@ def get_timeline_data(request):
             for db in request.GET['db'].split(','):
                 d_r = filter(lambda x: x.dbms.key == db, w_r)
                 d_r = d_r[-revs:]
-                out = [
-                    [
-                        res.timestamp.strftime("%m-%d-%y %H:%M"),
-                        getattr(res.summary_stats, metric) * met_info.scale,
+                out = []
+                for res in d_r:
+                    metric_data = JSONUtil.loads(ResultData.objects.get(result=res).metric_data)
+                    out.append([
+                        res.end_timestamp.strftime("%m-%d-%y %H:%M"),
+                        metric_data[metric] * met_info.scale,
                         "",
                         str(res.pk)
-                    ]
-                    for res in d_r]
+                    ])
 
                 if len(out) > 0:
                     data['data'][db] = out

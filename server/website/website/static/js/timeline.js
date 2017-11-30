@@ -30,7 +30,7 @@ function renderPlot(data, div_id) {
     $("#" + div_id).html('<div id="' + div_id + '_plot"></div><div id="plotdescription"></div>');
 
     var plotoptions = {
-        title: {text: data.workload + ": " + data.print_metric + " " + data.lessisbetter, fontSize: '1.1em'},
+        title: {text: data.print_metric + " " + data.lessisbetter, fontSize: '1.1em'},
         series: series,
         axes:{
         yaxis:{
@@ -126,13 +126,14 @@ function render(data) {
         }
     } else {
         // render single plot when one workload is selected
+    	var i = 0;
         for (var metric in data.timelines) {
-            var plotid = "plot_" + data.timelines[metric].metric;
+            var plotid = "plot_" + i;
             $("#plotgrid").append('<div id="' + plotid + '" class="plotcontainer"></div>');
             renderPlot(data.timelines[metric], plotid);
+            i = i + 1;
         }
     }
-
     var dt = $("#dataTable").dataTable( {
         "aaData": data.results,
         "aoColumns": [
@@ -149,8 +150,9 @@ function render(data) {
             { "sTitle": data.columnnames[4], "sClass": "center", "mRender": function (data, type, full) {
                 return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/workloads/' + full[9] + '">' + data + '</a>';
             }},
-            { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {return data.toFixed(2);}},
-            { "sTitle": data.columnnames[6], "sClass": "center", "mRender": function (data, type, full) {return data.toFixed(2);}},
+            { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {
+            	return data.toFixed(2);
+            }},
         ],
         "bFilter": false,
         "bAutoWidth": true,

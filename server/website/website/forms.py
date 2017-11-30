@@ -12,7 +12,6 @@ class NewResultForm(forms.Form):
     upload_code = forms.CharField(max_length=30)
     db_parameters_data = forms.FileField()
     db_metrics_data = forms.FileField()
-    summary_data = forms.FileField()
 
 
 class ProjectForm(forms.ModelForm):
