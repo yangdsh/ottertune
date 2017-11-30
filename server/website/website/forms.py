@@ -10,8 +10,10 @@ from .models import Application, Project
 
 class NewResultForm(forms.Form):
     upload_code = forms.CharField(max_length=30)
-    db_parameters_data = forms.FileField()
-    db_metrics_data = forms.FileField()
+    metrics_start = forms.FileField()
+    metrics_end = forms.FileField()
+    knobs = forms.FileField()
+    summary = forms.FileField()
 
 
 class ProjectForm(forms.ModelForm):

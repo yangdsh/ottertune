@@ -19,9 +19,9 @@ from django.views.decorators.csrf import csrf_exempt
 from djcelery.models import TaskMeta
 
 from .forms import ApplicationForm, NewResultForm, ProjectForm
-from .models import (Application, DBConf, DBMSCatalog,
-                     DBMSMetrics, Hardware, KnobCatalog, MetricCatalog, MetricManager, PipelineResult, Project, Result,
-                     ResultData, Workload)
+from .models import (Application, BackupData, DBConf, DBMSCatalog, DBMSMetrics,
+                     Hardware, KnobCatalog, MetricCatalog, MetricManager, PipelineResult,
+                     Project, Result, Workload)
 from tasks import aggregate_target_results, map_workload, configuration_recommendation
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType, PipelineTaskType,
                     TaskType, VarType)
@@ -404,22 +404,19 @@ def handle_result_files(app, files):
     from celery import chain
 
     # Load controller's summary file and verify that we support this DBMS & version
-#     summary = JSONUtil.loads(''.join(files['summary_data'].chunks()))
-    dbms_type = DBMSType.type('postgres')#summary['DBMS Type'])
-    dbms_version = "9.6"  ## FIXME
-    workload_name = 'default'  ## BENCHFIXME
-    execution_time = 300  # BENCHFIXME
-    start_timestamp = now() # BENCHFIXME
-    end_timestamp = start_timestamp # BENCHFIXME
-#     timestamp = datetime.fromtimestamp(
-#         int(summary['Current Timestamp (milliseconds)']) / 1000,
-#         timezone("UTC"))
-#     timestamp = datetime.fromtimestamp(
-#         int(summary['Current Timestamp (milliseconds)']) / 1000,
-#         timezone("UTC"))
+    workload_name = 'my_workload'  ## FIXME
+    raw_summary = ''.join(files['summary'].chunks())
+    summary = JSONUtil.loads(raw_summary)
+    dbms_type = DBMSType.type(summary['dbms_type'])
 #     dbms_version = DBMSUtil.parse_version_string(
-#        dbms_type, summary['DBMS Version'])
-
+#        dbms_type, summary['dbms_version'])
+    dbms_version = '9.6'
+    observation_time = summary['observation_time']
+    start_timestamp = summary['start_time_utc']
+    end_timestamp = summary['end_time_utc']
+#     timestamp = datetime.fromtimestamp(
+#         int(summary['Current Timestamp (milliseconds)']) / 1000,
+#         timezone("UTC"))
     try:
         dbms_object = DBMSCatalog.objects.get(
             type=dbms_type, version=dbms_version)
@@ -433,46 +430,53 @@ def handle_result_files(app, files):
                             '(expected=' + app.dbms.full_name + ') '
                             '(actual=' + dbms_object.full_name + ')')
 
-    # Load parameters, metrics, workload, and samples
-    db_parameters = JSONUtil.loads(
-        ''.join(files['db_parameters_data'].chunks()))
-    db_metrics = JSONUtil.loads(''.join(files['db_metrics_data'].chunks()))
-
+    # Load, process, and store the knobs in the DBMS's configuration
+    db_raw_data = ''.join(files['knobs'].chunks())
     db_conf_dict, db_diffs = DBMSUtil.parse_dbms_config(
-        dbms_object.pk, db_parameters)
+        dbms_object.pk, JSONUtil.loads(db_raw_data))
+    knob_data = DBMSUtil.convert_dbms_params(
+        dbms_object.pk, db_conf_dict)
     db_conf = DBConf.objects.create_dbconf(
         app, JSONUtil.dumps(db_conf_dict, pprint=True, sort=True),
-        JSONUtil.dumps(db_diffs), dbms_object)
+        JSONUtil.dumps(knob_data, pprint=True, sort=True), dbms_object)
 
-    db_metrics_dict, met_diffs = DBMSUtil.parse_dbms_metrics(
-            dbms_object.pk, db_metrics)
+    # Load, process, and store the runtime metrics exposed by the DBMS
+    raw_mets_start = ''.join(files['metrics_start'].chunks())
+    mets_start_dict, mets_start_diffs = DBMSUtil.parse_dbms_metrics(
+            dbms_object.pk, JSONUtil.loads(raw_mets_start))
+    raw_mets_end = ''.join(files['metrics_end'].chunks())
+    mets_end_dict, mets_end_diffs = DBMSUtil.parse_dbms_metrics(
+            dbms_object.pk, JSONUtil.loads(raw_mets_end))
+    mets_dict = DBMSUtil.calculate_change_in_metrics(
+        dbms_object.pk, mets_start_dict, mets_end_dict)
+    mets_start_diffs.extend(mets_end_diffs)
+    metric_data = DBMSUtil.convert_dbms_metrics(
+        dbms_object.pk, mets_dict, observation_time)
     dbms_metrics = DBMSMetrics.objects.create_dbms_metrics(
-        app, JSONUtil.dumps(db_metrics_dict, pprint=True, sort=True),
-        JSONUtil.dumps(met_diffs), execution_time, dbms_object)
+        app, JSONUtil.dumps(mets_dict, pprint=True, sort=True),
+        JSONUtil.dumps(metric_data, pprint=True, sort=True), dbms_object)
 
+    # Create a new workload if this one does not already exist
     workload = Workload.objects.create_workload(
         dbms_object, app.hardware, workload_name)
+
+    # Save this result
     result = Result.objects.create_result(
         app, dbms_object, workload, db_conf, dbms_metrics,
-        start_timestamp, end_timestamp, execution_time)
+        start_timestamp, end_timestamp, observation_time)
     result.save()
 
-    param_data = DBMSUtil.convert_dbms_params(
+    # Save all original data
+    backup_data = BackupData.objects.create(
+        result=result, original_knobs=db_raw_data,
+        original_metrics_start=raw_mets_start,
+        original_metrics_end=raw_mets_end,
+        original_summary=raw_summary,
+        knob_diffs=db_diffs, metric_diffs=mets_start_diffs)
+    backup_data.save()
+
+    nondefault_settings = DBMSUtil.get_nondefault_settings(
         dbms_object.pk, db_conf_dict)
-    metric_data = DBMSUtil.convert_dbms_metrics(
-        dbms_object.pk, db_metrics_dict, int(execution_time))
-
-    ResultData.objects.create(result=result,
-                              workload_cluster=workload,
-                              param_data=JSONUtil.dumps(param_data,
-                                                        pprint=True,
-                                                        sort=True),
-                              metric_data=JSONUtil.dumps(metric_data,
-                                                         pprint=True,
-                                                         sort=True))
-
-    nondefault_settings = DBMSUtil.get_nondefault_settings(dbms_object.pk,
-                                                           db_conf_dict)
     app.project.last_update = now()
     app.last_update = now()
     if app.nondefault_settings is None:
@@ -689,7 +693,7 @@ def get_workload_data(request):
         return render(request, '404.html')
 
     results = Result.objects.filter(workload=workload)
-    result_data = {r.pk: JSONUtil.loads(ResultData.objects.get(result=r).metric_data) for r in results}
+    result_data = {r.pk: JSONUtil.loads(r.dbms_metrics.data) for r in results}
     results = sorted(results, cmp=lambda x, y: int(result_data[y.pk][MetricManager.THROUGHPUT] -
                                                    result_data[x.pk][MetricManager.THROUGHPUT]))
 
@@ -714,7 +718,7 @@ def get_workload_data(request):
         db_confs = data['db'].split(',')
         i = len(db_confs)
         for r in results:
-            metric_data = JSONUtil.loads(ResultData.objects.get(result=r).metric_data)
+            metric_data = JSONUtil.loads(r.dbms_metrics.data)
             if r.dbms_config.pk in added or str(r.dbms_config.pk) not in db_confs:
                 continue
             added[r.dbms_config.pk] = True
@@ -825,7 +829,7 @@ def result(request, project_id, app_id, result_id):
 
     default_metrics = MetricCatalog.objects.get_default_metrics(app.target_objective)
     metric_meta = MetricCatalog.objects.get_metric_meta(app.dbms, True)
-    metric_data = JSONUtil.loads(ResultData.objects.get(result=target).metric_data)
+    metric_data = JSONUtil.loads(target.dbms_metrics.data)
 
     default_metrics = {mname: metric_data[mname] * metric_meta[mname].scale
                        for mname in default_metrics}
@@ -889,7 +893,6 @@ def get_timeline_data(request):
         'columnnames': columnnames,
     }
 
-    print request.GET
     app = get_object_or_404(Application, pk=request.GET['app'])
     if app.user != request.user:
         return HttpResponse(JSONUtil.dumps(data_package), content_type='application/json')
@@ -928,7 +931,7 @@ def get_timeline_data(request):
         results = filter(lambda x: str(x.workload.pk)
                          in workload_confs, results)
 
-    metric_datas = {r.pk: JSONUtil.loads(ResultData.objects.get(result=r).metric_data) for r in results}
+    metric_datas = {r.pk: JSONUtil.loads(r.dbms_metrics.data) for r in results}
     result_list = []
     for x in results:
         entry = [
@@ -972,7 +975,7 @@ def get_timeline_data(request):
                 d_r = d_r[-revs:]
                 out = []
                 for res in d_r:
-                    metric_data = JSONUtil.loads(ResultData.objects.get(result=res).metric_data)
+                    metric_data = JSONUtil.loads(res.dbms_metrics.data)
                     out.append([
                         res.end_timestamp.strftime("%m-%d-%y %H:%M"),
                         metric_data[metric] * met_info.scale,

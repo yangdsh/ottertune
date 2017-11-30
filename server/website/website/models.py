@@ -1,8 +1,7 @@
 from collections import namedtuple, OrderedDict
 
 from django.contrib.auth.models import User
-from django.core.validators import (validate_comma_separated_integer_list,
-                                    MinValueValidator)
+from django.core.validators import validate_comma_separated_integer_list
 from django.db import models
 from django.utils.timezone import now
 
@@ -169,7 +168,7 @@ class Application(models.Model, BaseModel):
 
     upload_code = models.CharField(max_length=30, unique=True)
     tuning_session = models.BooleanField()
-    target_objective = models.CharField(max_length=64)
+    target_objective = models.CharField(max_length=64, null=True)
     nondefault_settings = models.TextField(null=True)
 
     def clean(self):
@@ -205,6 +204,7 @@ class ExpModel(models.Model, BaseModel):
     description = models.CharField(max_length=512, null=True, blank=True)
     creation_time = models.DateTimeField()
     configuration = models.TextField()
+    data = models.TextField()
 
     def __unicode__(self):
         return self.name
@@ -212,20 +212,18 @@ class ExpModel(models.Model, BaseModel):
 
 class DBModel(ExpModel):
     dbms = models.ForeignKey(DBMSCatalog, verbose_name="dbms")
-    orig_config_diffs = models.TextField()
 
 
 class DBConfManager(ExpManager):
 
-    def create_dbconf(self, app, config, orig_config_diffs,
-                      dbms, desc=None):
+    def create_dbconf(self, app, config, data, dbms, desc=None):
         try:
             return DBConf.objects.get(application=app,
                                       configuration=config)
         except DBConf.DoesNotExist:
             conf = self.create(application=app,
                                configuration=config,
-                               orig_config_diffs=orig_config_diffs,
+                               data=data,
                                dbms=dbms,
                                description=desc,
                                creation_time=now())
@@ -240,13 +238,11 @@ class DBConf(DBModel):
 
 class DBMSMetricsManager(ExpManager):
 
-    def create_dbms_metrics(self, app, config, orig_config_diffs,
-                            exec_time, dbms, desc=None):
+    def create_dbms_metrics(self, app, config, data, dbms, desc=None):
         metrics = self.create(application=app,
                               configuration=config,
-                              orig_config_diffs=orig_config_diffs,
+                              data=data,
                               dbms=dbms,
-                              execution_time=exec_time,
                               description=desc,
                               creation_time=now())
         metrics.name = self.create_name(metrics, dbms.key)
@@ -256,9 +252,6 @@ class DBMSMetricsManager(ExpManager):
 
 class DBMSMetrics(DBModel):
     objects = DBMSMetricsManager()
-
-    execution_time = models.IntegerField(
-        validators=[MinValueValidator(0)])
 
 
 class WorkloadManager(models.Manager):
@@ -304,7 +297,7 @@ class ResultManager(models.Manager):
     def create_result(self, app, dbms, workload,
                       dbms_config, dbms_metrics,
                       start_timestamp, end_timestamp,
-                      execution_time, task_ids=None,
+                      observation_time, task_ids=None,
                       most_similar=None):
         return self.create(application=app,
                            dbms=dbms,
@@ -313,7 +306,7 @@ class ResultManager(models.Manager):
                            dbms_metrics=dbms_metrics,
                            start_timestamp=start_timestamp,
                            end_timestamp=end_timestamp,
-                           execution_time=execution_time,
+                           observation_time=observation_time,
                            task_ids=task_ids,
                            most_similar=most_similar,
                            creation_time=now())
@@ -331,7 +324,7 @@ class Result(models.Model, BaseModel):
     creation_time = models.DateTimeField()
     start_timestamp = models.DateTimeField()
     end_timestamp = models.DateTimeField()
-    execution_time = models.FloatField()
+    observation_time = models.FloatField()
     task_ids = models.CharField(max_length=180, null=True)
     most_similar = models.CharField(max_length=100, validators=[
                                     validate_comma_separated_integer_list],
@@ -339,19 +332,6 @@ class Result(models.Model, BaseModel):
 
     def __unicode__(self):
         return unicode(self.pk)
-
-
-class ResultData(models.Model):
-    result = models.ForeignKey(Result)
-    workload_cluster = models.ForeignKey(Workload)
-    param_data = models.TextField()
-    metric_data = models.TextField()
-
-    class Meta:
-        ordering = ('workload_cluster',)
-
-    def clean_fields(self, exclude=None):
-        super(ResultData, self).clean_fields(exclude=exclude)
 
 
 class PipelineResult(models.Model):
@@ -373,19 +353,11 @@ class PipelineResult(models.Model):
         get_latest_by = ('creation_timestamp')
 
 
-# class Statistics(models.Model):
-#     objects = StatsManager()
-# 
-#     data_result = models.ForeignKey(Result)
-#     type = models.IntegerField(choices = StatsType.choices())
-#     time = models.IntegerField()
-#     throughput = models.FloatField()
-#     avg_latency = models.FloatField()
-#     min_latency = models.FloatField()
-#     p25_latency = models.FloatField()
-#     p50_latency = models.FloatField()
-#     p75_latency = models.FloatField()
-#     p90_latency = models.FloatField()
-#     p95_latency = models.FloatField()
-#     p99_latency = models.FloatField()
-#     max_latency = models.FloatField()
+class BackupData(models.Model):
+    result = models.ForeignKey(Result)
+    original_knobs = models.TextField()
+    original_metrics_start = models.TextField()
+    original_metrics_end = models.TextField()
+    original_summary = models.TextField()
+    knob_diffs = models.TextField()
+    metric_diffs = models.TextField()

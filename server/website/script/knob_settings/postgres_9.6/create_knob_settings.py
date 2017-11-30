@@ -72,6 +72,8 @@ def convert(size, system=pg_system):
 
 params = OrderedDict()
 
+PARAM_PREFIX = 'global'
+
 with open("settings.csv", "r") as f:
     reader = csv.reader(f, delimiter=',')
     header = None
@@ -516,8 +518,18 @@ with open('tunable_params.txt', 'w') as f:
 # print "Max name length: {}".format(max_name_len)
 # print "Contexts: {}".format(contexts)
 
+tmp_params = OrderedDict()
+for k, v in params.iteritems():
+    newname = PARAM_PREFIX + '.' + k
+    v['name'] = newname
+    tmp_params[newname] = v
+
+# params = {PARAM_PREFIX + '.' + k: v['name'] for k, v in params.iteritems()}
+params = tmp_params
+
 with open("settings.json", "w") as f:
     json.dump(params, f, indent=4)
+
 
 # maxlen = 0
 # for pname, pinfo in params.iteritems():

@@ -56,21 +56,21 @@ class MediaUtil(object):
 class DataUtil(object):
 
     @staticmethod
-    def aggregate_data(results, knob_labels, metric_labels):
-        X_matrix_shape = (len(results), len(knob_labels))
-        y_matrix_shape = (len(results), len(metric_labels))
-        X_matrix = np.empty(X_matrix_shape, dtype=float)
-        y_matrix = np.empty(y_matrix_shape, dtype=float)
-        rowlabels = np.empty(X_matrix_shape[0], dtype=int)
+    def aggregate_data(results):
+        knob_labels = JSONUtil.loads(results[0].dbms_config.data).keys()
+        metric_labels = JSONUtil.loads(results[0].dbms_metrics.data).keys()
+        X_matrix = np.empty(len(results), len(knob_labels), dtype=float)
+        y_matrix = np.empty(len(results), len(metric_labels), dtype=float)
+        rowlabels = np.empty(len(results), dtype=int)
 
         for i, result in enumerate(results):
-            param_data = JSONUtil.loads(result.param_data)
+            param_data = JSONUtil.loads(result.dbms_config.data)
             if len(param_data) != len(knob_labels):
                 raise Exception(
                     ("Incorrect number of knobs "
                      "(expected={}, actual={})").format(len(knob_labels),
                                                         len(param_data)))
-            metric_data = JSONUtil.loads(result.metric_data)
+            metric_data = JSONUtil.loads(result.dbms_metrics.data)
             if len(metric_data) != len(metric_labels):
                 raise Exception(
                     ("Incorrect number of metrics "
@@ -197,6 +197,8 @@ class DBMSUtilImpl(object):
         for pname, pinfo in self.tunable_knob_catalog_.iteritems():
             if pinfo.tunable is False:
                 continue
+            if pname not in params:
+                continue
             pvalue = params[pname]
             prep_value = None
             if pinfo.vartype == VarType.BOOL:
@@ -220,7 +222,7 @@ class DBMSUtilImpl(object):
             param_data[pname] = prep_value
         return param_data
 
-    def convert_dbms_metrics(self, metrics, execution_time):
+    def convert_dbms_metrics(self, metrics, observation_time):
 #         if len(metrics) != len(self.numeric_metric_catalog_):
 #             raise Exception('The number of metrics should be equal!')
         metric_data = {}
@@ -228,7 +230,7 @@ class DBMSUtilImpl(object):
             mvalue = metrics[mname]
             if minfo.metric_type == MetricType.COUNTER:
                 converted = self.convert_integer(mvalue, minfo)
-                metric_data[mname] = float(converted) / execution_time
+                metric_data[mname] = float(converted) / observation_time
             else:
                 raise Exception(
                     'Unknown metric type: {}'.format(minfo.metric_type))
@@ -261,16 +263,99 @@ class DBMSUtilImpl(object):
                     diffs.append(('missing_key', v.name, None, None))
                     valid_dict[
                         v.name] = default if default is not None else v.default
-        assert len(valid_dict) == len(catalog)
+#         assert len(valid_dict) == len(catalog)
         return valid_dict, diffs
 
+    def parse_helper(self, config):
+        valid_entries = {}
+        for view_name, entries in config.iteritems():
+            for mname, mvalue in entries.iteritems():
+                key = '{}.{}'.format(view_name, mname)
+                if key not in valid_entries:
+                    valid_entries[key] = []
+                valid_entries[key].append(mvalue)
+        return valid_entries
+
     def parse_dbms_config(self, config):
-        return DBMSUtilImpl.extract_valid_keys(config, self.knob_catalog_)
+        valid_knobs = {}
+        for knobtype, subknobs in config.iteritems():
+            if subknobs is None:
+                continue
+            if knobtype == 'global':
+                valid_knobs.update(self.parse_helper(subknobs))
+            elif knobtype == 'local':
+                for scope, viewnames in subknobs.iteritems():
+                    for viewname, objnames in viewnames.iteritems():
+                        for objname, ssmets in objnames.iteritems():
+                            valid_knobs.update(self.parse_helper({viewname: ssmets}))
+            else:
+                raise Exception('Unsupported knobs format: ' + knobtype)
+
+        for k in list(valid_knobs.keys()):
+            assert len(valid_knobs[k]) == 1
+            valid_knobs[k] = valid_knobs[k][0]
+        # Extract all valid knobs
+        return DBMSUtilImpl.extract_valid_keys(valid_knobs, self.knob_catalog_, default='0')
 
     def parse_dbms_metrics(self, metrics):
-        return DBMSUtilImpl.extract_valid_keys(metrics,
-                                               self.metric_catalog_,
-                                               default='0')
+        # Some DBMSs measure different types of stats (e.g., global, local)
+        # at different scopes (e.g. indexes, # tables, database) so for now
+        # we just combine them
+        valid_metrics = {}
+        for mettype, submetrics in metrics.iteritems():
+            if submetrics is None:
+                continue
+            if mettype == 'global':
+                valid_metrics.update(self.parse_helper(submetrics))
+            elif mettype == 'local':
+                for scope, viewnames in submetrics.iteritems():
+                    for viewname, objnames in viewnames.iteritems():
+                        for objname, ssmets in objnames.iteritems():
+                            valid_metrics.update(self.parse_helper({viewname: ssmets}))
+            else:
+                raise Exception('Unsupported metrics format: ' + mettype)
+
+        # Extract all valid metrics
+        valid_metrics, diffs = DBMSUtilImpl.extract_valid_keys(
+            valid_metrics, self.metric_catalog_, default='0')
+
+        # Combine values
+        for mname, mvalues in valid_metrics.iteritems():
+            metric = self.metric_catalog_[mname]
+            mvalues = valid_metrics[mname]
+            if metric.metric_type == MetricType.INFO or len(mvalues) == 1:
+                valid_metrics[mname] = mvalues[0]
+            elif metric.metric_type == MetricType.COUNTER:
+                mvalues = [int(v) for v in mvalues if v is not None]
+                if len(mvalues) == 0:
+                    valid_metrics[mname] = 0
+                else:
+                    valid_metrics[mname] = str(sum(mvalues))
+            else:
+                raise Exception(
+                    'Invalid metric type: {}'.format(metric.metric_type))
+        return valid_metrics, diffs
+
+    def calculate_change_in_metrics(self, metrics_start, metrics_end):
+        adjusted_metrics = {}
+        for met_name, start_val in metrics_start.iteritems():
+            end_val = metrics_end[met_name]
+            met_info = self.metric_catalog_[met_name]
+            if met_info.vartype == VarType.INTEGER or \
+                    met_info.vartype == VarType.REAL:
+                conversion_fn = self.convert_integer if \
+                    met_info.vartype == VarType.INTEGER else \
+                    self.convert_real
+                start_val = conversion_fn(start_val, met_info)
+                end_val = conversion_fn(end_val, met_info)
+                adj_val = end_val - start_val
+                assert adj_val >= 0
+                adjusted_metrics[met_name] = adj_val
+            else:
+                # This metric is either a bool, enum, string, or timestamp
+                # so take last recorded value from metrics_end
+                adjusted_metrics[met_name] = end_val
+        return adjusted_metrics
 
     def create_configuration(self, tuning_params, custom_params):
         config_params = self.base_configuration_settings
@@ -308,6 +393,8 @@ class DBMSUtilImpl(object):
         nondefault_settings = OrderedDict()
         for pname, pinfo in self.knob_catalog_.iteritems():
             if pinfo.tunable is True:
+                continue
+            if pname not in config:
                 continue
             pvalue = config[pname]
             if pvalue != pinfo.default:
@@ -454,39 +541,6 @@ class PostgresUtilImpl(DBMSUtilImpl):
         dbms_version = version_string.split(',')[0]
         return re.search("\d+\.\d+(?=\.\d+)", dbms_version).group(0)
 
-    def parse_dbms_metrics(self, metrics):
-        # Postgres measures stats at different scopes (e.g. indexes,
-        # tables, database) so for now we just combine them
-        valid_metrics = {}
-        for view_name, entries in metrics.iteritems():
-            for entry in entries:
-                for mname, mvalue in entry.iteritems():
-                    key = '{}.{}'.format(view_name, mname)
-                    if key not in valid_metrics:
-                        valid_metrics[key] = []
-                    valid_metrics[key].append(mvalue)
-
-        # Extract all valid metrics
-        valid_metrics, diffs = DBMSUtilImpl.extract_valid_keys(
-            valid_metrics, self.metric_catalog_, default='0')
-
-        # Combine values
-        for mname, mvalues in valid_metrics.iteritems():
-            metric = self.metric_catalog_[mname]
-            mvalues = valid_metrics[mname]
-            if metric.metric_type == MetricType.INFO or len(mvalues) == 1:
-                valid_metrics[mname] = mvalues[0]
-            elif metric.metric_type == MetricType.COUNTER:
-                mvalues = [int(v) for v in mvalues if v is not None]
-                if len(mvalues) == 0:
-                    valid_metrics[mname] = 0
-                else:
-                    valid_metrics[mname] = str(sum(mvalues))
-            else:
-                raise Exception(
-                    'Invalid metric type: {}'.format(metric.metric_type))
-        return valid_metrics, diffs
-
 
 class Postgres96UtilImpl(PostgresUtilImpl):
 
@@ -501,21 +555,24 @@ class DBMSUtil(object):
     __DBMS_UTILS_IMPLS = None
 
     @staticmethod
-    def __utils(dbms_id):
+    def __utils(dbms_id=None):
         if DBMSUtil.__DBMS_UTILS_IMPLS is None:
             DBMSUtil.__DBMS_UTILS_IMPLS = {
                 DBMSCatalog.objects.get(
                     type=DBMSType.POSTGRES, version='9.6').pk: Postgres96UtilImpl()
             } 
         try:
-            return DBMSUtil.__DBMS_UTILS_IMPLS[dbms_id]
+            if dbms_id is None:
+                return DBMSUtil.__DBMS_UTILS_IMPLS
+            else:
+                return DBMSUtil.__DBMS_UTILS_IMPLS[dbms_id]
         except KeyError:
             raise NotImplementedError(
                 'Implement me! ({})'.format(dbms_id))
 
     @staticmethod
     def parse_version_string(dbms_type, version_string):
-        for k, v in DBMSUtil.__utils.iteritems():
+        for k, v in DBMSUtil.__utils(dbms_type).iteritems():
             dbms = DBMSCatalog.objects.get(pk=k)
             if dbms.type == dbms_type:
                 try:
@@ -530,9 +587,9 @@ class DBMSUtil(object):
                 params)
 
     @staticmethod
-    def convert_dbms_metrics(dbms_id, numeric_metrics, execution_time):
+    def convert_dbms_metrics(dbms_id, numeric_metrics, observation_time):
         return DBMSUtil.__utils(dbms_id).convert_dbms_metrics(
-                numeric_metrics, execution_time)
+                numeric_metrics, observation_time)
 
     @staticmethod
     def parse_dbms_config(dbms_id, config):
@@ -568,6 +625,11 @@ class DBMSUtil(object):
     @staticmethod
     def filter_tunable_params(dbms_id, params):
         return DBMSUtil.__utils(dbms_id).filter_tunable_params(params)
+
+    @staticmethod
+    def calculate_change_in_metrics(dbms_id, metrics_start, metrics_end):
+        return DBMSUtil.__utils(dbms_id).calculate_change_in_metrics(
+            metrics_start, metrics_end)
 
 
 class LabelUtil(object):

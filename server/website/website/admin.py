@@ -1,9 +1,9 @@
 from django.contrib import admin
 from djcelery.models import TaskMeta
 
-from .models import (Application, DBConf, DBMSCatalog,
+from .models import (Application, BackupData, DBConf, DBMSCatalog,
                      DBMSMetrics, KnobCatalog, MetricCatalog, PipelineResult,
-                     Project, Result, ResultData, Workload)
+                     Project, Result, Workload)
 
 
 class DBMSCatalogAdmin(admin.ModelAdmin):
@@ -47,7 +47,7 @@ class ApplicationAdmin(admin.ModelAdmin):
 class DBConfAdmin(admin.ModelAdmin):
     list_display = ['name', 'dbms_info', 'creation_time']
     fields = ['application', 'name', 'creation_time',
-              'configuration', 'orig_config_diffs', 'dbms']
+              'configuration', 'data', 'dbms']
 
     def dbms_info(self, obj):
         return obj.dbms.full_name
@@ -56,7 +56,7 @@ class DBConfAdmin(admin.ModelAdmin):
 class DBMSMetricsAdmin(admin.ModelAdmin):
     list_display = ['name', 'dbms_info', 'creation_time']
     fields = ['application', 'name', 'creation_time',
-              'execution_time', 'configuration', 'orig_config_diffs', 'dbms']
+              'configuration', 'data', 'dbms']
 
     def dbms_info(self, obj):
         return obj.dbms.full_name
@@ -67,7 +67,8 @@ class TaskMetaAdmin(admin.ModelAdmin):
 
 
 class ResultAdmin(admin.ModelAdmin):
-    list_display = ['result_id', 'dbms_info', 'workload', 'creation_time']
+    list_display = ['result_id', 'dbms_info', 'workload', 'creation_time',
+                    'observation_time']
     list_filter = ['dbms__type', 'dbms__version']
     ordering = ['id']
 
@@ -81,14 +82,11 @@ class ResultAdmin(admin.ModelAdmin):
         return obj.workload.name
 
 
-class ResultDataAdmin(admin.ModelAdmin):
-    list_display = ['id', 'dbms_info', 'hardware_info']
+class BackupDataAdmin(admin.ModelAdmin):
+    list_display = ['id', 'result_id']
 
-    def dbms_info(self, obj):
-        return obj.cluster.dbms.full_name
-
-    def hardware_info(self, obj):
-        return obj.cluster.hardware.name
+    def result_id(self, obj):
+        return obj.id
 
 
 class PipelineResultAdmin(admin.ModelAdmin):
@@ -118,6 +116,6 @@ admin.site.register(DBConf, DBConfAdmin)
 admin.site.register(DBMSMetrics, DBMSMetricsAdmin)
 admin.site.register(TaskMeta, TaskMetaAdmin)
 admin.site.register(Result, ResultAdmin)
-admin.site.register(ResultData, ResultDataAdmin)
+admin.site.register(BackupData, BackupDataAdmin)
 admin.site.register(PipelineResult, PipelineResultAdmin)
 admin.site.register(Workload, WorkloadAdmin)
