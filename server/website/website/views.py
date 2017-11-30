@@ -1,5 +1,4 @@
 import logging
-import pdb
 
 from collections import OrderedDict
 from pytz import timezone
@@ -22,9 +21,9 @@ from djcelery.models import TaskMeta
 from .forms import ApplicationForm, NewResultForm, ProjectForm
 from .models import (Application, DBConf, DBMSCatalog,
                      DBMSMetrics, Hardware, KnobCatalog, MetricCatalog, PipelineResult, Project, Result,
-                     ResultData, Statistics, Workload)
+                     ResultData, Workload)
 from tasks import aggregate_target_results, map_workload, configuration_recommendation
-from .types import (DBMSType, HardwareType, KnobUnitType, MetricType, PipelineTaskType, StatsType,
+from .types import (DBMSType, HardwareType, KnobUnitType, MetricType, PipelineTaskType,
                     TaskType, VarType)
 from .utils import DBMSUtil, JSONUtil, LabelUtil, MediaUtil
 
@@ -39,20 +38,20 @@ def get_item(dictionary, key):
 
 def ajax_new(request):
     new_id = request.GET['new_id']
-    ts = Statistics.objects.filter(data_result=new_id,
-                                   type=StatsType.SAMPLES)
     data = {}
-    metric_meta = Statistics.objects.metric_meta
-    for metric, metric_info in metric_meta.iteritems():
-        if len(ts) > 0:
-            offset = ts[0].time
-            if len(ts) > 1:
-                offset -= ts[1].time - ts[0].time
-            data[metric] = []
-            for t in ts:
-                data[metric].append(
-                    [t.time - offset,
-                        getattr(t, metric) * metric_info.scale])
+#     ts = Statistics.objects.filter(data_result=new_id,
+#                                    type=StatsType.SAMPLES)
+#     metric_meta = {}
+#     for metric, metric_info in metric_meta.iteritems():
+#         if len(ts) > 0:
+#             offset = ts[0].time
+#             if len(ts) > 1:
+#                 offset -= ts[1].time - ts[0].time
+#             data[metric] = []
+#             for t in ts:
+#                 data[metric].append(
+#                     [t.time - offset,
+#                         getattr(t, metric) * metric_info.scale])
     return HttpResponse(JSONUtil.dumps(data), content_type='application/json')
 
 
@@ -239,9 +238,9 @@ def application(request, project_id, app_id):
         default_workload = 'show_none'
         default_confs = 'none'
 
-    default_metrics = Statistics.objects.default_metrics
-    if app.target_objective not in default_metrics:
-        default_metrics.append(app.target_objective)
+    default_metrics = [ app.target_objective ]
+    numeric_metrics = MetricCatalog.objects.filter(
+        dbms=app.dbms,metric_type=MetricType.COUNTER).values_list('name', flat=True)
 
     labels = Application.get_labels()
     labels['title'] = "Application Info"
@@ -416,14 +415,20 @@ def new_result(request):
 def handle_result_files(app, files):
     from celery import chain
 
-    # Load summary file and verify that the database/version is supported
-    summary = JSONUtil.loads(''.join(files['summary_data'].chunks()))
-    dbms_type = DBMSType.type(summary['DBMS Type'])
-    # FIXME! bad hack until I have time to get the PG 9.3 metric/knob data in
-    # the same form
-    dbms_version = "9.6"
+    # Load controller's summary file and verify that we support this DBMS & version
+#     summary = JSONUtil.loads(''.join(files['summary_data'].chunks()))
+    dbms_type = 'postgres' #DBMSType.type(summary['DBMS Type'])
+    dbms_version = "9.6"  ## FIXME
     workload_name = 'default'  ## BENCHFIXME
     execution_time = 300  # BENCHFIXME
+    start_timestamp = now() # BENCHFIXME
+    end_timestamp = start_timestamp # BENCHFIXME
+#     timestamp = datetime.fromtimestamp(
+#         int(summary['Current Timestamp (milliseconds)']) / 1000,
+#         timezone("UTC"))
+#     timestamp = datetime.fromtimestamp(
+#         int(summary['Current Timestamp (milliseconds)']) / 1000,
+#         timezone("UTC"))
 #     dbms_version = DBMSUtil.parse_version_string(
 #        dbms_type, summary['DBMS Version'])
 
@@ -432,7 +437,7 @@ def handle_result_files(app, files):
             type=dbms_type, version=dbms_version)
     except ObjectDoesNotExist:
         return HttpResponse('{} v{} is not yet supported.'.format(
-            summary['DBMS Type'], dbms_version))
+            dbms_type, dbms_version))
 
     if dbms_object != app.dbms:
         return HttpResponse('The DBMS must match the type and version '
@@ -457,24 +462,20 @@ def handle_result_files(app, files):
         app, JSONUtil.dumps(db_metrics_dict, pprint=True, sort=True),
         JSONUtil.dumps(met_diffs), execution_time, dbms_object)
 
-    timestamp = datetime.fromtimestamp(
-        int(summary['Current Timestamp (milliseconds)']) / 1000,
-        timezone("UTC"))
     workload = Workload.objects.create_workload(
         dbms_object, app.hardware, workload_name)
     result = Result.objects.create_result(
         app, dbms_object, workload, db_conf, dbms_metrics,
-        JSONUtil.dumps(summary, pprint=True, sort=True), timestamp)
-    result.summary_stats = Statistics.objects.create_summary_stats(
-        summary, result, execution_time)
+        start_timestamp, end_timestamp, execution_time)
+#     result.summary_stats = Statistics.objects.create_summary_stats(
+#         summary, result, execution_time)
     result.save()
 
     param_data = DBMSUtil.convert_dbms_params(
         dbms_object.pk, db_conf_dict)
-    external_metrics = Statistics.objects.get_external_metrics(summary)
+#     external_metrics = Statistics.objects.get_external_metrics(summary)
     metric_data = DBMSUtil.convert_dbms_metrics(
-        dbms_object.pk, db_metrics_dict, external_metrics,
-        int(execution_time))
+        dbms_object.pk, db_metrics_dict, int(execution_time))
 
     ResultData.objects.create(result=result,
                               workload_cluster=workload,
@@ -496,7 +497,7 @@ def handle_result_files(app, files):
 
     path_prefix = MediaUtil.get_result_data_path(result.pk)
     paths = [
-        (path_prefix + '.summary', 'summary_data'),
+#         (path_prefix + '.summary', 'summary_data'),
         (path_prefix + '.params', 'db_parameters_data'),
         (path_prefix + '.metrics', 'db_metrics_data'),
     ]

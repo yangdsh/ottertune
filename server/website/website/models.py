@@ -8,7 +8,7 @@ from django.db import models
 from django.utils.timezone import now
 
 from .types import (DBMSType, LabelStyleType, MetricType, HardwareType,
-                    KnobUnitType, PipelineTaskType, StatsType, VarType)
+                    KnobUnitType, PipelineTaskType, VarType)
 
 
 class BaseModel(object):
@@ -71,6 +71,9 @@ class KnobCatalog(models.Model, BaseModel):
     tunable = models.BooleanField(verbose_name="tunable")
 
 
+MetricMeta = namedtuple('MetricMeta', ['name', 'pprint', 'unit', 'short_unit', 'scale', 'improvement'])
+
+
 class MetricCatalog(models.Model, BaseModel):
     dbms = models.ForeignKey(DBMSCatalog)
     name = models.CharField(max_length=64)
@@ -78,6 +81,14 @@ class MetricCatalog(models.Model, BaseModel):
     summary = models.TextField(null=True, verbose_name='description')
     scope = models.CharField(max_length=16)
     metric_type = models.IntegerField(choices=MetricType.choices())
+
+    @staticmethod
+    def get_numeric_metric_meta(dbms, include_throughput=True):
+        numeric_metric_names = MetricCatalog.objects.filter(
+            dbms=dbms, metric_type=MetricType.COUNTER).values_list('name', flat=True)
+        numeric_metrics = {}
+        for metname in numeric_metric_names:
+            
 
 
 class Project(models.Model, BaseModel):
@@ -110,89 +121,89 @@ class Hardware(models.Model):
     def __unicode__(self):
         return HardwareType.TYPE_NAMES[self.type]
 
-MetricMeta = namedtuple('MetricMeta', ['name', 'pprint', 'unit', 'short_unit', 'scale', 'improvement'])
 
-class StatsManager(models.Manager):
-    THROUGHPUT  = 'throughput'
-    P99_LATENCY = 'p99_latency'
-    P95_LATENCY = 'p95_latency'
-    P90_LATENCY = 'p90_latency'
-    AVG_LATENCY = 'avg_latency'
-    MED_LATENCY = 'p50_latency'
-    MAX_LATENCY = 'max_latency'
-    P75_LATENCY = 'p75_latency'
-    P25_LATENCY = 'p25_latency'
-    MIN_LATENCY = 'min_latency'
-    TIME        = 'time'
 
-    UNIT_MILLISECONDS = ('milliseconds', 'ms')
-    UNIT_TXN_PER_SEC = ('transactions/second', 'txn/sec')
-
-    LATENCY_UNIT  = UNIT_MILLISECONDS
-    TPUT_UNIT     = UNIT_TXN_PER_SEC
-    LATENCY_SCALE = 0.001
-    TPUT_SCALE    = 1
-
-    LESS_IS_BETTER = '(less is better)'
-    MORE_IS_BETTER = '(more is better)'
-
-    THROUGHPUT_LABEL  = 'Throughput'
-    P99_LATENCY_LABEL = '99th Percentile Latency'
-    P95_LATENCY_LABEL = '95th Percentile Latency'
-    P90_LATENCY_LABEL = '90th Percentile Latency'
-    AVG_LATENCY_LABEL = 'Average Latency'
-    MED_LATENCY_LABEL = 'Median Latency'
-    MAX_LATENCY_LABEL = 'Maximum Latency'
-    P75_LATENCY_LABEL = '75th Percentile Latency'
-    P25_LATENCY_LABEL = '25th Percentile Latency'
-    MIN_LATENCY_LABEL = 'Minimum Latency'
-    TIME_LABEL        = 'Time'
-
-    DEFAULT_METRICS = [P99_LATENCY, THROUGHPUT]
-
-    METRIC_META = OrderedDict([
-        (THROUGHPUT,  MetricMeta(THROUGHPUT, THROUGHPUT_LABEL, TPUT_UNIT[0], TPUT_UNIT[1], TPUT_SCALE, MORE_IS_BETTER)),
-        (P99_LATENCY, MetricMeta(P99_LATENCY, P99_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (P95_LATENCY, MetricMeta(P95_LATENCY, P95_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (P90_LATENCY, MetricMeta(P90_LATENCY, P90_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (P75_LATENCY, MetricMeta(P75_LATENCY, P75_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (P25_LATENCY, MetricMeta(P25_LATENCY, P25_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (MIN_LATENCY, MetricMeta(MIN_LATENCY, MIN_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (MED_LATENCY, MetricMeta(MED_LATENCY, MED_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (MAX_LATENCY, MetricMeta(MAX_LATENCY, MAX_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-        (AVG_LATENCY, MetricMeta(AVG_LATENCY, AVG_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
-    ])
-
-    @property
-    def metric_meta(self):
-        return self.METRIC_META
-
-    @property
-    def default_metrics(self):
-        return list(self.DEFAULT_METRICS)
-
-    def get_meta(self, metric):
-        return self.METRIC_META[metric]
-
-    def create_summary_stats(self, summary, result, time):
-        stats = Statistics()
-        stats.data_result = result
-        stats.type = StatsType.SUMMARY
-        stats.time = int(time)
-        mets = self.get_external_metrics(summary)
-        for k, v in mets.iteritems():
-            setattr(stats, k, v)
-        stats.save()
-        return stats
-
-    def get_external_metrics(self, summary):
-        stats = {}
-        for k, v in self.METRIC_META.iteritems():
-            if k == self.THROUGHPUT:
-                stats[k] = float(summary[v.pprint + ' (requests/second)'])
-            else:
-                stats[k] = float(summary['Latency Distribution'][v.pprint + ' (microseconds)'])
-        return stats
+# class StatsManager(models.Manager):
+#     THROUGHPUT  = 'throughput'
+#     P99_LATENCY = 'p99_latency'
+#     P95_LATENCY = 'p95_latency'
+#     P90_LATENCY = 'p90_latency'
+#     AVG_LATENCY = 'avg_latency'
+#     MED_LATENCY = 'p50_latency'
+#     MAX_LATENCY = 'max_latency'
+#     P75_LATENCY = 'p75_latency'
+#     P25_LATENCY = 'p25_latency'
+#     MIN_LATENCY = 'min_latency'
+#     TIME        = 'time'
+# 
+#     UNIT_MILLISECONDS = ('milliseconds', 'ms')
+#     UNIT_TXN_PER_SEC = ('transactions/second', 'txn/sec')
+# 
+#     LATENCY_UNIT  = UNIT_MILLISECONDS
+#     TPUT_UNIT     = UNIT_TXN_PER_SEC
+#     LATENCY_SCALE = 0.001
+#     TPUT_SCALE    = 1
+# 
+#     LESS_IS_BETTER = '(less is better)'
+#     MORE_IS_BETTER = '(more is better)'
+# 
+#     THROUGHPUT_LABEL  = 'Throughput'
+#     P99_LATENCY_LABEL = '99th Percentile Latency'
+#     P95_LATENCY_LABEL = '95th Percentile Latency'
+#     P90_LATENCY_LABEL = '90th Percentile Latency'
+#     AVG_LATENCY_LABEL = 'Average Latency'
+#     MED_LATENCY_LABEL = 'Median Latency'
+#     MAX_LATENCY_LABEL = 'Maximum Latency'
+#     P75_LATENCY_LABEL = '75th Percentile Latency'
+#     P25_LATENCY_LABEL = '25th Percentile Latency'
+#     MIN_LATENCY_LABEL = 'Minimum Latency'
+#     TIME_LABEL        = 'Time'
+# 
+#     DEFAULT_METRICS = [P99_LATENCY, THROUGHPUT]
+# 
+#     METRIC_META = OrderedDict([
+#         (THROUGHPUT,  MetricMeta(THROUGHPUT, THROUGHPUT_LABEL, TPUT_UNIT[0], TPUT_UNIT[1], TPUT_SCALE, MORE_IS_BETTER)),
+#         (P99_LATENCY, MetricMeta(P99_LATENCY, P99_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (P95_LATENCY, MetricMeta(P95_LATENCY, P95_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (P90_LATENCY, MetricMeta(P90_LATENCY, P90_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (P75_LATENCY, MetricMeta(P75_LATENCY, P75_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (P25_LATENCY, MetricMeta(P25_LATENCY, P25_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (MIN_LATENCY, MetricMeta(MIN_LATENCY, MIN_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (MED_LATENCY, MetricMeta(MED_LATENCY, MED_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (MAX_LATENCY, MetricMeta(MAX_LATENCY, MAX_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#         (AVG_LATENCY, MetricMeta(AVG_LATENCY, AVG_LATENCY_LABEL, LATENCY_UNIT[0], LATENCY_UNIT[1], LATENCY_SCALE, LESS_IS_BETTER)),
+#     ])
+# 
+#     @property
+#     def metric_meta(self):
+#         return self.METRIC_META
+# 
+#     @property
+#     def default_metrics(self):
+#         return list(self.DEFAULT_METRICS)
+# 
+#     def get_meta(self, metric):
+#         return self.METRIC_META[metric]
+# 
+#     def create_summary_stats(self, summary, result, time):
+#         stats = Statistics()
+#         stats.data_result = result
+#         stats.type = StatsType.SUMMARY
+#         stats.time = int(time)
+#         mets = self.get_external_metrics(summary)
+#         for k, v in mets.iteritems():
+#             setattr(stats, k, v)
+#         stats.save()
+#         return stats
+# 
+#     def get_external_metrics(self, summary):
+#         stats = {}
+#         for k, v in self.METRIC_META.iteritems():
+#             if k == self.THROUGHPUT:
+#                 stats[k] = float(summary[v.pprint + ' (requests/second)'])
+#             else:
+#                 stats[k] = float(summary['Latency Distribution'][v.pprint + ' (microseconds)'])
+#         return stats
 
 
 class Application(models.Model, BaseModel):
@@ -208,20 +219,12 @@ class Application(models.Model, BaseModel):
 
     upload_code = models.CharField(max_length=30, unique=True)
     tuning_session = models.BooleanField()
-    target_objective = models.CharField(
-            max_length=64,
-            choices=[(k, v.pprint) for k, v in \
-                     StatsManager.METRIC_META.iteritems()],
-            null=True)
+    target_objective = models.CharField(max_length=64)
     nondefault_settings = models.TextField(null=True)
 
     def clean(self):
-        if self.tuning_session is False:
-            self.target_objective = None
-        else:
-            if self.target_objective is None:
-                raise ValidationError('If this is a tuning session then '
-                                      'the target objective cannot be null')
+        if self.tuning_session and self.target_objective is None:
+            self.target_objective = 'throughput_txn_per_sec'
 
     def delete(self, using=None):
         targets = DBConf.objects.filter(application=self)
@@ -346,17 +349,18 @@ class Workload(models.Model, BaseModel):
 class ResultManager(models.Manager):
 
     def create_result(self, app, dbms, workload,
-                      dbms_config, dbms_metrics, summary,
-                      timestamp, summary_stats=None,
-                      task_ids=None, most_similar=None):
+                      dbms_config, dbms_metrics,
+                      start_timestamp, end_timestamp,
+                      execution_time, task_ids=None,
+                      most_similar=None):
         return self.create(application=app,
                            dbms=dbms,
                            workload=workload,
                            dbms_config=dbms_config,
                            dbms_metrics=dbms_metrics,
-                           summary=summary,
-                           timestamp=timestamp,
-                           summary_stats=summary_stats,
+                           start_timestamp=start_timestamp,
+                           end_timestamp=end_timestamp,
+                           execution_time=execution_time,
                            task_ids=task_ids,
                            most_similar=most_similar,
                            creation_time=now())
@@ -372,10 +376,10 @@ class Result(models.Model, BaseModel):
     dbms_metrics = models.ForeignKey(DBMSMetrics)
 
     creation_time = models.DateTimeField()
-    summary = models.TextField()
+    start_timestamp = models.DateTimeField()
+    end_timestamp = models.DateTimeField()
+    execution_time = models.FloatField()
     task_ids = models.CharField(max_length=180, null=True)
-    summary_stats = models.ForeignKey('Statistics', null=True)
-    timestamp = models.DateTimeField()
     most_similar = models.CharField(max_length=100, validators=[
                                     validate_comma_separated_integer_list],
                                     null=True)
@@ -416,19 +420,19 @@ class PipelineResult(models.Model):
         get_latest_by = ('creation_timestamp')
 
 
-class Statistics(models.Model):
-    objects = StatsManager()
-
-    data_result = models.ForeignKey(Result)
-    type = models.IntegerField(choices = StatsType.choices())
-    time = models.IntegerField()
-    throughput = models.FloatField()
-    avg_latency = models.FloatField()
-    min_latency = models.FloatField()
-    p25_latency = models.FloatField()
-    p50_latency = models.FloatField()
-    p75_latency = models.FloatField()
-    p90_latency = models.FloatField()
-    p95_latency = models.FloatField()
-    p99_latency = models.FloatField()
-    max_latency = models.FloatField()
+# class Statistics(models.Model):
+#     objects = StatsManager()
+# 
+#     data_result = models.ForeignKey(Result)
+#     type = models.IntegerField(choices = StatsType.choices())
+#     time = models.IntegerField()
+#     throughput = models.FloatField()
+#     avg_latency = models.FloatField()
+#     min_latency = models.FloatField()
+#     p25_latency = models.FloatField()
+#     p50_latency = models.FloatField()
+#     p75_latency = models.FloatField()
+#     p90_latency = models.FloatField()
+#     p95_latency = models.FloatField()
+#     p99_latency = models.FloatField()
+#     max_latency = models.FloatField()

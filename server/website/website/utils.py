@@ -181,6 +181,10 @@ class DBMSUtilImpl(object):
     def configuration_filename(self):
         pass
 
+    @abstractproperty
+    def transactions_counter(self):
+        pass
+
     @abstractmethod
     def parse_version_string(self, version_string):
         pass
@@ -240,7 +244,7 @@ class DBMSUtilImpl(object):
             param_data[pname] = prep_value
         return param_data
 
-    def convert_dbms_metrics(self, metrics, external_metrics, execution_time):
+    def convert_dbms_metrics(self, metrics, execution_time):
 #         if len(metrics) != len(self.numeric_metric_catalog_):
 #             raise Exception('The number of metrics should be equal!')
         metric_data = {}
@@ -252,7 +256,9 @@ class DBMSUtilImpl(object):
             else:
                 raise Exception(
                     'Unknown metric type: {}'.format(minfo.metric_type))
-        metric_data.update(external_metrics)
+        if self.transactions_counter not in metric_data:
+            raise Exception("Cannot compute throughput (no objective function)")
+        metric_data['throughput_txn_per_sec'] = metric_data[self.transactions_counter]
         return metric_data
 
     @staticmethod
@@ -429,6 +435,10 @@ class PostgresUtilImpl(DBMSUtilImpl):
     def configuration_filename(self):
         return 'postgresql.conf'
 
+    @property
+    def transactions_counter(self):
+        return 'pg_stat_database.xact_commit'
+
     def convert_integer(self, int_value, param_info):
         converted = None
         try:
@@ -544,10 +554,9 @@ class DBMSUtil(object):
                 params)
 
     @staticmethod
-    def convert_dbms_metrics(dbms_id, numeric_metrics,
-                                external_metrics, execution_time):
+    def convert_dbms_metrics(dbms_id, numeric_metrics, execution_time):
         return DBMSUtil.__utils(dbms_id).convert_dbms_metrics(
-                numeric_metrics, external_metrics, execution_time)
+                numeric_metrics, execution_time)
 
     @staticmethod
     def parse_dbms_config(dbms_id, config):
