@@ -67,10 +67,12 @@ python manage.py createsuperuser
 python manage.py loaddata ./preload/*
 ```
     
-##### 7. Start the message broker, celery worker, and website server
+##### 7. Start the message broker, celery worker, website server, and periodic task
 
 ```
 sudo rabbitmq-server -detached
 python manage.py celery worker --loglevel=info
 python manage.py runserver 0.0.0.0:8000
+python manage.py celerybeat --verbosity=2 --loglevel=info 
+
 ```
