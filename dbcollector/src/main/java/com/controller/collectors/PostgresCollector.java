@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.controller;
+package com.controller.collectors;
 
 import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;

@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.controller;
+package com.controller.collectors;
 
 public interface DBParameterCollector {
     boolean hasParameters();

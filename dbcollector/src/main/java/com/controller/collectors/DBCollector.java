@@ -14,7 +14,7 @@
  *  limitations under the License.                                            *
  ******************************************************************************/
 
-package com.controller;
+package com.controller.collectors;
 
 import com.controller.util.JSONUtil;
 import org.apache.log4j.Logger;
@@ -26,8 +26,8 @@ public class DBCollector implements DBParameterCollector {
 
     private static final Logger LOG = Logger.getLogger(DBCollector.class);
 
-    static final String JSON_GLOBAL_KEY = "global";
-    static final String JSON_LOCAL_KEY = "local";
+    protected static final String JSON_GLOBAL_KEY = "global";
+    protected static final String JSON_LOCAL_KEY = "local";
 
     protected final Map<String, String> dbParameters = new TreeMap<String, String>();
 
