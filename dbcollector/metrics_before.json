@@ -14,7 +14,7 @@
    "checkpoint_sync_time": "19",
    "checkpoint_write_time": "597851",
    "checkpoints_req": "2",
-   "checkpoints_timed": "1246",
+   "checkpoints_timed": "1263",
    "maxwritten_clean": "325",
    "stats_reset": "2017-11-10 10:59:47.397075-05"
   }
@@ -302,7 +302,7 @@
     "postgres": {
      "blk_read_time": "0",
      "blk_write_time": "0",
-     "blks_hit": "115196007",
+     "blks_hit": "115211055",
      "blks_read": "104027",
      "conflicts": "0",
      "datid": "12558",
@@ -313,11 +313,11 @@
      "temp_bytes": "0",
      "temp_files": "0",
      "tup_deleted": "1818",
-     "tup_fetched": "103341623",
+     "tup_fetched": "103347452",
      "tup_inserted": "2210752",
-     "tup_returned": "110499710",
+     "tup_returned": "110621909",
      "tup_updated": "32675",
-     "xact_commit": "18516",
+     "xact_commit": "18792",
      "xact_rollback": "17"
     },
     "tpcc": {

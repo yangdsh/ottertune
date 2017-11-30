@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Controller main.
@@ -100,6 +101,14 @@ public class Main {
         } catch (FileNotFoundException | UnsupportedEncodingException | InterruptedException e) {
             e.printStackTrace();
         }
+
+        Map<String, String> outfiles = new HashMap<>();
+        outfiles.put("knobs_before", "knobs_before.json");
+        outfiles.put("knobs_after", "knobs_after.json");
+        outfiles.put("metrics_before", "metrics_before.json");
+        outfiles.put("metrics_after", "metrics_after.json");
+        outfiles.put("summary", "out.summary");
+        ResultUploader.upload(uploadURL, uploadCode, outfiles);
 
     }
 }
