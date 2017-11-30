@@ -68,21 +68,20 @@
         </ul>
     </div>
 </div>
-<div id="benchmark">
-    <div><h4>Benchmark</h4></div>
+<div id="workload">
+    <div><h4>Workload</h4></div>
     <div class="boxbody radio">
         <ul>
-<!--         <li><label><input type="radio" name="benchmark" value="grid"/> Display all in a grid</label></li> -->
-        <li><label><input type="radio" name="benchmark" value="show_none" /> Display none</label></li>
+        <li><label><input type="radio" name="workload" value="show_none" /> Display none</label></li>
         </ul>
         <ul>
-        {% for bench, confs in benchmarks.items %}
+        {% for wkld, confs in workloads.items %}
         <li>
-        <label><input id="benchmark_{{ bench }}" type="radio" name="benchmark" value="{{ bench }}" /> {{ bench }}</label>
-        <div id="div_specific_{{ bench }}">
+        <label><input id="workload_{{ wkld }}" type="radio" name="workload" value="{{ wkld }}" /> {{ wkld }}</label>
+        <div id="div_specific_{{ wkld }}">
         <ul>
         {% for conf in confs %}
-        <li><label><input id="specific_{{ bench }}_{{ conf.pk }}" type="checkbox" name="specific" value="{{ conf.pk }}"/> {{ conf.name }}</label></li>
+        <li><label><input id="specific_{{ wkld }}_{{ conf.pk }}" type="checkbox" name="specific" value="{{ conf.pk }}"/> {{ conf.name }}</label></li>
         {% endfor %}
         </ul>
         </div>
@@ -201,8 +200,8 @@ $(function() {
         app: {{application.pk}},
         db: "{{ defaultdbms }}",
         revisions: {{ defaultlast }},
-        benchmark: "{{ defaultbenchmark }}",
-        benchmarks: "{{ defaultspe }}",
+        workload: "{{ defaultworkload }}",
+        workloads: "{{ defaultspe }}",
         equidistant: "{{ defaultequid }}",
         additional: [{% for filter in filters %} "{{ filter.field }}", {% endfor %}],
         metrics: [{% for metric in defaultmetrics %}"{{ metric }}", {% endfor %}],

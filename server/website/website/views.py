@@ -20,13 +20,13 @@ from django.views.decorators.csrf import csrf_exempt
 from djcelery.models import TaskMeta
 
 from .forms import ApplicationForm, NewResultForm, ProjectForm
-from .models import (Application, BenchmarkConfig, DBConf, DBMSCatalog,
+from .models import (Application, DBConf, DBMSCatalog,
                      DBMSMetrics, Hardware, KnobCatalog, MetricCatalog, PipelineResult, Project, Result,
-                     ResultData, Statistics, WorkloadCluster)
+                     ResultData, Statistics, Workload)
 from tasks import aggregate_target_results, map_workload, configuration_recommendation
-from .types import DBMSType, KnobUnitType, MetricType, PipelineTaskType, StatsType, TaskType, VarType
+from .types import (DBMSType, HardwareType, KnobUnitType, MetricType, PipelineTaskType, StatsType,
+                    TaskType, VarType)
 from .utils import DBMSUtil, JSONUtil, LabelUtil, MediaUtil
-from website.types import HardwareType
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +59,6 @@ def ajax_new(request):
 def signup_view(request):
     if request.user.is_authenticated():
         return redirect(reverse('home'))
-#         return redirect('/')
     if request.method == 'POST':
         post = request.POST
         form = UserCreationForm(post)
@@ -85,14 +84,12 @@ def signup_view(request):
 def login_view(request):
     if request.user.is_authenticated():
         return redirect(reverse('home'))
-#         return redirect('/')
     if request.method == 'POST':
         post = request.POST
         form = AuthenticationForm(None, post)
         if form.is_valid():
             login(request, form.get_user())
             return redirect(reverse('home'))
-#             return redirect('/')
         else:
             log.info("Invalid request: {}".format(
                 ', '.join(form.error_messages)))
@@ -208,24 +205,21 @@ def project(request, project_id):
 def application(request, project_id, app_id):
     project = get_object_or_404(Project, pk=project_id)
     app = get_object_or_404(Application, pk=app_id)
-#     app_id = Application.objects.get(pk=request.GET['id'])
     if project.user != request.user:
         return render(request, '404.html')
-#     project = app.project
-    data = request.GET
     results = Result.objects.filter(application=app)
     dbs = {}
-    benchmarks = {}
+    workloads = {}
 
     for res in results:
         dbs[res.dbms.key] = res.dbms
-        bench_type = res.benchmark_config.benchmark_type
-        if bench_type not in benchmarks:
-            benchmarks[bench_type] = set()
-        benchmarks[bench_type].add(res.benchmark_config)
+        workload_name = res.workload.name
+        if workload_name not in workloads:
+            workloads[workload_name] = set()
+        workloads[workload_name].add(res.workload)
 
-    benchmarks = {k: sorted(list(v)) for k, v in benchmarks.iteritems()}
-    benchmarks = OrderedDict(sorted(benchmarks.iteritems()))
+    workloads = OrderedDict([(k, sorted(list(v))) for \
+                             k, v in sorted(workloads.iteritems())])
 
     lastrevisions = [10, 50, 100]
     dbs = OrderedDict(sorted(dbs.items()))
@@ -238,11 +232,11 @@ def application(request, project_id, app_id):
 #              'print': field['print'], 'field': field['field']}
 #         filters.append(f)
 
-    if len(benchmarks) > 0:
-        default_bench, default_confs = benchmarks.iteritems().next()
+    if len(workloads) > 0:
+        default_workload, default_confs = workloads.iteritems().next()
         default_confs = ','.join([str(c.pk) for c in default_confs])
     else:
-        default_bench = 'show_none'
+        default_workload = 'show_none'
         default_confs = 'none'
 
     default_metrics = Statistics.objects.default_metrics
@@ -255,12 +249,12 @@ def application(request, project_id, app_id):
     context = {
         'project': project,
         'dbmss': dbs,
-        'benchmarks': benchmarks,
+        'workloads': workloads,
         'lastrevisions': lastrevisions,
         'defaultdbms': app.dbms.key,
         'defaultlast': 10,
         'defaultequid': "on",
-        'defaultbenchmark': default_bench,
+        'defaultworkload': default_workload,
         'defaultspe': default_confs,
         'metrics': metric_meta.keys(),
         'metric_meta': metric_meta,
@@ -270,7 +264,6 @@ def application(request, project_id, app_id):
         'results': results,
         'labels': labels,
     }
-
     context.update(csrf(request))
     return render(request, 'application.html', context)
 
@@ -408,19 +401,19 @@ def new_result(request):
             log.warning("Form is not valid:\n" + str(form))
             return HttpResponse("Form is not valid\n" + str(form))
         upload_code = form.cleaned_data['upload_code']
-        cluster_name = form.cleaned_data['cluster_name']
+#         cluster_name = form.cleaned_data['cluster_name']
         try:
             application = Application.objects.get(upload_code=upload_code)
         except Application.DoesNotExist:
             log.warning("Wrong upload code: " + upload_code)
             return HttpResponse("wrong upload_code!")
 
-        return handle_result_files(application, request.FILES, cluster_name)
+        return handle_result_files(application, request.FILES)
     log.warning("Request type was not POST")
     return HttpResponse("POST please\n")
 
 
-def handle_result_files(app, files, cluster_name):
+def handle_result_files(app, files):
     from celery import chain
 
     # Load summary file and verify that the database/version is supported
@@ -429,6 +422,8 @@ def handle_result_files(app, files, cluster_name):
     # FIXME! bad hack until I have time to get the PG 9.3 metric/knob data in
     # the same form
     dbms_version = "9.6"
+    workload_name = 'default'  ## BENCHFIXME
+    execution_time = 300  # BENCHFIXME
 #     dbms_version = DBMSUtil.parse_version_string(
 #        dbms_type, summary['DBMS Version'])
 
@@ -445,14 +440,10 @@ def handle_result_files(app, files, cluster_name):
                             '(expected=' + app.dbms.full_name + ') '
                             '(actual=' + dbms_object.full_name + ')')
 
-    # Load parameters, metrics, benchmark, and samples
+    # Load parameters, metrics, workload, and samples
     db_parameters = JSONUtil.loads(
         ''.join(files['db_parameters_data'].chunks()))
     db_metrics = JSONUtil.loads(''.join(files['db_metrics_data'].chunks()))
-    benchmark_config_str = ''.join(files['benchmark_conf_data'].chunks())
-
-    benchmark_config = BenchmarkConfig.objects.create_benchmark_config(
-        app, benchmark_config_str, summary['Benchmark Type'].upper())
 
     db_conf_dict, db_diffs = DBMSUtil.parse_dbms_config(
         dbms_object.pk, db_parameters)
@@ -464,29 +455,29 @@ def handle_result_files(app, files, cluster_name):
             dbms_object.pk, db_metrics)
     dbms_metrics = DBMSMetrics.objects.create_dbms_metrics(
         app, JSONUtil.dumps(db_metrics_dict, pprint=True, sort=True),
-        JSONUtil.dumps(met_diffs), benchmark_config.time, dbms_object)
+        JSONUtil.dumps(met_diffs), execution_time, dbms_object)
 
     timestamp = datetime.fromtimestamp(
         int(summary['Current Timestamp (milliseconds)']) / 1000,
         timezone("UTC"))
+    workload = Workload.objects.create_workload(
+        dbms_object, app.hardware, workload_name)
     result = Result.objects.create_result(
-        app, dbms_object, benchmark_config, db_conf, dbms_metrics,
+        app, dbms_object, workload, db_conf, dbms_metrics,
         JSONUtil.dumps(summary, pprint=True, sort=True), timestamp)
     result.summary_stats = Statistics.objects.create_summary_stats(
-        summary, result, benchmark_config.time)
+        summary, result, execution_time)
     result.save()
 
-    wkld_cluster = WorkloadCluster.objects.create_workload_cluster(
-        dbms_object, app.hardware, cluster_name)
     param_data = DBMSUtil.convert_dbms_params(
         dbms_object.pk, db_conf_dict)
     external_metrics = Statistics.objects.get_external_metrics(summary)
     metric_data = DBMSUtil.convert_dbms_metrics(
         dbms_object.pk, db_metrics_dict, external_metrics,
-        int(benchmark_config.time))
+        int(execution_time))
 
     ResultData.objects.create(result=result,
-                              cluster=wkld_cluster,
+                              workload_cluster=workload,
                               param_data=JSONUtil.dumps(param_data,
                                                         pprint=True,
                                                         sort=True),
@@ -508,7 +499,6 @@ def handle_result_files(app, files, cluster_name):
         (path_prefix + '.summary', 'summary_data'),
         (path_prefix + '.params', 'db_parameters_data'),
         (path_prefix + '.metrics', 'db_metrics_data'),
-        (path_prefix + '.expconfig', 'benchmark_conf_data'),
     ]
 
     for path, content_name in paths:
@@ -538,7 +528,8 @@ def filter_db_var(kv_pair, key_filters):
 
 @login_required(login_url=reverse_lazy('login'))
 def db_conf_ref(request, dbms_name, version, param_name):
-    param = get_object_or_404(KnobCatalog, dbms__type=DBMSType.type(dbms_name), dbms__version=version, name=param_name)
+    param = get_object_or_404(KnobCatalog, dbms__type=DBMSType.type(dbms_name),
+                              dbms__version=version, name=param_name)
     labels = KnobCatalog.get_labels()
     list_items = OrderedDict()
     if param.category is not None:
@@ -665,24 +656,23 @@ def db_info_view(request, context, db_info):
     context['compare'] = comp_id
     context['peer_db_info'] = peer_info
     return render(request, 'db_info.html', context)
-    
-        
+
 
 @login_required(login_url=reverse_lazy('login'))
-def benchmark_configuration(request, project_id, app_id, bench_id):
-    benchmark_conf = get_object_or_404(BenchmarkConfig, pk=bench_id)
-    app = benchmark_conf.application
+def workload_info(request, project_id, app_id, wkld_id):
+    workload = get_object_or_404(Workload, pk=wkld_id)
+    app = get_object_or_404(Application, pk=app_id)
     if app.user != request.user:
         return render(request, '404.html')
 
     db_confs = DBConf.objects.filter(dbms=app.dbms,
-                                     application=benchmark_conf.application)
+                                     application=app)
     all_db_confs = []
     conf_map = {}
     for conf in db_confs:
         results = Result.objects.filter(application=app,
                                         dbms_config=conf,
-                                        benchmark_config=benchmark_conf)
+                                        workload=workload)
         if len(results) == 0:
             continue
         result = results.latest('timestamp')
@@ -693,9 +683,9 @@ def benchmark_configuration(request, project_id, app_id, bench_id):
     else:
         dbs = {}
 
-    labels = BenchmarkConfig.get_labels()
-    labels['title'] = 'Benchmark Configuration'
-    context = {'benchmark': benchmark_conf,
+    labels = Workload.get_labels()
+    labels['title'] = 'Workload Information'
+    context = {'workload': workload,
                'dbs': dbs,
                'metric_meta': Statistics.objects.metric_meta,
                'default_dbconf': all_db_confs,
@@ -703,7 +693,7 @@ def benchmark_configuration(request, project_id, app_id, bench_id):
                'labels': labels,
                'proj_id': project_id,
                'app_id': app_id}
-    return render(request, 'benchmark_conf.html', context)
+    return render(request, 'workload.html', context)
 
 # Data Format
 #    error
@@ -712,18 +702,16 @@ def benchmark_configuration(request, project_id, app_id, bench_id):
 #        data for each selected metric
 #            meta data for the metric
 #            Result list for the metric in a folded list
-
-
 @login_required(login_url=reverse_lazy('login'))
-def get_benchmark_data(request):
+def get_workload_data(request):
     data = request.GET
 
-    benchmark_conf = get_object_or_404(BenchmarkConfig, pk=data['id'])
-    app = benchmark_conf.application
+    workload = get_object_or_404(Workload, pk=data['id'])
+    app = get_object_or_404(Application, pk=data['app_id'])
     if app.user != request.user:
         return render(request, '404.html')
 
-    results = Result.objects.filter(benchmark_config=benchmark_conf)
+    results = Result.objects.filter(workload=workload)
     results = sorted(results, cmp=lambda x,
                      y: int(y.summary_stats.throughput - x.summary_stats.throughput))
 
@@ -763,42 +751,16 @@ def get_benchmark_data(request):
     return HttpResponse(JSONUtil.dumps(data_package), content_type='application/json')
 
 
-@login_required(login_url=reverse_lazy('login'))
-def get_benchmark_conf_file(request):
-    bench_id = request.GET['id']
-    benchmark_conf = get_object_or_404(BenchmarkConfig, pk=request.GET['id'])
-    if benchmark_conf.application.user != request.user:
-        return render(request, '404.html')
+# @login_required(login_url=reverse_lazy('login'))
+# def edit_workload(request):
+#     context = {}
+#     if request.GET['id'] != '':
+#         workload = get_object_or_404(Workload, pk=request.GET['id'])
+#         if workload.application.user != request.user:
+#             return render(request, '404.html')
+#         context['benchmark'] = ben_conf
+#     return render(request, 'edit_benchmark.html', context)
 
-    response = HttpResponse(benchmark_conf.configuration,
-                            content_type='text/plain')
-    response['Content-Disposition'] = 'attachment; filename=result_' + \
-        str(bench_id) + '.ben.cnf'
-    return response
-
-
-@login_required(login_url=reverse_lazy('login'))
-def edit_benchmark_conf(request):
-    context = {}
-    if request.GET['id'] != '':
-        ben_conf = get_object_or_404(BenchmarkConfig, pk=request.GET['id'])
-        if ben_conf.application.user != request.user:
-            return render(request, '404.html')
-        context['benchmark'] = ben_conf
-    return render(request, 'edit_benchmark.html', context)
-
-
-@login_required(login_url=reverse_lazy('login'))
-def update_benchmark_conf(request, project_id, app_id, bench_id):
-    bench_conf = get_object_or_404(BenchmarkConfig, pk=bench_id)
-    if request.method == "POST":
-        bench_conf.name = request.POST['name']
-        bench_conf.description = request.POST['description']
-        bench_conf.save()
-        return redirect(reverse('bench_conf', kwargs={ 'project_id': project_id, 'app_id': app_id, 'bench_id': bench_id }))
-    else:
-        context['benchmark'] = ben_conf
-    return render(request, 'edit_benchmark.html', context)
 
 def result_similar(a, b, compare_params):
 #     ranked_knobs = JSONUtil.loads(PipelineResult.get_latest(
@@ -967,7 +929,7 @@ def get_timeline_data(request):
         result_labels['creation_time'],
         result_labels['dbms_config'],
         result_labels['dbms_metrics'],
-        result_labels['benchmark_config'],
+        result_labels['workload'],
     ]
     for met in table_metrics:
         met_info = Statistics.objects.get_meta(met)
@@ -1000,7 +962,7 @@ def get_timeline_data(request):
         default_metrics.append(application.target_objective)
     display_type = request.GET['ben']
     if display_type == 'show_none':
-        benchmarks = []
+        workloads = []
         metrics = default_metrics
         results = []
         pass
@@ -1015,11 +977,11 @@ def get_timeline_data(request):
     else:
         metrics = request.GET.get(
             'met', ','.join(default_metrics)).split(',')
-        benchmarks = [display_type]
-        benchmark_confs = filter(lambda x: x != '', request.GET[
+        workloads = [display_type]
+        workload_confs = filter(lambda x: x != '', request.GET[
                                  'spe'].strip().split(','))
-        results = filter(lambda x: str(x.benchmark_config.pk)
-                         in benchmark_confs, results)
+        results = filter(lambda x: str(x.workload.pk)
+                         in workload_confs, results)
     
     result_list = []
     for x in results:
@@ -1028,14 +990,14 @@ def get_timeline_data(request):
             x.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             x.dbms_config.name,
             x.dbms_metrics.name,
-            x.benchmark_config.name]
+            x.workload.name]
         for met in table_metrics:
             entry.append(getattr(x.summary_stats, met) *
                          Statistics.objects.get_meta(met).scale)
         entry.extend([
             x.dbms_config.pk,
             x.dbms_metrics.pk,
-            x.benchmark_config.pk
+            x.workload.pk
         ])
         result_list.append(entry)
     data_package['results'] = result_list
@@ -1043,14 +1005,14 @@ def get_timeline_data(request):
     # For plotting charts
     for metric in metrics:
         met_info = Statistics.objects.get_meta(metric)
-        for bench in benchmarks:
-            b_r = filter(
-                lambda x: x.benchmark_config.benchmark_type == bench, results)
-            if len(b_r) == 0:
+        for wkld in workloads:
+            w_r = filter(
+                lambda x: x.workload.name == wkld, results)
+            if len(w_r) == 0:
                 continue
 
             data = {
-                'benchmark': bench,
+                'workload': wkld,
                 'units': met_info.unit,
                 'lessisbetter': met_info.improvement,
                 'data': {},
@@ -1060,7 +1022,7 @@ def get_timeline_data(request):
             }
 
             for db in request.GET['db'].split(','):
-                d_r = filter(lambda x: x.dbms.key == db, b_r)
+                d_r = filter(lambda x: x.dbms.key == db, w_r)
                 d_r = d_r[-revs:]
                 out = [
                     [

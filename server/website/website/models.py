@@ -1,6 +1,5 @@
 from collections import namedtuple, OrderedDict
 
-import xml.dom.minidom
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import (validate_comma_separated_integer_list,
@@ -227,13 +226,10 @@ class Application(models.Model, BaseModel):
     def delete(self, using=None):
         targets = DBConf.objects.filter(application=self)
         results = Result.objects.filter(application=self)
-        expconfs = BenchmarkConfig.objects.filter(application=self)
         for t in targets:
             t.delete()
         for r in results:
             r.delete()
-        for x in expconfs:
-            x.delete()
         super(Application, self).delete(using)
 
     def __unicode__(self):
@@ -256,72 +252,6 @@ class ExpModel(models.Model, BaseModel):
 
     def __unicode__(self):
         return self.name
-
-class BenchmarkConfigManager(ExpManager):
-
-    def create_benchmark_config(self, app, config, bench_type, desc=None):
-        try:
-            return BenchmarkConfig.objects.get(application=app,
-                                               configuration=config)
-        except BenchmarkConfig.DoesNotExist:
-            dom = xml.dom.minidom.parseString(config)
-            root = dom.documentElement
-            isolation = (root.getElementsByTagName('isolation'))[
-                0].firstChild.data
-            scalefactor = (
-                root.getElementsByTagName('scalefactor'))[0].firstChild.data
-            terminals = (root.getElementsByTagName('terminals'))[
-                0].firstChild.data
-            time = (root.getElementsByTagName('time'))[
-                0].firstChild.data
-            rate = (root.getElementsByTagName('rate'))[
-                0].firstChild.data
-            skew = (root.getElementsByTagName('skew'))
-            skew = - \
-                1 if len(skew) == 0 else skew[
-                    0].firstChild.data
-            transaction_types = [
-                t.firstChild.data for t in root.getElementsByTagName('name')]
-            transaction_weights = [
-                w.firstChild.data for w in root.getElementsByTagName('weights')]
-
-            benchmark_config = self.create(application=app,
-                                           configuration=config,
-                                           benchmark_type=bench_type,
-                                           description=desc,
-                                           creation_time=now(),
-                                           isolation=isolation,
-                                           scalefactor=scalefactor,
-                                           terminals=terminals,
-                                           time=time,
-                                           rate=rate,
-                                           skew=skew,
-                                           transaction_types=transaction_types,
-                                           transaction_weights=transaction_weights)
-            benchmark_config.name = self.create_name(benchmark_config, bench_type)
-            benchmark_config.save()
-            return benchmark_config
-
-class BenchmarkConfig(ExpModel):
-    objects = BenchmarkConfigManager()
-
-    benchmark_type = models.CharField(max_length=64)
-    isolation = models.CharField(max_length=64, verbose_name="isolation level")
-    scalefactor = models.FloatField()
-    terminals = models.IntegerField()
-    time = models.IntegerField(validators=[MinValueValidator(0)])
-    rate = models.CharField(max_length=32)
-    skew = models.FloatField(null=True)
-    transaction_types = models.TextField(
-        validators=[validate_comma_separated_integer_list])
-    transaction_weights = models.TextField(
-        validators=[validate_comma_separated_integer_list])
-
-    FILTER_FIELDS = [
-        {'field': 'isolation', 'print': 'Isolation Level'},
-        {'field': 'scalefactor', 'print': 'Scale Factor'},
-        {'field': 'terminals', 'print': '# of Terminals'},
-    ]
 
 
 class DBModel(ExpModel):
@@ -375,15 +305,53 @@ class DBMSMetrics(DBModel):
         validators=[MinValueValidator(0)])
 
 
+class WorkloadManager(models.Manager):
+
+    def create_workload(self, dbms, hardware, name):
+        try:
+            return Workload.objects.get(name=name)
+        except Workload.DoesNotExist:
+            return self.create(dbms=dbms,
+                               hardware=hardware,
+                               name=name)
+
+
+class Workload(models.Model, BaseModel):
+#     __DEFAULT_FMT = '{db}_{hw}_UNASSIGNED'.format
+
+    objects = WorkloadManager()
+
+    dbms = models.ForeignKey(DBMSCatalog)
+    hardware = models.ForeignKey(Hardware)
+    name = models.CharField(max_length=128, unique=True)
+
+#     @property
+#     def isdefault(self):
+#         return self.cluster_name == self.default
+#
+#     @property
+#     def default(self):
+#         return self.__DEFAULT_FMT(db=self.dbms.pk,
+#                                   hw=self.hardware.pk)
+#
+#     @staticmethod
+#     def get_default(dbms_id, hw_id):
+#         return Workload.__DEFAULT_FMT(db=dbms_id,
+#                                       hw=hw_id)
+
+    def __unicode__(self):
+        return self.name
+
+
 class ResultManager(models.Manager):
 
-    def create_result(self, app, dbms, bench_config, dbms_config,
-                      dbms_metrics, summary, timestamp,
-                      summary_stats=None, task_ids=None,
-                      most_similar=None):
+    def create_result(self, app, dbms, workload,
+                      dbms_config, dbms_metrics, summary,
+                      timestamp, summary_stats=None,
+                      task_ids=None, most_similar=None):
         return self.create(application=app,
                            dbms=dbms,
-                           benchmark_config=bench_config,
+                           workload=workload,
                            dbms_config=dbms_config,
                            dbms_metrics=dbms_metrics,
                            summary=summary,
@@ -393,12 +361,13 @@ class ResultManager(models.Manager):
                            most_similar=most_similar,
                            creation_time=now())
 
+
 class Result(models.Model, BaseModel):
     objects = ResultManager()
 
     application = models.ForeignKey(Application, verbose_name='application name')
     dbms = models.ForeignKey(DBMSCatalog)
-    benchmark_config = models.ForeignKey(BenchmarkConfig)
+    workload = models.ForeignKey(Workload)
     dbms_config = models.ForeignKey(DBConf)
     dbms_metrics = models.ForeignKey(DBMSMetrics)
 
@@ -415,54 +384,14 @@ class Result(models.Model, BaseModel):
         return unicode(self.pk)
 
 
-class WorkloadClusterManager(models.Manager):
-
-    def create_workload_cluster(self, dbms, hardware, cluster_name=None):
-        if cluster_name is None:
-            cluster_name = WorkloadCluster.get_default(dbms.pk, hardware.pk)
-        try:
-            return WorkloadCluster.objects.get(cluster_name=cluster_name)
-        except WorkloadCluster.DoesNotExist:
-            return self.create(dbms=dbms,
-                               hardware=hardware,
-                               cluster_name=cluster_name)
-
-
-class WorkloadCluster(models.Model):
-    __DEFAULT_FMT = '{db}_{hw}_UNASSIGNED'.format
-
-    objects = WorkloadClusterManager()
-
-    dbms = models.ForeignKey(DBMSCatalog)
-    hardware = models.ForeignKey(Hardware)
-    cluster_name = models.CharField(max_length=128, unique=True)
-
-    @property
-    def isdefault(self):
-        return self.cluster_name == self.default
-
-    @property
-    def default(self):
-        return self.__DEFAULT_FMT(db=self.dbms.pk,
-                                  hw=self.hardware.pk)
-
-    @staticmethod
-    def get_default(dbms_id, hw_id):
-        return WorkloadCluster.__DEFAULT_FMT(db=dbms_id,
-                                             hw=hw_id)
-
-    def __unicode__(self):
-        return self.cluster_name
-
-
 class ResultData(models.Model):
     result = models.ForeignKey(Result)
-    cluster = models.ForeignKey(WorkloadCluster)
+    workload_cluster = models.ForeignKey(Workload)
     param_data = models.TextField()
     metric_data = models.TextField()
 
     class Meta:
-        ordering = ('cluster',)
+        ordering = ('workload_cluster',)
 
     def clean_fields(self, exclude=None):
         super(ResultData, self).clean_fields(exclude=exclude)

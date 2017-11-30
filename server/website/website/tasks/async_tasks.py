@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from analysis.gp_tf import GPR, GPR_GD
 from analysis.preprocessing import bin_by_decile, Bin
 from website.models import (DBMSCatalog, Hardware, KnobCatalog, PipelineResult,
-                            Result, ResultData, WorkloadCluster)
+                            Result, ResultData, Workload)
 from website.settings import PIPELINE_DIR
 from website.types import KnobUnitType, PipelineTaskType, VarType
 from website.utils import (ConversionUtil, DataUtil, DBMSUtil, JSONUtil,
@@ -283,7 +283,7 @@ def map_workload(target_data):
 
 @task(name='aggregate_results')
 def aggregate_results():
-    unique_clusters = WorkloadCluster.objects.all()
+    unique_clusters = Workload.objects.all()
     unique_clusters = filter(lambda x: x.isdefault is False, unique_clusters)
     all_data = {}
     all_labels = {}
