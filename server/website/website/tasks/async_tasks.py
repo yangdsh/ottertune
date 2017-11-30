@@ -10,8 +10,8 @@ from sklearn.preprocessing import StandardScaler
 
 from analysis.gp_tf import GPR, GPR_GD
 from analysis.preprocessing import bin_by_decile, Bin
-from website.models import (DBMSCatalog, Hardware, KnobCatalog, PipelineResult,
-                            Result, ResultData, WorkloadCluster)
+from website.models import (DBConf, DBMSCatalog, Hardware, KnobCatalog, PipelineResult,
+                            Result, Workload)
 from website.settings import PIPELINE_DIR
 from website.types import KnobUnitType, PipelineTaskType, VarType
 from website.utils import (ConversionUtil, DataUtil, DBMSUtil, JSONUtil,
@@ -85,15 +85,8 @@ def aggregate_target_results(result_id):
     if len(target_results) == 0:
         raise Exception('Cannot find any results for app_id={}, dbms_id={}'
                         .format(newest_result.application, newest_result.dbms))
-    target_result_datas = [ResultData.objects.get(
-        result=tres) for tres in target_results]
+    agg_data = DataUtil.aggregate_data(target_results)
 
-    knob_labels = np.asarray(sorted(JSONUtil.loads(
-        target_result_datas[0].param_data).keys()))
-    metric_labels = np.asarray(sorted(JSONUtil.loads(
-        target_result_datas[0].metric_data).keys()))
-    agg_data = DataUtil.aggregate_data(
-        target_result_datas, knob_labels, metric_labels)
     agg_data['newest_result_id'] = result_id
     return agg_data
 
@@ -283,39 +276,30 @@ def map_workload(target_data):
 
 @task(name='aggregate_results')
 def aggregate_results():
-    unique_clusters = WorkloadCluster.objects.all()
-    unique_clusters = filter(lambda x: x.isdefault is False, unique_clusters)
+    unique_workloads = Workload.objects.all()
+    unique_workloads = filter(lambda x: x.isdefault is False, unique_workloads)
     all_data = {}
-    all_labels = {}
-    for cluster in unique_clusters:
-        results = ResultData.objects.filter(cluster=cluster)
+    for workload in unique_workloads:
+        results = Result.objects.filter(workload=workload)
         if len(results) < 2:
             continue
-        if cluster.dbms.pk not in all_labels:
-            knob_labels = np.asarray(
-                sorted(JSONUtil.loads(results[0].param_data).keys()))
-            metric_labels = np.asarray(
-                sorted(JSONUtil.loads(results[0].metric_data).keys()))
-            all_labels[cluster.dbms.pk] = (knob_labels, metric_labels)
-        else:
-            knob_labels, metric_labels = all_labels[cluster.dbms.pk]
-        entry = DataUtil.aggregate_data(results, knob_labels, metric_labels)
-        key = (cluster.dbms.pk, cluster.hardware.pk)
+        entry = DataUtil.aggregate_data(results)
+        key = (workload.dbms.pk, workload.hardware.pk)
         if key not in all_data:
             all_data[key] = {}
-        all_data[key][cluster.pk] = entry
+        all_data[key][workload.pk] = entry
 
     ts = now()
     tsf = ts.strftime("%Y%m%d-%H%M%S")
-    for (dbkey, hwkey), cluster_data in all_data.iteritems():
+    for (dbkey, hwkey), workload_data in all_data.iteritems():
         task_name = PipelineTaskType.TYPE_NAMES[
             PipelineTaskType.AGGREGATED_DATA].replace(' ', '').upper()
         savepaths = {}
-        for clusterkey, entry in cluster_data.iteritems():
+        for workloadkey, entry in workload_data.iteritems():
             fname = '{}_{}_{}_{}_{}.npz'.format(
-                task_name, dbkey, hwkey, clusterkey, tsf)
+                task_name, dbkey, hwkey, workloadkey, tsf)
             savepath = os.path.join(PIPELINE_DIR, fname)
-            savepaths[clusterkey] = savepath
+            savepaths[workloadkey] = savepath
             np.savez_compressed(savepath, **entry)
 
         value = {

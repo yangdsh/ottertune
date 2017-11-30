@@ -1,30 +1,27 @@
+import os
+import sys
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
 import urllib2
 
 register_openers()
 
-db="mysql_"
-prefix=3
+def upload(upload_code, datadir):
+    params = {
+        'summary': open(os.path.join(datadir, 'summary.json'), "r"),
+        'knobs': open(os.path.join(datadir, 'knobs.json'),"r"),
+        'metrics_start':open(os.path.join(datadir, 'metrics_before.json'),'r'),
+        'metrics_end':open(os.path.join(datadir, 'metrics_after.json'),'r'),
+        'upload_code':  upload_code,
+    }
+    
+    datagen, headers = multipart_encode(params)
+    
+    request = urllib2.Request("http://0.0.0.0:8000/new_result/", datagen, headers)
 
-params = {
-'summary_data': open(db + str(prefix) + ".summary", "r"),
-'db_conf_data':open(db + str(prefix) + ".db.cnf","r"),
-'db_status':open(db + str(prefix) + ".db.status",'r'),
-'sample_data':open(db + str(prefix)+".res","r"),
-'raw_data': open(db + str(prefix)+".res","r"),
-'benchmark_conf_data': open(db + str(prefix)+".ben.cnf","r"),
-'upload_code':  '14414QYEORPR4CE52X20',
-'upload_use':'compute',
-#'store',
-'hardware':'m3.xlarge',
-'cluster':'exps_mysql_5.6_m3.xlarge_ycsb_rr_sf18000_tr50_t300_runlimited_w0-0-0-100-0-0_s0.6' #unknown
+    print urllib2.urlopen(request).read()
 
-}
-
-datagen, headers = multipart_encode(params)
-
-#request = urllib2.Request("http://127.0.0.1:8000/new_result/", datagen, headers)
-request = urllib2.Request("http://52.26.247.195:8000/new_result/", datagen, headers)
-
-print urllib2.urlopen(request).read()
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print "Usage: python upload.py [upload_code] [path_to_sample_data]"
+    upload(sys.argv[1], sys.argv[2])

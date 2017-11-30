@@ -12,7 +12,7 @@ function shouldPlotEquidistant() {
 }
 
 function OnMarkerClickHandler(ev, gridpos, datapos, neighbor, plot) {
-    if($("input[name='benchmark']:checked").val() === "grid") { return false; }
+    if($("input[name='workload']:checked").val() === "grid") { return false; }
     if (neighbor) {
         result_id = neighbor.data[3];
         window.location = "/result/?id=" + result_id;
@@ -30,7 +30,7 @@ function renderPlot(data, div_id) {
     $("#" + div_id).html('<div id="' + div_id + '_plot"></div><div id="plotdescription"></div>');
 
     var plotoptions = {
-        title: {text: data.benchmark + ": " + data.print_metric + " " + data.lessisbetter, fontSize: '1.1em'},
+        title: {text: data.print_metric + " " + data.lessisbetter, fontSize: '1.1em'},
         series: series,
         axes:{
         yaxis:{
@@ -71,7 +71,7 @@ function renderMiniplot(plotid, data) {
     }
 
     var plotoptions = {
-        title: {text: data.benchmark + ": " + data.metric, fontSize: '1.1em'},
+        title: {text: data.workload + ": " + data.metric, fontSize: '1.1em'},
         seriesDefaults: {lineWidth: 2, markerOptions:{style:'circle', size: 6}},
         series: series,
         axes: {
@@ -94,7 +94,6 @@ function renderMiniplot(plotid, data) {
 var fixed_header = null;
 
 function gen_url(result_id) {
-//	return '{% url "result" ' + defaults.proj + ' ' + defaults.app + ' ' + result_id + ' %}'
 	return "{% url 'result' proj_id app_id result_id %}".replace("proj_id", defaults.proj_id).replace("app_id", defaults.app_id).replace("result_id", result_id)
 }
 
@@ -106,57 +105,54 @@ function render(data) {
         var h = $("#content").height();//get height for error message
         $("#plotgrid").html(getLoadText(data.error, h, false));
         return 1;
-    } else if ($("input[name='benchmark']:checked").val() === "show_none") {
+    } else if ($("input[name='workload']:checked").val() === "show_none") {
         var h = $("#content").height();//get height for error message
-        $("#plotgrid").html(getLoadText("Please select a benchmark on the left", h, false));
+        $("#plotgrid").html(getLoadText("Please select a workload on the left", h, false));
     } else if (data.timelines.length === 0) {
         var h = $("#content").height();//get height for error message
         $("#plotgrid").html(getLoadText("No data available", h, false));
-    } else if ($("input[name='benchmark']:checked").val() === "grid"){
+    } else if ($("input[name='workload']:checked").val() === "grid"){
         //Render Grid of plots
         disable_options(true);
-        for (var bench in data.timelines) {
-            var plotid = "plot_" + data.timelines[bench].benchmark;
+        for (var wkld in data.timelines) {
+            var plotid = "plot_" + data.timelines[wkld].workload;
             $("#plotgrid").append('<div id="' + plotid + '" class="miniplot"></div>');
             $("#" + plotid).click(function() {
-                var bench = $(this).attr("id").slice(5);
-                $("#benchmark_" + bench).trigger("click");//.prop("checked", true);
+                var wkld = $(this).attr("id").slice(5);
+                $("#workload_" + wkld).trigger("click");//.prop("checked", true);
                 updateUrl();
             });
-            renderMiniplot(plotid, data.timelines[bench]);
+            renderMiniplot(plotid, data.timelines[wkld]);
         }
     } else {
-        // render single plot when one benchmark is selected
+        // render single plot when one workload is selected
+    	var i = 0;
         for (var metric in data.timelines) {
-            var plotid = "plot_" + data.timelines[metric].metric;
+            var plotid = "plot_" + i;
             $("#plotgrid").append('<div id="' + plotid + '" class="plotcontainer"></div>');
             renderPlot(data.timelines[metric], plotid);
+            i = i + 1;
         }
     }
-
     var dt = $("#dataTable").dataTable( {
         "aaData": data.results,
         "aoColumns": [
             { "sTitle": data.columnnames[0], "sClass": "center", "sType": "num-html", "mRender": function (data, type, full) {
-//                return '<a href="/result/?id=' + data + '">' + data + '</a>';
             	return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/results/' + data + '">' + data + '</a>';
-//                return '<a href="' + gen_url(data) + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[1], "sClass": "center"},
             { "sTitle": data.columnnames[2], "sClass": "center", "mRender": function (data, type, full) {
-//                return '<a href="/db_conf/?id=' + full[7] + '">' + data + '</a>';
                 return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/db_confs/' + full[7] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[3], "sClass": "center", "mRender": function (data, type, full) {
-//                return '<a href="/dbms_metrics/?id=' + full[8] + '">' + data + '</a>';
             	return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/db_metrics/' + full[8] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[4], "sClass": "center", "mRender": function (data, type, full) {
-//                return '<a href="/benchmark_conf/?id=' + full[9] + '">' + data + '</a>';
-                return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/bench_confs/' + full[9] + '">' + data + '</a>';
+                return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/workloads/' + full[9] + '">' + data + '</a>';
             }},
-            { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {return data.toFixed(2);}},
-            { "sTitle": data.columnnames[6], "sClass": "center", "mRender": function (data, type, full) {return data.toFixed(2);}},
+            { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {
+            	return data.toFixed(2);
+            }},
         ],
         "bFilter": false,
         "bAutoWidth": true,
@@ -204,7 +200,7 @@ function getConfiguration() {
     var config = {
         app:defaults.app,
         db: readCheckbox("input[name='db']:checked"),
-        ben: $("input[name='benchmark']:checked").val(),
+        ben: $("input[name='workload']:checked").val(),  // BENCHFIXME
         spe: readCheckbox("input[name^='specific']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
         revs: $("#revisions option:selected").val(),
@@ -221,10 +217,10 @@ function getConfiguration() {
 function updateSub(event) {
     $("[id^=div_specific]").hide();
     $("input[name^='specific']").removeAttr('checked');
-    var benchmark = $("input[name='benchmark']:checked").val();
-    if (benchmark != "grid" && benchmark != "show_none") {
-        $("div[id='div_specific_" + benchmark + "']").show();
-        $("input[id^='specific_" + benchmark + "_']").prop('checked', true);
+    var workload = $("input[name='workload']:checked").val();
+    if (workload != "grid" && workload != "show_none") {
+        $("div[id='div_specific_" + workload + "']").show();
+        $("input[id^='specific_" + workload + "_']").prop('checked', true);
     }
 }
 
@@ -232,8 +228,8 @@ function initializeSite(event) {
     setValuesOfInputFields(event);
     $("#revisions"                ).bind('change', updateUrl);
     $("input[name='db']"          ).bind('click', updateUrl);
-    $("input[name='benchmark']"   ).on('change', updateSub);
-    $("input[name='benchmark']"   ).on('click', updateUrl);
+    $("input[name='workload']"   ).on('change', updateSub);
+    $("input[name='workload']"   ).on('click', updateUrl);
     $("input[name^='specific']"   ).on('change', updateUrl);
     $("select[name^='additional']").bind('change', updateUrl);
     $("input[name='metric']"   ).on('click', updateUrl);
@@ -270,15 +266,15 @@ function setValuesOfInputFields(event) {
         sel.filter("[value='" + db + "']").prop('checked', true);
     });
 
-    // Set default selected benchmark
-    var benchmark = valueOrDefault(event.parameters.ben, defaults.benchmark);
-    $("input:radio[name='benchmark']").filter("[value='" + benchmark + "']").attr('checked', true);
+    // Set default selected workload
+    var workload = valueOrDefault(event.parameters.ben, defaults.workload);
+    $("input:radio[name='workload']").filter("[value='" + workload + "']").attr('checked', true);
     $("[id^=div_specific]").hide();
     $("input[name^='specific']").removeAttr('checked');
-    if ($("input[name='benchmark']:checked").val() != "grid" && $("input[name='benchmark']:checked").val() != "show_none") {
-        $("[id=div_specific_" + $("input[name='benchmark']:checked").val() + "]").show();
-        sel = $("[id^=specific_" + $("input[name='benchmark']:checked").val() + "_]");
-        var specs = event.parameters.spe && event.parameters.spe != "none" ? event.parameters.spe.split(','): defaults.benchmarks.split(',');
+    if ($("input[name='workload']:checked").val() != "grid" && $("input[name='workload']:checked").val() != "show_none") {
+        $("[id=div_specific_" + $("input[name='workload']:checked").val() + "]").show();
+        sel = $("[id^=specific_" + $("input[name='workload']:checked").val() + "_]");
+        var specs = event.parameters.spe && event.parameters.spe != "none" ? event.parameters.spe.split(','): defaults.workloads.split(',');
         $.each(specs, function(i, spec) {
             sel.filter("[value='" + spec + "']").prop('checked', true);
         });

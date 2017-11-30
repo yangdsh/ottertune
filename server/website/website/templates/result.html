@@ -17,17 +17,15 @@
         <td>{{ result.application.name }}</td>
     </tr>
     <tr>
-        <td><div class="text-right">{{ labels.benchmark_config }}</div></td>
-        <td><a href="{% url 'bench_conf' project_id app_id result.benchmark_config.pk %}">{{ result.benchmark_config.name }}</a></td>
+        <td><div class="text-right">{{ labels.workload }}</div></td>
+        <td><a href="{% url 'workload' project_id app_id result.workload.pk %}">{{ result.workload.name }}</a></td>
     </tr>
     <tr>
         <td><div class="text-top text-right">{{ labels.dbms_config }}</div></td>
-<!--         <td><a href="/db_conf/?id={{ result.dbms_config.pk }}">{{ result.dbms_config.name }}</a></td> -->
         <td><a href="{% url 'db_confs' project_id app_id result.dbms_config.pk %}">{{ result.dbms_config.name }}</a></td>
     </tr>
     <tr>
         <td><div class="text-top text-right">{{ labels.dbms_metrics }}</div></td>
-<!--         <td><a href="/dbms_metrics/?id={{ result.dbms_metrics.pk }}">{{ result.dbms_metrics.name }}</a></td> -->
         <td><a href="{% url 'db_metrics' project_id app_id result.dbms_metrics.pk %}">{{ result.dbms_metrics.name }}</a></td>
     </tr>
     <tr>

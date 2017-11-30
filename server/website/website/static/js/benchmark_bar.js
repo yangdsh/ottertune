@@ -75,15 +75,14 @@ function render(data) {
 function OnMarkerClickHandler(ev, gridpos, datapos, neighbor, plot) {
     if (neighbor) {
         result_id = neighbor.data[2];
-        // return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/results/' + data + '">' + data + '</a>';
-//        window.location = "/result/?id=" + result_id;
         window.location = '/projects/' + defaults.proj + '/apps/' + defaults.app + '/results/' + result_id;
     }
 }
 
 function getConfiguration() {
     var config = {
-        id: defaults.benchmark,
+        id: defaults.workload,
+        app_id: defaults.app_id,
         db: readCheckbox("input[name^='db_']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
     };
@@ -94,7 +93,7 @@ function refreshContent() {
     var h = $("#content").height();//get height for loading text
     $("#plotgrid").fadeOut("fast", function() {
         $("#plotgrid").html(getLoadText("Loading...", h, true)).show();
-        $.getJSON("/get_benchmark_data/", getConfiguration(), render);
+        $.getJSON("/get_workload_data/", getConfiguration(), render);
     });
 }
 
