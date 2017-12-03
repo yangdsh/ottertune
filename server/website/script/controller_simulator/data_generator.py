@@ -12,20 +12,25 @@ import os
 import shutil
 import sys
 
+OBSERVATION_TIME_SEC = 300  # 5 minutes
 START_TIME = datetime.datetime.now() - datetime.timedelta(weeks=1)
 START_FREQUENCY = datetime.timedelta(minutes=10)
-END_FREQUENCY = datetime.timedelta(minutes=5)
+END_FREQUENCY = datetime.timedelta(seconds=OBSERVATION_TIME_SEC)
+EPOCH = datetime.datetime.utcfromtimestamp(0)
 
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 SAMPLE_DIR = os.path.join(ROOT_DIR, 'samples')
 OUTPUT_DIR = os.path.join(ROOT_DIR, 'generated_data')
 
+def unix_time_millis(dt):
+    return int((dt - EPOCH).total_seconds() * 1000.0)
+
 def generate_data(n_workloads, n_samples_per_workload):
     with open(os.path.join(SAMPLE_DIR, 'knobs.json'), 'r') as f:
         knob_sample = json.load(f)
-    with open(os.path.join(SAMPLE_DIR, 'metrics_start.json'), 'r') as f:
+    with open(os.path.join(SAMPLE_DIR, 'metrics_before.json'), 'r') as f:
         metrics_start_sample = json.load(f)
-    with open(os.path.join(SAMPLE_DIR, 'metrics_end.json'), 'r') as f:
+    with open(os.path.join(SAMPLE_DIR, 'metrics_after.json'), 'r') as f:
         metrics_end_sample = json.load(f)
     with open(os.path.join(SAMPLE_DIR, 'summary.json'), 'r') as f:
         summary_sample = json.load(f)
@@ -45,8 +50,9 @@ def generate_data(n_workloads, n_samples_per_workload):
             summary_data = copy.deepcopy(summary_sample)
 
             summary_data['workload_name'] = workload_name
-            summary_data['start_time_utc'] = str(start_time)
-            summary_data['end_time_utc'] = str(end_time)
+            summary_data['observation_time'] = OBSERVATION_TIME_SEC
+            summary_data['start_time'] = unix_time_millis(start_time)
+            summary_data['end_time'] = unix_time_millis(end_time)
             start_time = start_time + START_FREQUENCY
             end_time = start_time + END_FREQUENCY
 

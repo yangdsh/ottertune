@@ -406,17 +406,18 @@ def handle_result_files(app, files):
     # Load controller's summary file and verify that we support this DBMS & version
     raw_summary = ''.join(files['summary'].chunks())
     summary = JSONUtil.loads(raw_summary)
-    dbms_type = DBMSType.type(summary['dbms_type'])
+    dbms_type = DBMSType.type(summary['database_type'])
 #     dbms_version = DBMSUtil.parse_version_string(
-#        dbms_type, summary['dbms_version'])
-    dbms_version = '9.6'
+#        dbms_type, summary['database_version'])
+    dbms_version = '9.6'  ## FIXME (dva)
     workload_name = summary['workload_name']
     observation_time = summary['observation_time']
-    start_timestamp = summary['start_time_utc']
-    end_timestamp = summary['end_time_utc']
-#     timestamp = datetime.fromtimestamp(
-#         int(summary['Current Timestamp (milliseconds)']) / 1000,
-#         timezone("UTC"))
+    start_timestamp = datetime.fromtimestamp(
+        int(summary['start_time']) / 1000,
+        timezone("UTC"))
+    end_timestamp = datetime.fromtimestamp(
+        int(summary['end_time']) / 1000,
+        timezone("UTC"))
     try:
         dbms_object = DBMSCatalog.objects.get(
             type=dbms_type, version=dbms_version)
@@ -441,10 +442,10 @@ def handle_result_files(app, files):
         JSONUtil.dumps(knob_data, pprint=True, sort=True), dbms_object)
 
     # Load, process, and store the runtime metrics exposed by the DBMS
-    raw_mets_start = ''.join(files['metrics_start'].chunks())
+    raw_mets_start = ''.join(files['metrics_before'].chunks())
     mets_start_dict, mets_start_diffs = DBMSUtil.parse_dbms_metrics(
             dbms_object.pk, JSONUtil.loads(raw_mets_start))
-    raw_mets_end = ''.join(files['metrics_end'].chunks())
+    raw_mets_end = ''.join(files['metrics_after'].chunks())
     mets_end_dict, mets_end_diffs = DBMSUtil.parse_dbms_metrics(
             dbms_object.pk, JSONUtil.loads(raw_mets_end))
     mets_dict = DBMSUtil.calculate_change_in_metrics(

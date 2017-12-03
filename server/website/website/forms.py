@@ -10,8 +10,8 @@ from .models import Application, Project
 
 class NewResultForm(forms.Form):
     upload_code = forms.CharField(max_length=30)
-    metrics_start = forms.FileField()
-    metrics_end = forms.FileField()
+    metrics_before = forms.FileField()
+    metrics_after = forms.FileField()
     knobs = forms.FileField()
     summary = forms.FileField()
 

@@ -27,8 +27,8 @@ def upload(basedir, upload_code):
             params = {
                 'summary': open(basename + '__summary.json', "r"),
                 'knobs': open(basename + '__knobs.json',"r"),
-                'metrics_start':open(basename + '__metrics_start.json','r'),
-                'metrics_end':open(basename + '__metrics_end.json','r'),
+                'metrics_before':open(basename + '__metrics_start.json','r'),
+                'metrics_after':open(basename + '__metrics_end.json','r'),
                 'upload_code':  upload_code,
             }
     
