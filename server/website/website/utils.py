@@ -386,6 +386,8 @@ class DBMSUtilImpl(object):
             config += '\n'
         config += header_fmt(cat1='TUNING PARAMETERS')
         for pname, pval in sorted(tuning_params.iteritems()):
+            if pname.startswith('global.'):
+                pname = pname[len('global.'):]
             config += '{} = \'{}\'\n'.format(pname, pval)
         return config
 
@@ -475,19 +477,19 @@ class PostgresUtilImpl(DBMSUtilImpl):
     ]
 
     POSTGRES_BASE_PARAMS = {
-        'data_directory': None,
-        'hba_file': None,
-        'ident_file': None,
-        'external_pid_file': None,
-        'listen_addresses': None,
-        'port': None,
-        'max_connections': None,
-        'unix_socket_directories': None,
-        'log_line_prefix': '%t [%p-%l] %q%u@%d ',
-        'track_counts': 'on',
-        'track_io_timing': 'on',
-        'autovacuum': 'on',
-        'default_text_search_config': 'pg_catalog.english',
+        'global.data_directory': None,
+        'global.hba_file': None,
+        'global.ident_file': None,
+        'global.external_pid_file': None,
+        'global.listen_addresses': None,
+        'global.port': None,
+        'global.max_connections': None,
+        'global.unix_socket_directories': None,
+        'global.log_line_prefix': '%t [%p-%l] %q%u@%d ',
+        'global.track_counts': 'on',
+        'global.track_io_timing': 'on',
+        'global.autovacuum': 'on',
+        'global.default_text_search_config': 'pg_catalog.english',
     }
 
     @property

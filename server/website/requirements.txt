@@ -5,6 +5,7 @@ django-debug-toolbar==1.5
 django-request-logging==0.4.6
 Fabric==1.13.1
 numpy==1.13.1
+poster==0.8.1
 scikit-learn==0.19.1
 scipy==1.0.0
 supervisor==3.3.1

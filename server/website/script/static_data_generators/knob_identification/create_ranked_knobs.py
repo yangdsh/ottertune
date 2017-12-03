@@ -16,11 +16,13 @@ ts = '2016-12-04 11:00'
 convert = True
 task_type = 2
 
+prefix = 'global'
 model = 'website.PipelineResult'
 validate = True
 extra_exceptions = {
-    'checkpoint_segments',
+    prefix + '.' + 'checkpoint_segments',
 }
+
 
 def validate_postgres(knobs, dbms):
     with open('../knob_settings/{}/{}_knobs.json'.format(dbms.replace('-', '_'), dbms.replace('.', '')), 'r') as f:
@@ -44,6 +46,7 @@ for dbms, hw in itertools.product(dbmss.keys(), hardwares):
         raise IOError('Path does not exist: {}'.format(datapath))
     with open(os.path.join(datapath, 'featured_knobs.txt'), 'r') as f:
         knobs = [k.strip() for k in f.read().split('\n')]
+    knobs = [prefix + '.' + k for k in knobs]
     if validate and dbms.startswith('postgres'):
         validate_postgres(knobs, dbms)
 
@@ -65,7 +68,4 @@ for dbms, hw in itertools.product(dbmss.keys(), hardwares):
     with open(savepath, 'w') as f:
         json.dump(django_entry, f, indent=4)
 
-    shutil.copy(savepath, '../../preload/{}'.format(savepath))
-
-
-
+    shutil.copy(savepath, '../../../preload/{}'.format(savepath))
