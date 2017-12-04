@@ -1,5 +1,7 @@
 # Under Construction
 
+[![Build Status](https://travis-ci.org/cmu-db/ottertune.svg?branch=master)](https://travis-ci.org/cmu-db/ottertune)
+
 OtterTune is currently under construction. Check back soon!
 
 ### OtterTune
