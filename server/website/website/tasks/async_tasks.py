@@ -248,7 +248,7 @@ def map_workload(target_data):
     y_target = (y_target - y_scaler['mean']) / y_scaler['scale']
     y_binned = np.empty_like(y_target)
     for i in range(y_target.shape[1]):
-        y_binned[:, i] = bin_by_decile(y_target[:, i], y_deciles[i])
+        y_binned[:, i] = bin_by_decile(y_target[:, i], y_deciles[i], 1)
 
     scores = {}
     for wkld_id, wkld_entry_path in data_values['data'].iteritems():
@@ -260,7 +260,7 @@ def map_workload(target_data):
             model = GPR()
             model.fit(X_wkld, y_col, ridge=0.01)
             preds[:, j] = bin_by_decile(model.predict(
-                X_target).ypreds.ravel(), y_deciles[j])
+                X_target).ypreds.ravel(), y_deciles[j], 1)
         dists = np.sqrt(
             np.sum(np.square(np.subtract(preds, y_target)), axis=1))
         scores[wkld_id] = np.mean(dists)
@@ -369,7 +369,7 @@ def create_workload_mapping_data():
         X_scaler.fit(Xs)
         y_scaler = StandardScaler(copy=False)
         y_scaler.fit_transform(ys)
-        y_binner = Bin(axis=0)
+        y_binner = Bin(bin_start=1, axis=0)
         y_binner.fit(ys)
         del Xs
         del ys

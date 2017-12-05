@@ -10,7 +10,7 @@ from collections import namedtuple
 from fabric.api import env, execute, local, quiet, settings, task
 from fabric.state import output as fabric_output
 
-from website.settings import DATABASES, PRELOAD_DIR, PROJECT_ROOT
+from website.settings import DATABASES, PIPELINE_DIR, PRELOAD_DIR, PROJECT_ROOT
 
 
 # Fabric environment settings
@@ -189,6 +189,8 @@ def add_test_user():
 
 @task
 def aggregate_results():
+    if not os.path.exists(PIPELINE_DIR):
+        local ('mkdir -p ' + PIPELINE_DIR)
     cmd = 'from website.tasks import aggregate_results; aggregate_results()'
     local(('export PYTHONPATH={}\:$PYTHONPATH; '
            'django-admin shell --settings=website.settings '
