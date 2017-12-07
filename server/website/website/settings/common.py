@@ -3,8 +3,9 @@ Common Django settings for the OtterTune project.
 
 """
 
+import os
 import sys
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname, exists, join
 
 ## ==============================================
 ## PATH CONFIGURATION
@@ -33,14 +34,21 @@ FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o664
 FILE_UPLOAD_PERMISSIONS = 0o664
 
 # Path to OtterTune's ML modules
-OTTERTUNE_LIBS = dirname(PROJECT_ROOT)#join(dirname(PROJECT_ROOT), 'analysis')
+OTTERTUNE_LIBS = dirname(PROJECT_ROOT)
 
 ## ==============================================
-## Python path setup
+## Path setup
 ## ==============================================
 
 # Add OtterTune's ML modules to path
 sys.path.insert(0, OTTERTUNE_LIBS)
+
+# Try to create the log directory
+try:
+    if not exists(LOG_DIR):
+        os.mkdir(LOG_DIR)
+except Exception:
+    pass
 
 ## ==============================================
 ## DEBUG CONFIGURATION
