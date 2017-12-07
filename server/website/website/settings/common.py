@@ -22,9 +22,6 @@ UPLOAD_DIR = join(DATA_ROOT, 'media')
 # This is where intermediate results are stored in our ML pipeline
 PIPELINE_DIR = join(DATA_ROOT, 'pipeline_results')
 
-# Path to data preloaded with manage.py loaddata
-PRELOAD_DIR = join(PROJECT_ROOT, 'preload')
-
 # Path to the base DBMS configuration files
 CONFIG_DIR = join(PROJECT_ROOT, 'config')
 
