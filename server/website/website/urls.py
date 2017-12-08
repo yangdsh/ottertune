@@ -33,16 +33,16 @@ urlpatterns = [
     url(r'^new_result/', website_views.new_result),
     url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/results/(?P<result_id>[0-9]+)/$', website_views.result_view, name='result'),
     url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/workloads/(?P<wkld_id>[0-9]+)/$', website_views.workload_view, name='workload'),
-    url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/knobs/(?P<dbconf_id>[0-9]+)/$', website_views.knob_data_view, name='knob_data'),
-    url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/metrics/(?P<dbmet_id>[0-9]+)/$', website_views.metric_data_view, name='metric_data'),
+    url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/knobs/(?P<data_id>[0-9]+)/$', website_views.knob_data_view, name='knob_data'),
+    url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/metrics/(?P<data_id>[0-9]+)/$', website_views.metric_data_view, name='metric_data'),
     url(r'^projects/(?P<project_id>[0-9]+)/sessions/(?P<session_id>[0-9]+)/results/(?P<result_id>[0-9]+)/status$', website_views.tuner_status_view, name="tuner_status"),
 
     # URLs for the DBMS knob & metric reference pages
-    url(r'^ref/(?P<dbms_name>.+)/(?P<version>.+)/params/(?P<param_name>.+)/$', website_views.dbms_knobs_reference, name="dbms_knobs_ref"),
+    url(r'^ref/(?P<dbms_name>.+)/(?P<version>.+)/knobs/(?P<knob_name>.+)/$', website_views.dbms_knobs_reference, name="dbms_knobs_ref"),
     url(r'^ref/(?P<dbms_name>.+)/(?P<version>.+)/metrics/(?P<metric_name>.+)/$', website_views.dbms_metrics_reference, name="dbms_metrics_ref"),
     
     # URLs to the helper functions called by the javascript code
-    url(r'^ajax_new/', website_views.ajax_new),
+#     url(r'^ajax_new/', website_views.ajax_new),
     url(r'^get_workload_data/', website_views.get_workload_data),
     url(r'^get_data/', website_views.get_timeline_data),
     url(r'^update_similar/', website_views.update_similar),

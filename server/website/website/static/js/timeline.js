@@ -94,7 +94,7 @@ function renderMiniplot(plotid, data) {
 var fixed_header = null;
 
 function gen_url(result_id) {
-	return "{% url 'result' proj_id session_id result_id %}".replace("proj_id", defaults.proj_id).replace("session_id", defaults.session_id).replace("result_id", result_id)
+	return "{% url 'result' project_id session_id result_id %}".replace("project_id", defaults.project_id).replace("session_id", defaults.session_id).replace("result_id", result_id)
 }
 
 function render(data) {
@@ -138,17 +138,17 @@ function render(data) {
         "aaData": data.results,
         "aoColumns": [
             { "sTitle": data.columnnames[0], "sClass": "center", "sType": "num-html", "mRender": function (data, type, full) {
-            	return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/results/' + data + '">' + data + '</a>';
+            	return '<a href="/projects/' + defaults.project + '/sessions/' + defaults.session + '/results/' + data + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[1], "sClass": "center"},
             { "sTitle": data.columnnames[2], "sClass": "center", "mRender": function (data, type, full) {
-                return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/knobs/' + full[7] + '">' + data + '</a>';
+                return '<a href="/projects/' + defaults.project + '/sessions/' + defaults.session + '/knobs/' + full[7] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[3], "sClass": "center", "mRender": function (data, type, full) {
-            	return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/metrics/' + full[8] + '">' + data + '</a>';
+            	return '<a href="/projects/' + defaults.project + '/sessions/' + defaults.session + '/metrics/' + full[8] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[4], "sClass": "center", "mRender": function (data, type, full) {
-                return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/workloads/' + full[9] + '">' + data + '</a>';
+                return '<a href="/projects/' + defaults.project + '/sessions/' + defaults.session + '/workloads/' + full[9] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {
             	return data.toFixed(2);
@@ -184,8 +184,8 @@ function updateUrl() {
 }
 
 function disable_options(value) {
-    $("#revisions").attr("disabled", value);
-    $('#revisions').selectpicker('refresh');
+    $("#results_per_page").attr("disabled", value);
+    $('#results_per_page').selectpicker('refresh');
     $("#equidistant").attr("disabled", value);
     $("input:checkbox[name='metric']").each(function() {
         $(this).attr('disabled', value);
@@ -200,11 +200,11 @@ function getConfiguration() {
     var config = {
         session:defaults.session,
         dbms: readCheckbox("input[name='dbms']:checked"),
-        ben: $("input[name='workload']:checked").val(),  // BENCHFIXME
+        wkld: $("input[name='workload']:checked").val(),
         spe: readCheckbox("input[name^='specific']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
-        revs: $("#revisions option:selected").val(),
-        equid: $("#equidistant").is(':checked') ? "on" : "off"
+        nres: $("#results_per_page option:selected").val(),
+        eq: $("#equidistant").is(':checked') ? "on" : "off"
     };
     config["add"] = [];
     $.each(defaults.additional, function(i, add) {
@@ -226,7 +226,7 @@ function updateSub(event) {
 
 function initializeSite(event) {
     setValuesOfInputFields(event);
-    $("#revisions"                ).bind('change', updateUrl);
+    $("#results_per_page"                ).bind('change', updateUrl);
     $("input[name='dbms']"          ).bind('click', updateUrl);
     $("input[name='workload']"   ).on('change', updateSub);
     $("input[name='workload']"   ).on('click', updateUrl);
@@ -245,8 +245,8 @@ function setValuesOfInputFields(event) {
     // Either set the default value, or the one parsed from the url
 
     // Set default selected recent results
-    $("#revisions").val(valueOrDefault(event.parameters.revs, defaults.revisions));
-    $('#revisions').selectpicker('refresh');
+    $("#results_per_page").val(valueOrDefault(event.parameters.nres, defaults.results_per_page));
+    $('#results_per_page').selectpicker('refresh');
 
     // Set default selected metrics
     $("input:checkbox[name='metric']").prop('checked', false);
@@ -266,7 +266,7 @@ function setValuesOfInputFields(event) {
     });
 
     // Set default selected workload
-    var workload = valueOrDefault(event.parameters.ben, defaults.workload);
+    var workload = valueOrDefault(event.parameters.wkld, defaults.workload);
     $("input:radio[name='workload']").filter("[value='" + workload + "']").attr('checked', true);
     $("[id^=div_specific]").hide();
     $("input[name^='specific']").removeAttr('checked');
@@ -297,7 +297,7 @@ function setValuesOfInputFields(event) {
     }
 
     // Set equidistant status
-    $("#equidistant").prop('checked', valueOrDefault(event.parameters.equid, defaults.equidistant) === "on");
+    $("#equidistant").prop('checked', valueOrDefault(event.parameters.eq, defaults.equidistant) === "on");
 }
 
 function init(def) {

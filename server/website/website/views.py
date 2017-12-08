@@ -38,23 +38,23 @@ def get_item(dictionary, key):
     return dictionary.get(key)
 
 
-def ajax_new(request):
-    new_id = request.GET['new_id']
-    data = {}
-#     ts = Statistics.objects.filter(data_result=new_id,
-#                                    type=StatsType.SAMPLES)
-#     metric_meta = {}
-#     for metric, metric_info in metric_meta.iteritems():
-#         if len(ts) > 0:
-#             offset = ts[0].time
-#             if len(ts) > 1:
-#                 offset -= ts[1].time - ts[0].time
-#             data[metric] = []
-#             for t in ts:
-#                 data[metric].append(
-#                     [t.time - offset,
-#                         getattr(t, metric) * metric_info.scale])
-    return HttpResponse(JSONUtil.dumps(data), content_type='application/json')
+# def ajax_new(request):
+#     new_id = request.GET['new_id']
+#     data = {}
+# #     ts = Statistics.objects.filter(data_result=new_id,
+# #                                    type=StatsType.SAMPLES)
+# #     metric_meta = {}
+# #     for metric, metric_info in metric_meta.iteritems():
+# #         if len(ts) > 0:
+# #             offset = ts[0].time
+# #             if len(ts) > 1:
+# #                 offset -= ts[1].time - ts[0].time
+# #             data[metric] = []
+# #             for t in ts:
+# #                 data[metric].append(
+# #                     [t.time - offset,
+# #                         getattr(t, metric) * metric_info.scale])
+#     return HttpResponse(JSONUtil.dumps(data), content_type='application/json')
 
 
 def signup_view(request):
@@ -116,12 +116,12 @@ def redirect_home(request):
 
 @login_required(login_url=reverse_lazy('login'))
 def home_projects_view(request):
-    labels = Project.get_labels()
-    labels.update(LabelUtil.style_labels({
+    form_labels = Project.get_labels()
+    form_labels.update(LabelUtil.style_labels({
         'button_create': 'create a new project',
         'button_delete': 'delete selected projects',
     }))
-    labels['title'] = 'Your Projects'
+    form_labels['title'] = 'Your Projects'
     projects = Project.objects.filter(user=request.user)
     show_descriptions = False
     for proj in projects:
@@ -130,7 +130,7 @@ def home_projects_view(request):
             break
     context = {
         "projects": projects,
-        "labels": labels,
+        "labels": form_labels,
         "show_descriptions": show_descriptions
     }
     context.update(csrf(request))
@@ -187,16 +187,16 @@ def delete_project(request):
 def project_sessions_view(request, project_id):
     sessions = Session.objects.filter(project=project_id)
     project = Project.objects.get(pk=project_id)
-    labels = Session.get_labels()
-    labels.update(LabelUtil.style_labels({
+    form_labels = Session.get_labels()
+    form_labels.update(LabelUtil.style_labels({
         'button_delete': 'delete selected session',
         'button_create': 'create a new session',
     }))
-    labels['title'] = "Your Sessions"
+    form_labels['title'] = "Your Sessions"
     context = {
         "sessions": sessions,
         "project": project,
-        "labels": labels,
+        "labels": form_labels,
     }
     context.update(csrf(request))
     return render(request, 'project_sessions.html', context)
@@ -206,54 +206,56 @@ def project_sessions_view(request, project_id):
 def session_view(request, project_id, session_id):
     project = get_object_or_404(Project, pk=project_id)
     session = get_object_or_404(Session, pk=session_id)
-    if project.user != request.user:
-        return render(request, '404.html')
-    results = Result.objects.filter(session=session)
-    dbs = {}
-    workloads = {}
 
+    # All results from this session
+    results = Result.objects.filter(session=session)
+
+    # Group the session's results by DBMS & workload
+    dbmss = {}
+    workloads = {}
     for res in results:
-        dbs[res.dbms.key] = res.dbms
+        dbmss[res.dbms.key] = res.dbms
         workload_name = res.workload.name
         if workload_name not in workloads:
             workloads[workload_name] = set()
         workloads[workload_name].add(res.workload)
 
+    # Sort so names will be ordered in the sidebar
     workloads = OrderedDict([(k, sorted(list(v))) for \
                              k, v in sorted(workloads.iteritems())])
-
-    lastrevisions = [10, 50, 100]
-    dbs = OrderedDict(sorted(dbs.items()))
+    dbmss = OrderedDict(sorted(dbmss.items()))
 
     if len(workloads) > 0:
+        # Set the default workload to whichever is first
         default_workload, default_confs = workloads.iteritems().next()
         default_confs = ','.join([str(c.pk) for c in default_confs])
     else:
+        # Set the default to display nothing if there are no results yet
         default_workload = 'show_none'
         default_confs = 'none'
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
 
-    labels = Session.get_labels()
-    labels['title'] = "Session Info"
+    form_labels = Session.get_labels()
+    form_labels['title'] = "Session Info"
     context = {
         'project': project,
-        'dbmss': dbs,
+        'dbmss': dbmss,
         'workloads': workloads,
-        'lastrevisions': lastrevisions,
-        'defaultdbms': session.dbms.key,
-        'defaultlast': 10,
-        'defaultequid': "on",
-        'defaultworkload': default_workload,
+        'results_per_page': [10, 50, 100],
+        'default_dbms': session.dbms.key,
+        'default_results_per_page': 10,
+        'default_equidistant': "on",
+        'default_workload': default_workload,
         'defaultspe': default_confs,
         'metrics': metric_meta.keys(),
         'metric_meta': metric_meta,
-        'defaultmetrics': default_metrics,
+        'default_metrics': default_metrics,
         'filters': [],
         'session': session,
         'results': results,
-        'labels': labels,
+        'labels': form_labels,
     }
     context.update(csrf(request))
     return render(request, 'session.html', context)
@@ -263,9 +265,8 @@ def session_view(request, project_id, session_id):
 def create_or_edit_session(request, project_id, session_id=''):
     project = get_object_or_404(Project, pk=project_id)
     if request.method == 'POST':
-        if project.user != request.user:
-            return Http404()
         if session_id == '':
+            # Create a new session from the form contents
             form = SessionForm(request.POST)
             if not form.is_valid():
                 return HttpResponse(str(form))
@@ -278,6 +279,7 @@ def create_or_edit_session(request, project_id, session_id=''):
             session.upload_code = MediaUtil.upload_code_generator()
             session.save()
         else:
+            # Update an existing session with the form contents
             session = Session.objects.get(pk=int(session_id))
             form = SessionForm(request.POST, instance=session)
             if not form.is_valid():
@@ -286,14 +288,17 @@ def create_or_edit_session(request, project_id, session_id=''):
                 session.upload_code = MediaUtil.upload_code_generator()
             session.last_update = now()
             session.save()
-        return redirect(reverse('session', kwargs={'project_id': project_id, 'session_id': session.pk}))
+        return redirect(reverse('session', kwargs={'project_id': project_id,
+                                                   'session_id': session.pk}))
     else:
         if project.user != request.user:
             return Http404()
         if session_id != '':
+            # Return a pre-filled form for editing an existing session
             session = Session.objects.get(pk=session_id)
             form = SessionForm(instance=session)
         else:
+            # Return a new form with defaults for creating a new session
             session = None
             form = SessionForm(
                 initial={
@@ -313,8 +318,8 @@ def create_or_edit_session(request, project_id, session_id=''):
 
 @login_required(login_url=reverse_lazy('login'))
 def delete_session(request, project_id):
-    for pk in request.POST.getlist('sessions', []):
-        session = Session.objects.get(pk=pk)
+    for session_id in request.POST.getlist('sessions', []):
+        session = Session.objects.get(pk=session_id)
         if session.user == request.user:
             session.delete()
     return redirect(reverse(
@@ -326,39 +331,44 @@ def delete_session(request, project_id):
 def result_view(request, project_id, session_id, result_id):
     target = get_object_or_404(Result, pk=result_id)
     session = target.session
-    if session.user != request.user:
-        raise Http404()
-    data_package = {}
-    results = Result.objects.filter(session=session,
-                                    dbms=session.dbms,
-                                    workload=target.workload)
-    same_dbconf_results = filter(
-        lambda x: x.pk != target.pk and result_same(x, target), results)
-    ranked_knobs = JSONUtil.loads(PipelineResult.get_latest(
-        session.dbms, session.hardware, PipelineTaskType.RANKED_KNOBS).value)[:10]
-    similar_dbconf_results = filter(
-        lambda x: x.pk not in \
-        ([target.pk] + [r.pk for r in same_dbconf_results]) and \
-        result_similar(x, target, ranked_knobs), results)
+#     if session.user != request.user:
+#         raise Http404()
+#     data_package = {}
+#     results = Result.objects.filter(session=session,
+#                                     dbms=session.dbms,
+#                                     workload=target.workload)
 
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
-    for metric, metric_info in metric_meta.iteritems():
-        data_package[metric] = {
-            'data': {},
-            'units': metric_info.unit,
-            'lessisbetter': metric_info.improvement,
-            'metric': metric_info.pprint,
-            'print': metric_info.pprint,
-        }
+    # Find other results with the same knob config as the target
+#     same_knob_configs = filter(lambda res: res.pk != target.pk and
+#                                result_same(res, target), results)
+# 
+#     # Find other results with knob configs similar to the target.
+#     # We consider two knob configs similar they have the same
+#     # settings for the top 3 knobs and are not the same.
+#     ranked_knobs = JSONUtil.loads(PipelineResult.get_latest(
+#         session.dbms, session.hardware, PipelineTaskType.RANKED_KNOBS).value)[:3]
+#     similar_knob_configs = filter(
+#         lambda res: res.pk not in([target.pk] + [r.pk for r in same_knob_configs]) and
+#         result_similar(res, target, ranked_knobs), results)
+# 
+#     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+#     for metric, metric_info in metric_meta.iteritems():
+#         data_package[metric] = {
+#             'data': {},
+#             'units': metric_info.unit,
+#             'lessisbetter': metric_info.improvement,
+#             'metric': metric_info.pprint,
+#             'print': metric_info.pprint,
+#         }
 
-        same_id = [str(target.pk)]
-        for x in same_id:
-            key = metric + ',data,' + x
-            tmp = cache.get(key)
-            if tmp is not None:
-                data_package[metric]['data'][int(x)] = []
-                data_package[metric]['data'][int(x)].extend(tmp)
-                continue
+#         same_id = [str(target.pk)]
+#         for x in same_id:
+#             key = metric + ',data,' + x
+#             tmp = cache.get(key)
+#             if tmp is not None:
+#                 data_package[metric]['data'][int(x)] = []
+#                 data_package[metric]['data'][int(x)].extend(tmp)
+#                 continue
 
             # We no longer collect timeseries data (but this may change)
 #             ts = Statistics.objects.filter(data_result=x, type=StatsType.SAMPLES)
@@ -392,24 +402,24 @@ def result_view(request, project_id, session_id, result_id):
             status = 'UNAVAILABLE'
 
     next_conf_available = True if status == 'SUCCESS' else False
-    labels = Result.get_labels()
-    labels.update(LabelUtil.style_labels({
+    form_labels = Result.get_labels()
+    form_labels.update(LabelUtil.style_labels({
         'status': 'status',
         'next_conf_available': 'next configuration'
     }))
-    labels['title'] = 'Result Info'
+    form_labels['title'] = 'Result Info'
     context = {
         'result': target,
         'metric_meta': metric_meta,
-        'default_metrics': default_metrics,
-        'data': JSONUtil.dumps(data_package),
-        'same_runs': same_dbconf_results,
+#         'default_metrics': default_metrics,
+#         'data': JSONUtil.dumps({}),#data_package),
+#         'same_runs': [],#same_knob_configs,
         'status': status,
         'next_conf_available': next_conf_available,
-        'similar_runs': similar_dbconf_results,
-        'labels': labels,
-        'project_id': session.project.pk,
-        'session_id': session.pk
+#         'similar_runs': [],#similar_knob_configs,
+        'labels': form_labels,
+        'project_id': project_id,
+        'session_id': session_id
     }
     return render(request, 'result.html', context)
 
@@ -437,9 +447,11 @@ def new_result(request):
 def handle_result_files(session, files):
     from celery import chain
 
-    # Load controller's summary file and verify that we support this DBMS & version
-    raw_summary = ''.join(files['summary'].chunks())
-    summary = JSONUtil.loads(raw_summary)
+    # Combine into contiguous files
+    files = {k: ''.join(v.chunks()) for k, v in files.iteritems()}
+
+    # Load the contents of the controller's summary file
+    summary = JSONUtil.loads(files['summary'])
     dbms_type = DBMSType.type(summary['database_type'])
 #     dbms_version = DBMSUtil.parse_version_string(
 #        dbms_type, summary['database_version'])
@@ -453,65 +465,64 @@ def handle_result_files(session, files):
         int(summary['end_time']) / 1000,
         timezone("UTC"))
     try:
-        dbms_object = DBMSCatalog.objects.get(
+        # Check that we support this DBMS and version
+        dbms = DBMSCatalog.objects.get(
             type=dbms_type, version=dbms_version)
     except ObjectDoesNotExist:
         return HttpResponse('{} v{} is not yet supported.'.format(
             dbms_type, dbms_version))
 
-    if dbms_object != session.dbms:
+    if dbms != session.dbms:
         return HttpResponse('The DBMS must match the type and version '
                             'specified when creating the session. '
                             '(expected=' + session.dbms.full_name + ') '
-                            '(actual=' + dbms_object.full_name + ')')
+                            '(actual=' + dbms.full_name + ')')
 
     # Load, process, and store the knobs in the DBMS's configuration
-    db_raw_data = ''.join(files['knobs'].chunks())
-    db_conf_dict, db_diffs = DBMSUtil.parse_dbms_config(
-        dbms_object.pk, JSONUtil.loads(db_raw_data))
-    knob_data = DBMSUtil.convert_dbms_params(
-        dbms_object.pk, db_conf_dict)
-    db_conf = KnobData.objects.create_knob_data(
-        session, JSONUtil.dumps(db_conf_dict, pprint=True, sort=True),
-        JSONUtil.dumps(knob_data, pprint=True, sort=True), dbms_object)
+    knob_dict, knob_diffs = DBMSUtil.parse_dbms_config(
+        dbms.pk, JSONUtil.loads(files['knobs']))
+    tunable_knob_dict = DBMSUtil.convert_dbms_params(
+        dbms.pk, knob_dict)
+    knob_data = KnobData.objects.create_knob_data(
+        session, JSONUtil.dumps(knob_dict, pprint=True, sort=True),
+        JSONUtil.dumps(tunable_knob_dict, pprint=True, sort=True), dbms)
 
     # Load, process, and store the runtime metrics exposed by the DBMS
-    raw_mets_start = ''.join(files['metrics_before'].chunks())
-    mets_start_dict, mets_start_diffs = DBMSUtil.parse_dbms_metrics(
-            dbms_object.pk, JSONUtil.loads(raw_mets_start))
-    raw_mets_end = ''.join(files['metrics_after'].chunks())
-    mets_end_dict, mets_end_diffs = DBMSUtil.parse_dbms_metrics(
-            dbms_object.pk, JSONUtil.loads(raw_mets_end))
-    mets_dict = DBMSUtil.calculate_change_in_metrics(
-        dbms_object.pk, mets_start_dict, mets_end_dict)
-    mets_start_diffs.extend(mets_end_diffs)
-    metric_data = DBMSUtil.convert_dbms_metrics(
-        dbms_object.pk, mets_dict, observation_time)
-    dbms_metrics = MetricData.objects.create_metric_data(
-        session, JSONUtil.dumps(mets_dict, pprint=True, sort=True),
-        JSONUtil.dumps(metric_data, pprint=True, sort=True), dbms_object)
+    initial_metric_dict, initial_metric_diffs = DBMSUtil.parse_dbms_metrics(
+            dbms.pk, JSONUtil.loads(files['metrics_before']))
+    final_metric_dict, final_metric_diffs = DBMSUtil.parse_dbms_metrics(
+            dbms.pk, JSONUtil.loads(files['metrics_after']))
+    metric_dict = DBMSUtil.calculate_change_in_metrics(
+        dbms.pk, initial_metric_dict, final_metric_dict)
+    initial_metric_diffs.extend(final_metric_diffs)
+    numeric_metric_dict = DBMSUtil.convert_dbms_metrics(
+        dbms.pk, metric_dict, observation_time)
+    metric_data = MetricData.objects.create_metric_data(
+        session, JSONUtil.dumps(metric_dict, pprint=True, sort=True),
+        JSONUtil.dumps(numeric_metric_dict, pprint=True, sort=True), dbms)
 
     # Create a new workload if this one does not already exist
     workload = Workload.objects.create_workload(
-        dbms_object, session.hardware, workload_name)
+        dbms, session.hardware, workload_name)
 
     # Save this result
     result = Result.objects.create_result(
-        session, dbms_object, workload, db_conf, dbms_metrics,
+        session, dbms, workload, knob_data, metric_data,
         start_time, end_time, observation_time)
     result.save()
 
     # Save all original data
     backup_data = BackupData.objects.create(
-        result=result, raw_knobs=db_raw_data,
-        raw_initial_metrics=raw_mets_start,
-        raw_final_metrics=raw_mets_end,
-        raw_summary=raw_summary,
-        knob_log=db_diffs, metric_log=mets_start_diffs)
+        result=result, raw_knobs=files['knobs'],
+        raw_initial_metrics=files['metrics_before'],
+        raw_final_metrics=files['metrics_after'],
+        raw_summary=files['summary'],
+        knob_log=knob_diffs,
+        metric_log=initial_metric_diffs)
     backup_data.save()
 
     nondefault_settings = DBMSUtil.get_nondefault_settings(
-        dbms_object.pk, db_conf_dict)
+        dbms.pk, knob_dict)
     session.project.last_update = now()
     session.last_update = now()
     if session.nondefault_settings is None:
@@ -520,7 +531,7 @@ def handle_result_files(session, files):
     session.save()
 
     if session.tuning_session is False:
-        return HttpResponse("Store success!")
+        return HttpResponse("Result stored successfully!")
 
     response = chain(aggregate_target_results.s(result.pk),
                      map_workload.s(),
@@ -528,40 +539,40 @@ def handle_result_files(session, files):
     taskmeta_ids = [response.parent.parent.id, response.parent.id, response.id]
     result.task_ids = ','.join(taskmeta_ids)
     result.save()
-    return HttpResponse("Store Success! Running tuner... (status={})".format(
+    return HttpResponse("Result stored successfully! Running tuner... (status={})".format(
         response.status))
 
 
 @login_required(login_url=reverse_lazy('login'))
-def dbms_knobs_reference(request, dbms_name, version, param_name):
-    param = get_object_or_404(KnobCatalog, dbms__type=DBMSType.type(dbms_name),
-                              dbms__version=version, name=param_name)
+def dbms_knobs_reference(request, dbms_name, version, knob_name):
+    knob = get_object_or_404(KnobCatalog, dbms__type=DBMSType.type(dbms_name),
+                              dbms__version=version, name=knob_name)
     labels = KnobCatalog.get_labels()
     list_items = OrderedDict()
-    if param.category is not None:
-        list_items[labels['category']] = param.category
-    list_items[labels['scope']] = param.scope
-    list_items[labels['tunable']] = param.tunable
-    list_items[labels['vartype']] = VarType.name(param.vartype)
-    if param.unit != KnobUnitType.OTHER:
-        list_items[labels['unit']] = param.unit
-    list_items[labels['default']] = param.default
-    if param.minval is not None:
-        list_items[labels['minval']] = param.minval
-    if param.maxval is not None:
-        list_items[labels['maxval']] = param.maxval
-    if param.enumvals is not None:
-        list_items[labels['enumvals']] = param.enumvals
-    if param.summary is not None:
-        description = param.summary
-        if param.description is not None:
-            description += param.description
+    if knob.category is not None:
+        list_items[labels['category']] = knob.category
+    list_items[labels['scope']] = knob.scope
+    list_items[labels['tunable']] = knob.tunable
+    list_items[labels['vartype']] = VarType.name(knob.vartype)
+    if knob.unit != KnobUnitType.OTHER:
+        list_items[labels['unit']] = knob.unit
+    list_items[labels['default']] = knob.default
+    if knob.minval is not None:
+        list_items[labels['minval']] = knob.minval
+    if knob.maxval is not None:
+        list_items[labels['maxval']] = knob.maxval
+    if knob.enumvals is not None:
+        list_items[labels['enumvals']] = knob.enumvals
+    if knob.summary is not None:
+        description = knob.summary
+        if knob.description is not None:
+            description += knob.description
         list_items[labels['summary']] = description
     
     context = {
-        'title': param.name,
-        'dbms': param.dbms,
-        'is_used': param.tunable,
+        'title': knob.name,
+        'dbms': knob.dbms,
+        'is_used': knob.tunable,
         'used_label': 'TUNABLE',
         'list_items': list_items,
     }
@@ -589,10 +600,8 @@ def dbms_metrics_reference(request, dbms_name, version, metric_name):
 
 
 @login_required(login_url=reverse_lazy('login'))
-def knob_data_view(request, project_id, session_id, dbconf_id):
-    knob_data = get_object_or_404(KnobData, pk=dbconf_id)
-    if knob_data.session.user != request.user:
-        raise Http404()
+def knob_data_view(request, project_id, session_id, data_id):
+    knob_data = get_object_or_404(KnobData, pk=data_id)
     labels = KnobData.get_labels()
     labels.update(LabelUtil.style_labels({
         'featured_data': 'tunable dbms parameters',
@@ -607,10 +616,8 @@ def knob_data_view(request, project_id, session_id, dbconf_id):
 
 
 @login_required(login_url=reverse_lazy('login'))
-def metric_data_view(request, project_id, session_id, dbmet_id, compare=None):
-    metric_data = get_object_or_404(MetricData, pk=dbmet_id)
-    if metric_data.session.user != request.user:
-        raise Http404()
+def metric_data_view(request, project_id, session_id, data_id):
+    metric_data = get_object_or_404(MetricData, pk=data_id)
     labels = MetricData.get_labels()
     labels.update(LabelUtil.style_labels({
         'featured_data': 'numeric dbms metrics',
@@ -637,8 +644,8 @@ def dbms_data_view(request, context, dbms_data):
         addl_args = [True]
 
     dbms_id = dbms_data.dbms.pk
-    all_info_dict = JSONUtil.loads(obj_data)
-    args = [dbms_id, all_info_dict] + addl_args
+    all_data_dict = JSONUtil.loads(obj_data)
+    args = [dbms_id, all_data_dict] + addl_args
     featured_dict = filter_fn(*args)
 
     if 'compare' in request.GET and request.GET['compare'] != 'none':
@@ -650,19 +657,19 @@ def dbms_data_view(request, context, dbms_data):
         args = [dbms_id, comp_dict] + addl_args
         comp_featured_dict = filter_fn(*args)
 
-        all_info = [(k, v, comp_dict[k]) for k, v in all_info_dict.iteritems()]
-        featured_info = [(k, v, comp_featured_dict[k])
+        all_data = [(k, v, comp_dict[k]) for k, v in all_data_dict.iteritems()]
+        featured_data = [(k, v, comp_featured_dict[k])
                          for k, v in featured_dict.iteritems()]
     else:
         comp_id = None
-        all_info = list(all_info_dict.iteritems())
-        featured_info = list(featured_dict.iteritems())
+        all_data = list(all_data_dict.iteritems())
+        featured_data = list(featured_dict.iteritems())
     peer_data = model_class.objects.filter(
         dbms=dbms_data.dbms, session=dbms_data.session)
-    peer_data = filter(lambda x: x.pk != dbms_data.pk, peer_data)
+    peer_data = filter(lambda peer: peer.pk != dbms_data.pk, peer_data)
 
-    context['all_data'] = all_info
-    context['featured_data'] = featured_info
+    context['all_data'] = all_data
+    context['featured_data'] = featured_data
     context['dbms_data'] = dbms_data
     context['compare'] = comp_id
     context['peer_data'] = peer_data
@@ -673,26 +680,22 @@ def dbms_data_view(request, context, dbms_data):
 def workload_view(request, project_id, session_id, wkld_id):
     workload = get_object_or_404(Workload, pk=wkld_id)
     session = get_object_or_404(Session, pk=session_id)
-    if session.user != request.user:
-        return render(request, '404.html')
 
-    db_confs = KnobData.objects.filter(
-        dbms=session.dbms, session=session)
+    db_confs = KnobData.objects.filter(dbms=session.dbms,
+                                       session=session)
     all_db_confs = []
     conf_map = {}
     for conf in db_confs:
-        results = Result.objects.filter(
-            session=session, knob_data=conf,
-            workload=workload)
+        results = Result.objects.filter(session=session,
+                                        knob_data=conf,
+                                        workload=workload)
         if len(results) == 0:
             continue
         result = results.latest('observation_end_time')
         all_db_confs.append(conf.pk)
         conf_map[conf.name] = [conf, result]
-    if len(conf_map) > 0:
-        dbs = { session.dbms.full_name: conf_map}
-    else:
-        dbs = {}
+    conf_map = OrderedDict(sorted(conf_map.iteritems()))
+    all_db_confs = [c for c, _ in conf_map.values()][:5]
 
     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
@@ -700,9 +703,9 @@ def workload_view(request, project_id, session_id, wkld_id):
     labels = Workload.get_labels()
     labels['title'] = 'Workload Information'
     context = {'workload': workload,
-               'dbs': dbs,
+               'confs': conf_map,
                'metric_meta': metric_meta,
-               'default_dbconf': all_db_confs,
+               'knob_data': all_db_confs,
                'default_metrics': default_metrics,
                'labels': labels,
                'proj_id': project_id,
@@ -869,14 +872,14 @@ def get_timeline_data(request):
             met_info.pprint + ' (' + 
             met_info.short_unit + ')') 
 
-    revs = int(request.GET['revs'])
+    results_per_page = int(request.GET['nres'])
 
     # Get all results related to the selected session, sort by time
     results = Result.objects.filter(session=session)
     results = sorted(results, cmp=lambda x, y: int(
         (x.observation_end_time - y.observation_end_time).total_seconds()))
 
-    display_type = request.GET['ben']
+    display_type = request.GET['wkld']
     if display_type == 'show_none':
         workloads = []
         metrics = default_metrics
@@ -934,7 +937,7 @@ def get_timeline_data(request):
 
             for dbms in request.GET['dbms'].split(','):
                 d_r = filter(lambda x: x.dbms.key == dbms, w_r)
-                d_r = d_r[-revs:]
+                d_r = d_r[-results_per_page:]
                 out = []
                 for res in d_r:
                     metric_data = JSONUtil.loads(res.metric_data.data)
