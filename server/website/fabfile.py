@@ -170,14 +170,14 @@ def create_test_website():
 
 
 @task
-def add_test_user():
-    # Adds a test user to an existing website with an empty application
+def setup_test_user():
+    # Adds a test user to an existing website with an two empty sessions
     local(("echo \"from django.contrib.auth.models import User; "
            "User.objects.filter(email='user@email.com').delete(); "
            "User.objects.create_superuser('user', 'user@email.com', 'abcd123')\" "
            "| python manage.py shell"))
 
-    local("python manage.py loaddata test_user_app.json")
+    local("python manage.py loaddata test_user_sessions.json")
 
 
 @task

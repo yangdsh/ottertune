@@ -22,9 +22,9 @@ function OnMarkerClickHandler(ev, gridpos, datapos, neighbor, plot) {
 function renderPlot(data, div_id) {
     var plotdata = [], series = [];
 
-    for (db in data.data) {
-        series.push({"label":  db});
-        plotdata.push(data.data[db]);
+    for (dbms in data.data) {
+        series.push({"label":  dbms});
+        plotdata.push(data.data[dbms]);
     }
 
     $("#" + div_id).html('<div id="' + div_id + '_plot"></div><div id="plotdescription"></div>');
@@ -65,9 +65,9 @@ function renderPlot(data, div_id) {
 function renderMiniplot(plotid, data) {
     var plotdata = [], series = [];
 
-    for (db in data.data) {
+    for (dbms in data.data) {
         series.push("");
-        plotdata.push(data.data[db]);
+        plotdata.push(data.data[dbms]);
     }
 
     var plotoptions = {
@@ -94,7 +94,7 @@ function renderMiniplot(plotid, data) {
 var fixed_header = null;
 
 function gen_url(result_id) {
-	return "{% url 'result' proj_id app_id result_id %}".replace("proj_id", defaults.proj_id).replace("app_id", defaults.app_id).replace("result_id", result_id)
+	return "{% url 'result' proj_id session_id result_id %}".replace("proj_id", defaults.proj_id).replace("session_id", defaults.session_id).replace("result_id", result_id)
 }
 
 function render(data) {
@@ -138,17 +138,17 @@ function render(data) {
         "aaData": data.results,
         "aoColumns": [
             { "sTitle": data.columnnames[0], "sClass": "center", "sType": "num-html", "mRender": function (data, type, full) {
-            	return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/results/' + data + '">' + data + '</a>';
+            	return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/results/' + data + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[1], "sClass": "center"},
             { "sTitle": data.columnnames[2], "sClass": "center", "mRender": function (data, type, full) {
-                return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/db_confs/' + full[7] + '">' + data + '</a>';
+                return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/knobs/' + full[7] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[3], "sClass": "center", "mRender": function (data, type, full) {
-            	return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/db_metrics/' + full[8] + '">' + data + '</a>';
+            	return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/metrics/' + full[8] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[4], "sClass": "center", "mRender": function (data, type, full) {
-                return '<a href="/projects/' + defaults.proj + '/apps/' + defaults.app + '/workloads/' + full[9] + '">' + data + '</a>';
+                return '<a href="/projects/' + defaults.proj + '/sessions/' + defaults.session + '/workloads/' + full[9] + '">' + data + '</a>';
             }},
             { "sTitle": data.columnnames[5], "sClass": "center", "mRender": function (data, type, full) {
             	return data.toFixed(2);
@@ -198,8 +198,8 @@ function disable_options(value) {
 
 function getConfiguration() {
     var config = {
-        app:defaults.app,
-        db: readCheckbox("input[name='db']:checked"),
+        session:defaults.session,
+        dbms: readCheckbox("input[name='dbms']:checked"),
         ben: $("input[name='workload']:checked").val(),  // BENCHFIXME
         spe: readCheckbox("input[name^='specific']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
@@ -227,7 +227,7 @@ function updateSub(event) {
 function initializeSite(event) {
     setValuesOfInputFields(event);
     $("#revisions"                ).bind('change', updateUrl);
-    $("input[name='db']"          ).bind('click', updateUrl);
+    $("input[name='dbms']"          ).bind('click', updateUrl);
     $("input[name='workload']"   ).on('change', updateSub);
     $("input[name='workload']"   ).on('click', updateUrl);
     $("input[name^='specific']"   ).on('change', updateUrl);
@@ -257,12 +257,11 @@ function setValuesOfInputFields(event) {
         }
     });
     
-    // Set default selected db
-    $("input:checkbox[name='db']").removeAttr('checked');
-    //var dbs = event.parameters.db && event.parameters.db != "none" ? event.parameters.db.split(',') : defaults.db.split(',');
-    var dbs = defaults.db.split(',');
-    var sel = $("input[name='db']");
-    $.each(dbs, function(i, db) {
+    // Set default selected dbms
+    $("input:checkbox[name='dbms']").removeAttr('checked');
+    var dbmss = defaults.dbms.split(',');
+    var sel = $("input[name='dbms']");
+    $.each(dbmss, function(i, db) {
         sel.filter("[value='" + db + "']").prop('checked', true);
     });
 

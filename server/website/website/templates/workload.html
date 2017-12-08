@@ -16,10 +16,6 @@
         <td><div class="text-right">{{ labels.name }}</div></td>
         <td>{{ workload.name }}</td>
     </tr>
-    <!-- <tr>
-        <td><div class="text-right">{{ labels.creation_time }}</div></td>
-        <td>{{ benchmark.creation_time }}</td>
-    </tr> -->
     </tbody>
 </table>
 </div>
@@ -86,10 +82,10 @@ $(function() {
     $('.selectpicker').selectpicker();
     BenchmarkBar.init({
         workload: {{ workload.pk }},
-        db_confs: [{% for db in default_dbconf %}"{{ db }}", {% endfor %}],
+        knob_data: [{% for db in default_dbconf %}"{{ db }}", {% endfor %}],
         metrics: [{% for metric in default_metrics %}"{{ metric }}", {% endfor %}],
         proj_id: {{proj_id}},
-        app_id: {{ app_id }},
+        session_id: {{ session_id }},
     });
 });
 </script>

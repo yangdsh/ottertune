@@ -75,14 +75,14 @@ function render(data) {
 function OnMarkerClickHandler(ev, gridpos, datapos, neighbor, plot) {
     if (neighbor) {
         result_id = neighbor.data[2];
-        window.location = '/projects/' + defaults.proj + '/apps/' + defaults.app + '/results/' + result_id;
+        window.location = '/projects/' + defaults.proj + '/sessions/' + defaults.session + '/results/' + result_id;
     }
 }
 
 function getConfiguration() {
     var config = {
         id: defaults.workload,
-        app_id: defaults.app_id,
+        session_id: defaults.session_id,
         db: readCheckbox("input[name^='db_']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
     };
@@ -140,7 +140,7 @@ function setValuesOfInputFields(event) {
 
     // Set default selected db
     $("input:checkbox[name^='db_']").removeAttr('checked');
-    var dbs = event.parameters.db ? event.parameters.db.split(',') : defaults.db_confs;
+    var dbs = event.parameters.db ? event.parameters.db.split(',') : defaults.knob_data;
     var sel = $("input[name^='db_']");
     $.each(dbs, function(i, db) {
         sel.filter("[value='" + db + "']").prop('checked', true);

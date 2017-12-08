@@ -47,7 +47,7 @@ class SessionAdmin(admin.ModelAdmin):
 
 class KnobDataAdmin(admin.ModelAdmin):
     list_display = ['name', 'dbms_info', 'creation_time']
-    fields = ['application', 'name', 'creation_time',
+    fields = ['session', 'name', 'creation_time',
               'knobs', 'data', 'dbms']
 
     def dbms_info(self, obj):
@@ -56,7 +56,7 @@ class KnobDataAdmin(admin.ModelAdmin):
 
 class MetricDataAdmin(admin.ModelAdmin):
     list_display = ['name', 'dbms_info', 'creation_time']
-    fields = ['application', 'name', 'creation_time',
+    fields = ['session', 'name', 'creation_time',
               'metrics', 'data', 'dbms']
 
     def dbms_info(self, obj):
