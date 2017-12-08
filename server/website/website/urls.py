@@ -42,7 +42,6 @@ urlpatterns = [
     url(r'^ref/(?P<dbms_name>.+)/(?P<version>.+)/metrics/(?P<metric_name>.+)/$', website_views.dbms_metrics_reference, name="dbms_metrics_ref"),
     
     # URLs to the helper functions called by the javascript code
-#     url(r'^ajax_new/', website_views.ajax_new),
     url(r'^get_workload_data/', website_views.get_workload_data),
     url(r'^get_data/', website_views.get_timeline_data),
     url(r'^update_similar/', website_views.update_similar),

@@ -6,7 +6,6 @@ from pytz import timezone
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import redirect, render, get_object_or_404
@@ -21,12 +20,12 @@ from djcelery.models import TaskMeta
 from .forms import NewResultForm, ProjectForm, SessionForm
 from .models import (BackupData, DBMSCatalog, Hardware, KnobCatalog,
                      KnobData, MetricCatalog, MetricData, MetricManager,
-                     PipelineResult,Project, Result, Session, Workload)
+                     Project, Result, Session, Workload)
 from tasks import (aggregate_target_results,
                    map_workload,
                    configuration_recommendation)
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType,
-                    PipelineTaskType, TaskType, VarType)
+                    TaskType, VarType)
 from .utils import DBMSUtil, JSONUtil, LabelUtil, MediaUtil, TaskUtil
 
 log = logging.getLogger(__name__)
@@ -36,25 +35,6 @@ log = logging.getLogger(__name__)
 @register.filter
 def get_item(dictionary, key):
     return dictionary.get(key)
-
-
-# def ajax_new(request):
-#     new_id = request.GET['new_id']
-#     data = {}
-# #     ts = Statistics.objects.filter(data_result=new_id,
-# #                                    type=StatsType.SAMPLES)
-# #     metric_meta = {}
-# #     for metric, metric_info in metric_meta.iteritems():
-# #         if len(ts) > 0:
-# #             offset = ts[0].time
-# #             if len(ts) > 1:
-# #                 offset -= ts[1].time - ts[0].time
-# #             data[metric] = []
-# #             for t in ts:
-# #                 data[metric].append(
-# #                     [t.time - offset,
-# #                         getattr(t, metric) * metric_info.scale])
-#     return HttpResponse(JSONUtil.dumps(data), content_type='application/json')
 
 
 def signup_view(request):
@@ -331,56 +311,6 @@ def delete_session(request, project_id):
 def result_view(request, project_id, session_id, result_id):
     target = get_object_or_404(Result, pk=result_id)
     session = target.session
-#     if session.user != request.user:
-#         raise Http404()
-#     data_package = {}
-#     results = Result.objects.filter(session=session,
-#                                     dbms=session.dbms,
-#                                     workload=target.workload)
-
-    # Find other results with the same knob config as the target
-#     same_knob_configs = filter(lambda res: res.pk != target.pk and
-#                                result_same(res, target), results)
-# 
-#     # Find other results with knob configs similar to the target.
-#     # We consider two knob configs similar they have the same
-#     # settings for the top 3 knobs and are not the same.
-#     ranked_knobs = JSONUtil.loads(PipelineResult.get_latest(
-#         session.dbms, session.hardware, PipelineTaskType.RANKED_KNOBS).value)[:3]
-#     similar_knob_configs = filter(
-#         lambda res: res.pk not in([target.pk] + [r.pk for r in same_knob_configs]) and
-#         result_similar(res, target, ranked_knobs), results)
-# 
-#     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
-#     for metric, metric_info in metric_meta.iteritems():
-#         data_package[metric] = {
-#             'data': {},
-#             'units': metric_info.unit,
-#             'lessisbetter': metric_info.improvement,
-#             'metric': metric_info.pprint,
-#             'print': metric_info.pprint,
-#         }
-
-#         same_id = [str(target.pk)]
-#         for x in same_id:
-#             key = metric + ',data,' + x
-#             tmp = cache.get(key)
-#             if tmp is not None:
-#                 data_package[metric]['data'][int(x)] = []
-#                 data_package[metric]['data'][int(x)].extend(tmp)
-#                 continue
-
-            # We no longer collect timeseries data (but this may change)
-#             ts = Statistics.objects.filter(data_result=x, type=StatsType.SAMPLES)
-#             if len(ts) > 0:
-#                 offset = ts[0].time
-#                 if len(ts) > 1:
-#                     offset -= ts[1].time - ts[0].time
-#                 data_package[metric]['data'][int(x)] = []
-#                 for t in ts:
-#                     data_package[metric]['data'][int(x)].append(
-#                         [t.time - offset, getattr(t, metric) * metric_info.scale])
-#                 cache.set(key, data_package[metric]['data'][int(x)], 60 * 5)
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
@@ -411,12 +341,8 @@ def result_view(request, project_id, session_id, result_id):
     context = {
         'result': target,
         'metric_meta': metric_meta,
-#         'default_metrics': default_metrics,
-#         'data': JSONUtil.dumps({}),#data_package),
-#         'same_runs': [],#same_knob_configs,
         'status': status,
         'next_conf_available': next_conf_available,
-#         'similar_runs': [],#similar_knob_configs,
         'labels': form_labels,
         'project_id': project_id,
         'session_id': session_id
@@ -803,30 +729,6 @@ def get_workload_data(request):
         data_package['results'][-1]['tick'].reverse()
 
     return HttpResponse(JSONUtil.dumps(data_package), content_type='application/json')
-
-
-def result_similar(a, b, compare_params):
-    dbms_id = a.dbms.pk
-    db_conf_a = DBMSUtil.filter_tunable_params(
-        dbms_id, JSONUtil.loads(a.knob_data.knobs))
-    db_conf_b = DBMSUtil.filter_tunable_params(
-        dbms_id, JSONUtil.loads(b.knob_data.knobs))
-    for param in compare_params:
-        if db_conf_a[param] != db_conf_b[param]:
-            return False
-    return True
-
-
-def result_same(a, b):
-    dbms_id = a.dbms.pk
-    db_conf_a = DBMSUtil.filter_tunable_params(
-        dbms_id, JSONUtil.loads(a.knob_data.knobs))
-    db_conf_b = DBMSUtil.filter_tunable_params(
-        dbms_id, JSONUtil.loads(b.knob_data.knobs))
-    for k, v in db_conf_a.iteritems():
-        if k not in db_conf_b or v != db_conf_b[k]:
-            return False
-    return True
 
 
 @login_required(login_url=reverse_lazy('login'))
