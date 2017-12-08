@@ -681,21 +681,20 @@ def workload_view(request, project_id, session_id, wkld_id):
     workload = get_object_or_404(Workload, pk=wkld_id)
     session = get_object_or_404(Session, pk=session_id)
 
-    db_confs = KnobData.objects.filter(dbms=session.dbms,
-                                       session=session)
-    all_db_confs = []
-    conf_map = {}
-    for conf in db_confs:
+    knob_confs = KnobData.objects.filter(dbms=session.dbms,
+                                         session=session)
+    knob_conf_map = {}
+    for conf in knob_confs:
         results = Result.objects.filter(session=session,
                                         knob_data=conf,
                                         workload=workload)
         if len(results) == 0:
             continue
         result = results.latest('observation_end_time')
-        all_db_confs.append(conf.pk)
-        conf_map[conf.name] = [conf, result]
-    conf_map = OrderedDict(sorted(conf_map.iteritems()))
-    all_db_confs = [c for c, _ in conf_map.values()][:5]
+        knob_conf_map[conf.name] = [conf, result]
+    knob_conf_map = OrderedDict(sorted(knob_conf_map.items(), key=lambda x: x[1][0].pk))
+    default_knob_confs = [c for c, _ in knob_conf_map.values()][:5]
+    print default_knob_confs
 
     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
@@ -703,12 +702,11 @@ def workload_view(request, project_id, session_id, wkld_id):
     labels = Workload.get_labels()
     labels['title'] = 'Workload Information'
     context = {'workload': workload,
-               'confs': conf_map,
+               'knob_confs': knob_conf_map,
                'metric_meta': metric_meta,
-               'knob_data': all_db_confs,
+               'knob_data': default_knob_confs,
                'default_metrics': default_metrics,
                'labels': labels,
-               'proj_id': project_id,
                'session_id': session_id}
     return render(request, 'workload.html', context)
 
@@ -745,6 +743,7 @@ def tuner_status_view(request, project_id, session_id, result_id):
                "tasks": task_info}
 
     return render(request, "task_status.html", context)
+
 
 # Data Format
 #    error
@@ -785,11 +784,11 @@ def get_workload_data(request):
                                         'metric': met_info.pprint})
 
         added = {}
-        db_confs = data['db'].split(',')
-        i = len(db_confs)
+        knob_confs = data['conf'].split(',')
+        i = len(knob_confs)
         for r in results:
             metric_data = JSONUtil.loads(r.metric_data.data)
-            if r.knob_data.pk in added or str(r.knob_data.pk) not in db_confs:
+            if r.knob_data.pk in added or str(r.knob_data.pk) not in knob_confs:
                 continue
             added[r.knob_data.pk] = True
             data_val = metric_data[met] * met_info.scale

@@ -18,7 +18,7 @@ function renderPlot(data, div_id) {
             },
             xaxis:{
                 renderer: $.jqplot.CategoryAxisRenderer,
-                label: 'DBMS Configuration',
+                label: 'DBMS Knob Configurations',
                 labelRenderer: $.jqplot.CanvasAxisLabelRenderer,
                 tickRenderer: $.jqplot.CanvasAxisTickRenderer,
                 tickOptions:{angle:-20},
@@ -87,7 +87,7 @@ function getConfiguration() {
     var config = {
         id: defaults.workload,
         session_id: defaults.session_id,
-        db: readCheckbox("input[name^='db_']:checked"),
+        conf: readCheckbox("input[name^='db_']:checked"),
         met: readCheckbox("input[name='metric']:checked"),
     };
     return config;

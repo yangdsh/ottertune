@@ -27,10 +27,10 @@
 
 <div id="sidebar" class="col-md-3">
 <div id="dbs">
-    <div><h4>Knob Configs</h4></div>
+    <div><h4>DBMS Knob Configs</h4></div>
     <div class="boxbody checkbox">
         <ul>
-        {% for conf_name, data in confs.items %}
+        {% for conf_name, data in knob_confs.items %}
         <li><label><input type="checkbox" name="db_{{ data.0.pk }}" value="{{ data.0.pk }}"/>{{ conf_name }}</label></li>
         {% endfor %}
         </ul>
@@ -78,7 +78,6 @@ $(function() {
         workload: {{ workload.pk }},
         default_knob_confs: [{% for kd in knob_data %}"{{ kd.pk }}", {% endfor %}],
         metrics: [{% for metric in default_metrics %}"{{ metric }}", {% endfor %}],
-        proj_id: {{proj_id}},
         session_id: {{ session_id }},
     });
 });
