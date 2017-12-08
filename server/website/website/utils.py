@@ -58,7 +58,7 @@ class DataUtil(object):
     @staticmethod
     def aggregate_data(results):
         knob_labels = JSONUtil.loads(results[0].dbms_config.data).keys()
-        metric_labels = JSONUtil.loads(results[0].dbms_metrics.data).keys()
+        metric_labels = JSONUtil.loads(results[0].metric_data.data).keys()
         X_matrix = np.empty((len(results), len(knob_labels)), dtype=float)
         y_matrix = np.empty((len(results), len(metric_labels)), dtype=float)
         rowlabels = np.empty(len(results), dtype=int)
@@ -70,7 +70,7 @@ class DataUtil(object):
                     ("Incorrect number of knobs "
                      "(expected={}, actual={})").format(len(knob_labels),
                                                         len(param_data)))
-            metric_data = JSONUtil.loads(result.dbms_metrics.data)
+            metric_data = JSONUtil.loads(result.metric_data.data)
             if len(metric_data) != len(metric_labels):
                 raise Exception(
                     ("Incorrect number of metrics "

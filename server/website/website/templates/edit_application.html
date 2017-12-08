@@ -38,7 +38,6 @@
             <td>{{ form.gen_upload_code }}</td>
         </tr>
     </table>
-<!--     <button class="btn btn-default" type="submit" name="id" value="{{ application.pk }}&{{ project.pk }}">Submit</button> -->
     <button class="btn btn-default" type="submit" name="id">Submit</button>
     {% if application %}
     <a class="btn btn-default" href="{% url 'application' project.pk application.pk %}">Cancel</a>

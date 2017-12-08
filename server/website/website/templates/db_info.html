@@ -13,12 +13,6 @@
             <td><div class="text-right">{{ labels.name }}</div></td>
             <td>{{ db_info.name }}</td>
         </tr>
-        {% if db_info.description %}
-        <tr>
-            <td><div class="text-top text-right">{{ labels.description }}</div></td>
-            <td>{{ db_info.description|safe|linebreaks }}</td>
-        </tr>
-        {% endif %}
         <tr>
             <td><div class="text-right">{{ labels.dbms }}</div></td>
             <td>{{ db_info.dbms.full_name }}</td>
@@ -119,7 +113,7 @@ function switch_content() {
 }
 
 function compare_db_info() {
-	url = "/projects/{{ db_info.application.project.pk }}/apps/{{ db_info.application.pk }}/{{ info_type }}/{{db_info.pk}}/?compare=" + $("select[id='compare']").val();
+	url = "/projects/{{ db_info.session.project.pk }}/apps/{{ db_info.session.pk }}/{{ info_type }}/{{db_info.pk}}/?compare=" + $("select[id='compare']").val();
     window.location = url;
 }
 </script>
