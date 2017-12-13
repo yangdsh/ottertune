@@ -9,14 +9,14 @@ from django.utils.timezone import now
 from analysis.cluster import KMeansClusters, KSelection,create_kselection_model
 from analysis.factor_analysis import FactorAnalysis
 from analysis.lasso import LassoPath
-from analysis.preprocessing import Bin, get_shuffle_indices
+from analysis.preprocessing import Bin, get_shuffle_indices, Standardize
 
 from website.models import PipelineData, PipelineRun, Result, Workload
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
 
 
-# Log debug messages 
+# Log debug messages
 logger = get_task_logger(__name__)
 
 # Note: This annotation tells celery to run the background every 300
@@ -25,7 +25,7 @@ logger = get_task_logger(__name__)
 # background task every hour or so.
 @periodic_task(run_every=300, name="run_background_tasks")
 
-#Note: This annotation supports more time units (minute/hour/day). The 
+#Note: This annotation supports more time units (minute/hour/day). The
 #following setting tells celery to run background job every 1 hour.
 
 #@periodic_task(run_every=(crontab(hour=1,minute=0,day_of_week=0)),name="run_background_tasks")
@@ -33,7 +33,7 @@ logger = get_task_logger(__name__)
 def run_background_tasks():
     ## 1. Create a new entry in the PipelineRun table for this
     ##    background task
-    
+
     # Create new PipelineRun object
     pipeline_run_obj = PipelineRun(start_time=now(), end_time=None)
 
@@ -47,7 +47,7 @@ def run_background_tasks():
     for workload in unique_workloads:
         ## 2a. Call first subtask to aggregates the knob & metric data for
         ##     this workload. Save the knob & metric data as (separate)
-        ##     entries in the PipelineData table 
+        ##     entries in the PipelineData table
         knob_data, metric_data = aggregate_data(workload)
 
         # Make a copy, convert the 2D numpy array into a JSON-friendly
@@ -156,7 +156,7 @@ def aggregate_data(workload):
     metric_data = {
         'data': aggregated_data['y_matrix'],
         'rowlabels': copy.deepcopy(aggregated_data['rowlabels']),
-        'columnlabels': aggregated_data['y_columnlabels'] 
+        'columnlabels': aggregated_data['y_columnlabels']
     }
 
     # Return the knob & metric data
@@ -187,7 +187,7 @@ def run_workload_characterization(metric_data):
             nonconst_columnlabels.append(cl)
     nonconst_matrix = np.hstack(nonconst_matrix)
     n_rows, n_cols = nonconst_matrix.shape
- 
+
     # Bin each column (metric) in the matrix by its decile
     binner = Bin(bin_start=1, axis=0)
     binned_matrix = binner.fit_transform(nonconst_matrix)
@@ -214,10 +214,10 @@ def run_workload_characterization(metric_data):
     detk = create_kselection_model("det-k")
     detk.fit(components, kmeans_models.cluster_map_)
 
-    # Get pruned metrics, cloest samples of each cluster center 
+    # Get pruned metrics, cloest samples of each cluster center
     pruned_metrics = kmeans_models.cluster_map_[detk.optimal_num_clusters_].get_closest_samples()
 
-    # Return pruned metrics 
+    # Return pruned metrics
     return pruned_metrics
 
 
@@ -236,41 +236,42 @@ def run_knob_identification(knob_data, metric_data):
     ## independent variables (X) and the metric_data is the set of
     ## dependent variables (y).
 
-    # TODO: implement me!!
+    knob_matrix = knob_data['data']
+    knob_rowlabels = knob_data['rowlabels']
+    knob_columnlabels = knob_data['columnlabels']
 
-    # For now, return the list of ranked knobs that used to be hardcoded
-    # and preloaded into the database as a fixture.
-    # (see preload/postgres-96_m3xlarge_ranked_knobs.json)
-    return [
-        "global.shared_buffers",
-        "global.effective_cache_size",
-        "global.bgwriter_lru_maxpages",
-        "global.bgwriter_delay",
-        "global.checkpoint_completion_target",
-        "global.deadlock_timeout",
-        "global.default_statistics_target",
-        "global.effective_io_concurrency",
-        "global.checkpoint_timeout",
-        "global.commit_delay",
-        "global.commit_siblings",
-        "global.wal_buffers",
-        "global.temp_buffers",
-        "global.from_collapse_limit",
-        "global.join_collapse_limit",
-        "global.bgwriter_lru_multiplier",
-        "global.random_page_cost",
-        "global.work_mem",
-        "global.maintenance_work_mem",
-        "global.min_wal_size",
-        "global.max_parallel_workers_per_gather",
-        "global.seq_page_cost",
-        "global.max_worker_processes",
-        "global.wal_sync_method",
-        "global.checkpoint_flush_after",
-        "global.wal_writer_delay",
-        "global.backend_flush_after",
-        "global.bgwriter_flush_after",
-        "global.min_parallel_relation_size",
-        "global.wal_writer_flush_after",
-        "global.max_wal_size"
-    ]
+    metric_matrix = metric_data['data']
+    metric_rowlabels = metric_data['rowlabels']
+    metric_columnlabels = metric_data['columnlabels']
+
+    nonconst_knob_matrix = []
+    nonconst_knob_columnlabels = []
+
+    for col, cl in zip(knob_matrix.T, knob_columnlabels):
+        if np.any(col != col[0]):
+            nonconst_knob_matrix.append(col.reshape(-1, 1))
+            nonconst_knob_columnlabels.append(cl)
+    nonconst_knob_matrix = np.hstack(nonconst_knob_matrix)
+
+    nonconst_metric_matrix = []
+    nonconst_metric_columnlabels = []
+
+    for col, cl in zip(knob_matrix.T, metric_columnlabels):
+        if np.any(col != col[0]):
+            nonconst_metric_matrix.append(col.reshape(-1, 1))
+            nonconst_metric_columnlabels.append(cl)
+    nonconst_metric_matrix = np.hstack(nonconst_metric_matrix)
+
+    standardizer = Standardize(axis = 0)
+    standardized_knob_matrix = standardizer.fit_transform(nonconst_knob_matrix)
+    standardized_metric_matrix = standardizer.fit_transform(nonconst_metric_matrix)
+
+    shuffle_indices = get_shuffle_indices(standardized_knob_matrix.shape[0], seed=17)
+    shuffled_knob_matrix = standardized_knob_matrix[shuffle_indices, :]
+    shuffled_knob_rowlabels = [knob_rowlabels[i] for i in shuffle_indices]
+    shuffled_metric_matrix = standardized_metric_matrix[shuffle_indices, :]
+    shuffled_metric_rowlabels = [metric_rowlabels[i] for i in shuffle_indices]
+
+    lasso_model = LassoPath()
+    lasso_model.fit(shuffled_knob_matrix, shuffled_metric_matrix, shuffled_knob_rowlabels)
+    return lasso_model.get_ranked_features()
