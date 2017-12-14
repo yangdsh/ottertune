@@ -9,7 +9,8 @@ from django.utils.timezone import now
 from analysis.cluster import KMeansClusters, KSelection,create_kselection_model
 from analysis.factor_analysis import FactorAnalysis
 from analysis.lasso import LassoPath
-from analysis.preprocessing import Bin, get_shuffle_indices, Standardize
+from analysis.preprocessing import Bin, get_shuffle_indices
+from sklearn.preprocessing import StandardScaler
 
 from website.models import PipelineData, PipelineRun, Result, Workload
 from website.types import PipelineTaskType
@@ -244,6 +245,7 @@ def run_knob_identification(knob_data, metric_data):
     metric_rowlabels = metric_data['rowlabels']
     metric_columnlabels = metric_data['columnlabels']
 
+    # remove constant columns from knob_matrix and metric_matrix
     nonconst_knob_matrix = []
     nonconst_knob_columnlabels = []
 
@@ -262,16 +264,19 @@ def run_knob_identification(knob_data, metric_data):
             nonconst_metric_columnlabels.append(cl)
     nonconst_metric_matrix = np.hstack(nonconst_metric_matrix)
 
-    standardizer = Standardize(axis = 0)
+    # standardize values in each column to N(0, 1)
+    standardizer = StandardScaler()
     standardized_knob_matrix = standardizer.fit_transform(nonconst_knob_matrix)
     standardized_metric_matrix = standardizer.fit_transform(nonconst_metric_matrix)
 
+    # shuffle rows (note: same shuffle applied to both knob and metric matrices)
     shuffle_indices = get_shuffle_indices(standardized_knob_matrix.shape[0], seed=17)
     shuffled_knob_matrix = standardized_knob_matrix[shuffle_indices, :]
     shuffled_knob_rowlabels = [knob_rowlabels[i] for i in shuffle_indices]
     shuffled_metric_matrix = standardized_metric_matrix[shuffle_indices, :]
     shuffled_metric_rowlabels = [metric_rowlabels[i] for i in shuffle_indices]
 
+    # run lasso algorithm
     lasso_model = LassoPath()
     lasso_model.fit(shuffled_knob_matrix, shuffled_metric_matrix, shuffled_knob_rowlabels)
     return lasso_model.get_ranked_features()
