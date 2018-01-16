@@ -9,7 +9,7 @@ import os
 import sys
 import requests
 
-def upload(basedir, upload_code):
+def upload(basedir, upload_code, upload_url):
     for wkld_dir in sorted(glob.glob(os.path.join(basedir, '*'))):
         print(wkld_dir)
         sample_idx = 0
@@ -26,7 +26,7 @@ def upload(basedir, upload_code):
                 'metrics_after':open(basename + '__metrics_end.json', 'rb'),
             }
 
-            response = requests.post("http://0.0.0.0:8000/new_result/",
+            response = requests.post(upload_url+"/new_result/",
                                     files=params,
                                     data={'upload_code':  upload_code})
             print(response)
@@ -34,7 +34,8 @@ def upload(basedir, upload_code):
             sample_idx += 1
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python upload_data.py [datadir] [upload_code]")
+    if len(sys.argv) < 3:
+        print("Usage: python upload_data.py [datadir] [upload_code] <url>")
         sys.exit(1)
-    upload(sys.argv[1], sys.argv[2])
+    url = sys.arv[3] if len(sys.argv) == 4 else "http://0.0.0.0:8000"
+    upload(sys.argv[1], sys.argv[2], url)
