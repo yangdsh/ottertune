@@ -86,3 +86,15 @@ ENV/
 .project
 .pydevproject
 .settings
+
+
+# Intellij and PyCharm #
+.idea
+*.iml
+*.iws
+out/
+
+# vim #
+*~
+*.swp
+*.swo
