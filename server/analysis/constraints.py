@@ -1,3 +1,8 @@
+#
+# OtterTune - constraints.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 '''
 Created on Sep 8, 2016
 
@@ -106,7 +111,7 @@ class ParamConstraintHelper(object):
         return conv_sample
 
     def randomize_categorical_features(self, sample, scaled=True, rescale=True):
-        n_cat_feats = self.cat_param_indices_.size  # pylint: disable=no-member
+        n_cat_feats = self.cat_param_indices_.size
         if n_cat_feats == 0:
             return sample
 
