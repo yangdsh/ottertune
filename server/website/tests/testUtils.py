@@ -137,8 +137,11 @@ class DataUtilTest(TestCase):
 
         testRes = DataUtil.aggregate_data(workload2Res)
 
-        self.assertTrue(21 in testRes['rowlabels'])
-        self.assertTrue(40 in testRes['rowlabels'])
+        self.assertTrue('X_matrix' in testRes.keys())
+        self.assertTrue('y_matrix' in testRes.keys())
+        self.assertTrue('rowlabels' in testRes.keys())
+        self.assertTrue('X_columnlabels' in testRes.keys())
+        self.assertTrue('y_columnlabels' in testRes.keys())
 
         self.assertEqual(testRes['X_columnlabels'], knobs)
         self.assertEqual(testRes['y_columnlabels'], metrics)
