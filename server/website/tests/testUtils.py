@@ -123,9 +123,32 @@ class TaskUtilTest(TestCase):
             TaskUtil.get_task_status(testTasks9)
 
 class DataUtilTest(TestCase):
+
+    fixtures = ['test_website.json']
+
     def testAggregate(self):
 
-        pass
+        workload2Res = Result.objects.filter(workload = 2)
+        numResults = Result.objects.filter(workload = 2).count()
+        knobs = JSONUtil.loads(workload2Res[0].knob_data.data).keys()
+        metrics = JSONUtil.loads(workload2Res[0].metric_data.data).keys()
+        numKnobs = len(knobs)
+        numMetrics = len(metrics)
+
+        testRes = DataUtil.aggregate_data(workload2Res)
+
+        self.assertTrue(21 in testRes['rowlabels'])
+        self.assertTrue(40 in testRes['rowlabels'])
+
+        self.assertEqual(testRes['X_columnlabels'], knobs)
+        self.assertEqual(testRes['y_columnlabels'], metrics)
+        self.assertEqual(testRes['X_matrix'].shape[0], numResults)
+        self.assertEqual(testRes['y_matrix'].shape[0], numResults)
+        self.assertEqual(testRes['X_matrix'].shape[1], numKnobs)
+        self.assertEqual(testRes['y_matrix'].shape[1], numMetrics)
+
+
+
 
     def testCombine(self):
         import numpy as np
