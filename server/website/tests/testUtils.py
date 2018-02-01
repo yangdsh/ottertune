@@ -1,3 +1,8 @@
+#
+# OtterTune - testUtils.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 
 import string
 from django.test import TestCase
@@ -6,10 +11,11 @@ from website.parser.postgres import PostgresParser, Postgres96Parser
 from website.types import LabelStyleType, VarType
 from website.models import KnobCatalog, DBMSCatalog, MetricCatalog, Result
 
+
 class JSONUtilTest(TestCase):
     def testUtil(self):
         jsonstr = \
-        """{
+            """{
             "glossary": {
                 "title": "example glossary",
         		"GlossDiv": {
@@ -33,20 +39,20 @@ class JSONUtilTest(TestCase):
         }"""
 
         compressedstr = \
-        """{"glossary": {"title": "example glossary", "GlossDiv": {"title": "S", "GlossList": {"GlossEntry": {"ID": "SGML", "SortAs": "SGML", "GlossTerm": "Standard Generalized Markup Language", "Acronym": "SGML", "Abbrev": "ISO 8879:1986", "GlossDef": {"para": "A meta-markup language, used to create markup languages such as DocBook.", "GlossSeeAlso": ["GML", "XML"]}, "GlossSee": "markup"}}}}}"""
-
+            """{"glossary": {"title": "example glossary", "GlossDiv": {"title": "S", "GlossList": {"GlossEntry": {"ID": "SGML", "SortAs": "SGML", "GlossTerm": "Standard Generalized Markup Language", "Acronym": "SGML", "Abbrev": "ISO 8879:1986", "GlossDef": {"para": "A meta-markup language, used to create markup languages such as DocBook.", "GlossSeeAlso": ["GML", "XML"]}, "GlossSee": "markup"}}}}}"""
 
         results = JSONUtil.loads(jsonstr)
         self.assertEqual(results.keys()[0], "glossary")
         self.assertTrue("title" in results["glossary"].keys())
         self.assertTrue("GlossDiv" in results["glossary"].keys())
-        self.assertEqual(results["glossary"]["GlossDiv"]\
-        ["GlossList"]["GlossEntry"]["ID"], "SGML")
-        self.assertEqual(results["glossary"]["GlossDiv"]\
-        ["GlossList"]["GlossEntry"]["GlossSee"], "markup")
+        self.assertEqual(results["glossary"]["GlossDiv"]
+                         ["GlossList"]["GlossEntry"]["ID"], "SGML")
+        self.assertEqual(results["glossary"]["GlossDiv"]
+                         ["GlossList"]["GlossEntry"]["GlossSee"], "markup")
 
         resStr = JSONUtil.dumps(results)
         self.assertEqual(resStr, compressedstr)
+
 
 class MediaUtilTest(TestCase):
     def testCodeGen(self):
@@ -61,9 +67,10 @@ class MediaUtilTest(TestCase):
             self.assertEqual(len(digitCode), 40)
             self.assertTrue(digitCode.isdigit())
             letterCode = MediaUtil.upload_code_generator(60,
-                            string.ascii_uppercase)
+                                                         string.ascii_uppercase)
             self.assertEqual(len(letterCode), 60)
             self.assertTrue(letterCode.isalpha())
+
 
 class TaskUtilTest(TestCase):
     def testGetTaskStatus(self):
@@ -122,14 +129,15 @@ class TaskUtilTest(TestCase):
             testTasks9[0].status = "attemped"
             TaskUtil.get_task_status(testTasks9)
 
+
 class DataUtilTest(TestCase):
 
     fixtures = ['test_website.json']
 
     def testAggregate(self):
 
-        workload2Res = Result.objects.filter(workload = 2)
-        numResults = Result.objects.filter(workload = 2).count()
+        workload2Res = Result.objects.filter(workload=2)
+        numResults = Result.objects.filter(workload=2).count()
         knobs = JSONUtil.loads(workload2Res[0].knob_data.data).keys()
         metrics = JSONUtil.loads(workload2Res[0].metric_data.data).keys()
         numKnobs = len(knobs)
@@ -150,9 +158,6 @@ class DataUtilTest(TestCase):
         self.assertEqual(testRes['X_matrix'].shape[1], numKnobs)
         self.assertEqual(testRes['y_matrix'].shape[1], numMetrics)
 
-
-
-
     def testCombine(self):
         import numpy as np
         testNoDupsRowLabels = np.array(["Workload-0", "Workload-1"])
@@ -161,7 +166,8 @@ class DataUtilTest(TestCase):
         testNoDupsY = np.matrix([[30, 30, 40],
                                  [10, 10, 40]])
 
-        testX, testY, rowlabels = DataUtil.combine_duplicate_rows(testNoDupsX, testNoDupsY, testNoDupsRowLabels)
+        testX, testY, rowlabels = DataUtil.combine_duplicate_rows(
+            testNoDupsX, testNoDupsY, testNoDupsRowLabels)
 
         self.assertEqual(len(testX), len(testY))
         self.assertEqual(len(testX), len(rowlabels))
@@ -210,6 +216,7 @@ class DataUtilTest(TestCase):
             self.assertTrue(i in testYMat)
             rowys.add(tuple(i))
 
+
 class ConversionUtilTest(TestCase):
     def testGetRawSize(self):
         testImpl = PostgresParser(2)
@@ -219,19 +226,18 @@ class ConversionUtilTest(TestCase):
         byteAns = [1024**5, 2 * 1024**4, 3 * 1024**3, 4 * 1024**2, 5 * 1024**1, 6]
         for i in range(6):
             self.assertEqual(ConversionUtil.get_raw_size(
-                                byteTestConvert[i],
-                                system = testImpl.POSTGRES_BYTES_SYSTEM),
-                                byteAns[i])
+                byteTestConvert[i],
+                system=testImpl.POSTGRES_BYTES_SYSTEM),
+                byteAns[i])
 
         # Time - In Milliseconds?
         dayTestConvert = ['1000ms', '1s', '10min', '20h', '1d']
         dayAns = [1000, 1000, 600000, 72000000, 86400000]
         for i in range(5):
             self.assertEqual(ConversionUtil.get_raw_size(
-                                dayTestConvert[i],
-                                system = testImpl.POSTGRES_TIME_SYSTEM),
-                                dayAns[i])
-
+                dayTestConvert[i],
+                system=testImpl.POSTGRES_TIME_SYSTEM),
+                dayAns[i])
 
     def testGetHumanReadable(self):
         testImpl = PostgresParser(2)
@@ -242,17 +248,18 @@ class ConversionUtilTest(TestCase):
         byteAns = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
         for i in range(6):
             self.assertEqual(ConversionUtil.get_human_readable(
-                                byteTestConvert[i],
-                                system = testImpl.POSTGRES_BYTES_SYSTEM),
-                                byteAns[i])
+                byteTestConvert[i],
+                system=testImpl.POSTGRES_BYTES_SYSTEM),
+                byteAns[i])
 
         # Time
         dayTestConvert = [500, 1000, 55000, 600000, 72000000, 86400000]
         dayAns = ['500ms', '1s', '55s', '10min', '20h', '1d']
         for i in range(5):
             self.assertEqual(dayAns[i],
-            ConversionUtil.get_human_readable(dayTestConvert[i],
-                            system = testImpl.POSTGRES_TIME_SYSTEM))
+                             ConversionUtil.get_human_readable(dayTestConvert[i],
+                                                               system=testImpl.POSTGRES_TIME_SYSTEM))
+
 
 class LabelUtilTest(TestCase):
     def testStyleLabels(self):
@@ -261,12 +268,12 @@ class LabelUtilTest(TestCase):
         testLabelMap = {"Name": "Postgres",
                         "Test": "LabelUtils",
                         "DBMS": "dbms",
-                        "??"  : "Dbms",
-                        "???" : "DBms",
+                        "??": "Dbms",
+                        "???": "DBms",
                         "CapF": "random Word"}
 
         resTitleLabelMap = LabelUtil.style_labels(testLabelMap,
-                                style = LabelStyle.TITLE)
+                                                  style=LabelStyle.TITLE)
 
         testKeys = ["Name", "Test", "DBMS", "??", "???", "CapF"]
         titleAns = ["Postgres", "Labelutils", "DBMS", "DBMS", "DBMS",
@@ -276,18 +283,18 @@ class LabelUtilTest(TestCase):
             self.assertEqual(resTitleLabelMap[key], titleAns[i])
 
         resCapfirstLabelMap = LabelUtil.style_labels(testLabelMap,
-                                style = LabelStyle.CAPFIRST)
+                                                     style=LabelStyle.CAPFIRST)
 
         capAns = ["Postgres", "LabelUtils", "DBMS", "DBMS", "DBMS",
                   "Random Word"]
 
         for i, key in enumerate(testKeys):
-            if (key == "???"): # DBms -> DBMS or DBms?
+            if (key == "???"):  # DBms -> DBMS or DBms?
                 continue
             self.assertEqual(resCapfirstLabelMap[key], capAns[i])
 
         resLowerLabelMap = LabelUtil.style_labels(testLabelMap,
-                                style = LabelStyle.LOWER)
+                                                  style=LabelStyle.LOWER)
 
         lowerAns = ["postgres", "labelutils", "dbms", "dbms", "dbms",
                     "random word"]
@@ -297,4 +304,4 @@ class LabelUtilTest(TestCase):
 
         with self.assertRaises(Exception):
             resExcept = LabelUtil.style_labels(testLabelMap,
-                                               style = LabelStyle.Invalid)
+                                               style=LabelStyle.Invalid)
