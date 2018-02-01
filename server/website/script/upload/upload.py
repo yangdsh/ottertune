@@ -31,5 +31,5 @@ def upload(upload_code, datadir, upload_url=None):
 if __name__ == "__main__":
     if not (3 <= len(sys.argv) <= 4):
         LOG.error("Usage: python upload.py [upload_code] [path_to_sample_data] [upload_url]")
-    url = sys.arv[3] if len(sys.argv) == 4 else "http://0.0.0.0:8000"
-    upload(sys.argv[1], sys.argv[2], url)
+    UPLOAD_URL = sys.arv[3] if len(sys.argv) == 4 else "http://0.0.0.0:8000"
+    upload(sys.argv[1], sys.argv[2], UPLOAD_URL)
