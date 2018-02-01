@@ -1,3 +1,8 @@
+#
+# OtterTune - forms.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 '''
 Created on Jul 25, 2017
 
@@ -7,6 +12,7 @@ Created on Jul 25, 2017
 from django import forms
 
 from .models import Session, Project
+
 
 class NewResultForm(forms.Form):
     upload_code = forms.CharField(max_length=30)
@@ -18,7 +24,7 @@ class NewResultForm(forms.Form):
 
 class ProjectForm(forms.ModelForm):
 
-    class Meta:
+    class Meta:  # pylint: disable=old-style-class,no-init
         model = Project
 
         fields = ['name', 'description']
@@ -42,7 +48,7 @@ class SessionForm(forms.ModelForm):
         self.fields['description'].required = False
         self.fields['target_objective'].required = False
 
-    class Meta:
+    class Meta:  # pylint: disable=old-style-class,no-init
         model = Session
 
         fields = ('name', 'description', 'tuning_session', 'dbms', 'hardware', 'target_objective')

@@ -1,3 +1,8 @@
+#
+# OtterTune - lasso.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 '''
 Created on Jul 8, 2016
 
@@ -37,7 +42,10 @@ class LassoPath(ModelBase):
              The average ranking of each feature across all target values.
     """
     def __init__(self):
-        self._reset()
+        self.feature_labels_ = None
+        self.alphas_ = None
+        self.coefs_ = None
+        self.rankings_ = None
 
     def _reset(self):
         """Resets all attributes (erases the model)"""

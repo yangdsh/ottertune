@@ -7,31 +7,21 @@ DBUSER=dbuser
 DBPASSWD=test123
 
 LOG=/vagrant/vm_build.log
-REPOPATH=/vagrant/ottertune
+REPOPATH=/ottertune
 SETTINGSPATH=$REPOPATH/server/website/website/settings
 
 # Clear old log contents
 > $LOG
 
-# Setup github repo
-echo -e "\n--- Setting up the OtterTune repository ---\n"
-if [ ! -d "$REPOPATH" ]; then
-    git clone https://github.com/cmu-db/ottertune $REPOPATH >> $LOG 2>&1
-fi
-
-if [ ! -L "/home/ubuntu/ottertune" ]; then
-    ln -s $REPOPATH /home/ubuntu/ottertune >> $LOG 2>&1
-fi
-
 # Install Ubuntu packages
 echo -e "\n--- Installing Ubuntu packages ---\n"
 apt-get -qq update
-apt-get -y install python-pip python-dev python-mysqldb rabbitmq-server gradle default-jdk >> $LOG 2>&1
+apt-get -y install python-pip python-dev python-mysqldb rabbitmq-server gradle default-jdk libmysqlclient-dev >> $LOG 2>&1
 
 # Install Python packages
 echo -e "\n--- Installing Python packages ---\n"
 pip install --upgrade pip >> $LOG 2>&1
-pip install -r $REPOPATH/server/website/requirements.txt >> $LOG 2>&1
+pip install -r ${REPOPATH}/server/website/requirements.txt >> $LOG 2>&1
 
 # Install MySQL
 echo -e "\n--- Install MySQL specific packages and settings ---\n"

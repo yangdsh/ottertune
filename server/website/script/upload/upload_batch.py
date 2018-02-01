@@ -1,7 +1,18 @@
-import os.path
+#
+# OtterTune - upload_batch.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 import glob
 import numpy as np
 import requests
+import logging
+import os
+
+# Logging
+LOG = logging.getLogger(__name__)
+LOG.addHandler(logging.StreamHandler())
+LOG.setLevel(logging.INFO)
 
 
 class ResultUploader(object):
@@ -29,16 +40,17 @@ class ResultUploader(object):
 
             # Verify required extensions exist
             for base in bases:
-                print(base)
                 complete = True
                 for ext in self.REQ_EXTS:
                     next_file = base + ext
                     if not os.path.exists(next_file):
-                        print("WARNING: missing file {}, skipping...".format(next_file))
+                        LOG.warn("WARNING: missing file %s, skipping...", next_file)
                         complete = False
                         break
-                if complete:
-                    self.upload(base, cluster_name)
+                if not complete:
+                    continue
+                self.upload(base, cluster_name)
+
 
     def upload(self, basepath, cluster_name):
         exts = list(self.REQ_EXTS)
@@ -60,19 +72,20 @@ class ResultUploader(object):
                                 files=params,
                                 data={'upload_code': self._upload_code,
                                       'cluster_name': cluster_name})
-        print(response)
+        LOG.info(response)
 
         for fh in fhandlers.values():
             fh.close()
+
 
 def main():
     url = 'http://0.0.0.0:8000/new_result/'
     upload_code = 'O50GE1HC8S1BHU8L6F8D'
     uploader = ResultUploader(upload_code, url)
-    dirnames = glob.glob(os.path.join(os.path.expanduser('~'), 'Dropbox/Apps/ottertune/data/sample_data/exps_*'))[:2]
-    #order = np.random.choice(np.arange(len(dirnames)), len(dirnames))
-    #dirnames = [dirnames[i] for i in order]
+    dirnames = glob.glob(os.path.join(os.path.expanduser(
+        '~'), 'Dropbox/Apps/ottertune/data/sample_data/exps_*'))[:2]
     uploader.upload_batch(dirnames, max_files=3)
+
 
 if __name__ == '__main__':
     main()
