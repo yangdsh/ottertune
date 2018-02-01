@@ -25,7 +25,7 @@ def upload(upload_code, datadir, upload_url=''):
     response = requests.post(upload_url + "/new_result/",
                              files=params,
                              data={'upload_code':  upload_code})
-    print(response)
+    LOG.info(response)
     
 if __name__ == "__main__":
     if not (3 <= len(sys.argv) <= 4):
