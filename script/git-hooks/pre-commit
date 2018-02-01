@@ -10,7 +10,7 @@
 # uncommenting lines 26-28 and 31-33, respectively. 
 #
 # To enable, symlink this file to '.git/hooks/pre-commit' like so:
-#   cd $OTTERTUNE_DIR/.git/hooks/pre-commit
+#   cd $OTTERTUNE_DIR/.git/hooks
 #   ln -s ../../script/git-hooks/pre-commit ./pre-commit
 
 
