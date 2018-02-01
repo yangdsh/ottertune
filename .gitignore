@@ -87,7 +87,6 @@ ENV/
 .pydevproject
 .settings
 
-
 # Intellij and PyCharm #
 .idea
 *.iml
@@ -98,3 +97,7 @@ out/
 *~
 *.swp
 *.swo
+
+# Text editor configs #
+#######################
+.vimrc
