@@ -4,10 +4,10 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 import glob
-import numpy as np
-import requests
 import logging
+import numpy as np
 import os
+import requests
 
 # Logging
 LOG = logging.getLogger(__name__)
@@ -51,7 +51,6 @@ class ResultUploader(object):
                     continue
                 self.upload(base, cluster_name)
 
-
     def upload(self, basepath, cluster_name):
         exts = list(self.REQ_EXTS)
         if os.path.exists(basepath + self.RAW_EXT):
@@ -69,9 +68,9 @@ class ResultUploader(object):
             params['raw_data'] = fhandlers[self.RAW_EXT]
 
         response = requests.post(self._upload_url,
-                                files=params,
-                                data={'upload_code': self._upload_code,
-                                      'cluster_name': cluster_name})
+                                 files=params,
+                                 data={'upload_code': self._upload_code,
+                                       'cluster_name': cluster_name})
         LOG.info(response)
 
         for fh in fhandlers.values():
