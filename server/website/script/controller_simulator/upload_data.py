@@ -34,14 +34,14 @@ def upload(basedir, upload_code, upload_url):
             params = {
                 'summary': open(basename + '__summary.json', 'rb'),
                 'knobs': open(basename + '__knobs.json', 'rb'),
-                'metrics_before':open(basename + '__metrics_start.json', 'rb'),
-                'metrics_after':open(basename + '__metrics_end.json', 'rb'),
+                'metrics_before': open(basename + '__metrics_start.json', 'rb'),
+                'metrics_after': open(basename + '__metrics_end.json', 'rb'),
             }
 
-            response = requests.post(upload_url+"/new_result/",
-                                    files=params,
-                                    data={'upload_code':  upload_code})
-            LOG.info("Response: %s\n", urllib2.urlopen(request).read())
+            response = requests.post(upload_url + "/new_result/",
+                                     files=params,
+                                     data={'upload_code': upload_code})
+            LOG.info("Response: %s\n", response)
             sample_idx += 1
 
 
@@ -52,10 +52,11 @@ def main():
     parser.add_argument('upload_code', type=str, nargs=1,
                         help='The website\'s upload code')
     parser.add_argument('--upload_url', type=str, nargs=1,
-                        help='The website\'s URL')    
-    args = parser.parse_args()    
-    url = "http://0.0.0.0:8000" if not args.upload_url else args.upload_url
-    upload(args.datadir, args.upload_code, args.upload_url)
+                        help='The website\'s URL')
+    args = parser.parse_args()
+    upload_url = "http://0.0.0.0:8000" if not args.upload_url else args.upload_url
+    upload(args.datadir, args.upload_code, upload_url)
+
 
 if __name__ == "__main__":
     main()
