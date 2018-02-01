@@ -34,7 +34,8 @@ def upload(basedir, upload_code, upload_url):
             sample_idx += 1
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    args_len = len(sys.argv)
+    if not (3 <= args_len <= 4):
         print("Usage: python upload_data.py [datadir] [upload_code] <url>")
         sys.exit(1)
     url = sys.arv[3] if len(sys.argv) == 4 else "http://0.0.0.0:8000"
