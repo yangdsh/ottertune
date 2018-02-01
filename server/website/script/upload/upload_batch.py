@@ -3,10 +3,10 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
+import os
 import glob
 import logging
 import numpy as np
-import os
 import requests
 
 # Logging
@@ -32,7 +32,8 @@ class ResultUploader(object):
 
     def upload_batch(self, directories, max_files=5):
         for d in directories:
-            cluster_name = os.path.basename(d)
+            cluster_name = 
+            .path.basename(d)
             fnames = glob.glob(os.path.join(d, '*.summary'))
             if max_files < len(fnames):
                 fnames = list(np.random.choice(fnames, max_files))
