@@ -1,5 +1,5 @@
 #
-# OtterTune - testUtils.py
+# OtterTune - test_utils.py
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
@@ -7,41 +7,45 @@
 import string
 from django.test import TestCase
 from website.utils import JSONUtil, MediaUtil, DataUtil, ConversionUtil, LabelUtil, TaskUtil
-from website.parser.postgres import PostgresParser, Postgres96Parser
+from website.parser.postgres import PostgresParser
 from website.types import LabelStyleType, VarType
-from website.models import KnobCatalog, DBMSCatalog, MetricCatalog, Result
+from website.models import Result
 
 
 class JSONUtilTest(TestCase):
-    def testUtil(self):
-        jsonstr = \
+    def test_util(self):
+        json_str = \
             """{
             "glossary": {
                 "title": "example glossary",
-        		"GlossDiv": {
+                "GlossDiv": {
                     "title": "S",
-        			"GlossList": {
+                    "GlossList": {
                         "GlossEntry": {
                             "ID": "SGML",
-        					"SortAs": "SGML",
-        					"GlossTerm": "Standard Generalized Markup Language",
-        					"Acronym": "SGML",
-        					"Abbrev": "ISO 8879:1986",
-        					"GlossDef": {
-                                "para": "A meta-markup language, used to create markup languages such as DocBook.",
-        						"GlossSeeAlso": ["GML", "XML"]
+                            "SortAs": "SGML",
+                            "GlossTerm": "Standard Generalized Markup Language",
+                            "Acronym": "SGML",
+                            "Abbrev": "ISO 8879:1986",
+                            "GlossDef": {
+                                "para": "A meta-markup language",
+                                "GlossSeeAlso": ["GML", "XML"]
                             },
-        					"GlossSee": "markup"
+                            "GlossSee": "markup"
                         }
                     }
                 }
             }
         }"""
 
-        compressedstr = \
-            """{"glossary": {"title": "example glossary", "GlossDiv": {"title": "S", "GlossList": {"GlossEntry": {"ID": "SGML", "SortAs": "SGML", "GlossTerm": "Standard Generalized Markup Language", "Acronym": "SGML", "Abbrev": "ISO 8879:1986", "GlossDef": {"para": "A meta-markup language, used to create markup languages such as DocBook.", "GlossSeeAlso": ["GML", "XML"]}, "GlossSee": "markup"}}}}}"""
+        compress_str = """{"glossary": {"title": "example glossary",
+         "GlossDiv": {"title": "S", "GlossList": {"GlossEntry": {"ID": "SGML",
+          "SortAs": "SGML", "GlossTerm": "Standard Generalized Markup
+           Language", "Acronym": "SGML", "Abbrev": "ISO 8879:1986", "GlossDef":
+            {"para": "A meta-markup language", "GlossSeeAlso": ["GML", "XML"]}, "GlossSee":
+              "markup"}}}}}"""
 
-        results = JSONUtil.loads(jsonstr)
+        results = JSONUtil.loads(json_str)
         self.assertEqual(results.keys()[0], "glossary")
         self.assertTrue("title" in results["glossary"].keys())
         self.assertTrue("GlossDiv" in results["glossary"].keys())
@@ -50,258 +54,255 @@ class JSONUtilTest(TestCase):
         self.assertEqual(results["glossary"]["GlossDiv"]
                          ["GlossList"]["GlossEntry"]["GlossSee"], "markup")
 
-        resStr = JSONUtil.dumps(results)
-        self.assertEqual(resStr, compressedstr)
+        result_str = "".join(JSONUtil.dumps(results).split())
+        self.assertEqual(result_str, "".join(compress_str.split()))
 
 
 class MediaUtilTest(TestCase):
-    def testCodeGen(self):
-        for i in range(1000):
-            code20 = MediaUtil.upload_code_generator(20)
-            self.assertEqual(len(code20), 20)
-            self.assertTrue(code20.isalnum())
-            code40 = MediaUtil.upload_code_generator(40)
-            self.assertEqual(len(code40), 40)
-            self.assertTrue(code40.isalnum())
-            digitCode = MediaUtil.upload_code_generator(40, string.digits)
-            self.assertEqual(len(digitCode), 40)
-            self.assertTrue(digitCode.isdigit())
-            letterCode = MediaUtil.upload_code_generator(60,
-                                                         string.ascii_uppercase)
-            self.assertEqual(len(letterCode), 60)
-            self.assertTrue(letterCode.isalpha())
+    def test_codegen(self):
+        code20 = MediaUtil.upload_code_generator(20)
+        self.assertEqual(len(code20), 20)
+        self.assertTrue(code20.isalnum())
+        code40 = MediaUtil.upload_code_generator(40)
+        self.assertEqual(len(code40), 40)
+        self.assertTrue(code40.isalnum())
+        digit_code = MediaUtil.upload_code_generator(40, string.digits)
+        self.assertEqual(len(digit_code), 40)
+        self.assertTrue(digit_code.isdigit())
+        letter_code = MediaUtil.upload_code_generator(60,
+                                                      string.ascii_uppercase)
+        self.assertEqual(len(letter_code), 60)
+        self.assertTrue(letter_code.isalpha())
 
 
 class TaskUtilTest(TestCase):
-    def testGetTaskStatus(self):
+    def test_get_task_status(self):
         # FIXME: Actually setup celery tasks instead of a dummy class?
-        testTasks = []
+        test_tasks = []
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks)
-        self.assertTrue(status == None and numComplete == 0)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks)
+        self.assertTrue(status is None and num_complete == 0)
 
-        testTasks2 = [VarType() for i in range(5)]
-        for i in range(len(testTasks2)):
-            testTasks2[i].status = "SUCCESS"
+        test_tasks2 = [VarType() for i in range(5)]
+        for task in test_tasks2:
+            task.status = "SUCCESS"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks2)
-        self.assertTrue(status == "SUCCESS" and numComplete == 5)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks2)
+        self.assertTrue(status == "SUCCESS" and num_complete == 5)
 
-        testTasks3 = testTasks2
-        testTasks3[3].status = "FAILURE"
+        test_tasks3 = test_tasks2
+        test_tasks3[3].status = "FAILURE"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks3)
-        self.assertTrue(status == "FAILURE" and numComplete == 3)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks3)
+        self.assertTrue(status == "FAILURE" and num_complete == 3)
 
-        testTasks4 = testTasks3
-        testTasks4[2].status = "REVOKED"
+        test_tasks4 = test_tasks3
+        test_tasks4[2].status = "REVOKED"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks4)
-        self.assertTrue(status == "REVOKED" and numComplete == 2)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks4)
+        self.assertTrue(status == "REVOKED" and num_complete == 2)
 
-        testTasks5 = testTasks4
-        testTasks5[1].status = "RETRY"
+        test_tasks5 = test_tasks4
+        test_tasks5[1].status = "RETRY"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks5)
-        self.assertTrue(status == "RETRY" and numComplete == 1)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks5)
+        self.assertTrue(status == "RETRY" and num_complete == 1)
 
-        testTasks6 = [VarType() for i in range(10)]
-        for i in range(len(testTasks6)):
-            testTasks6[i].status = "PENDING" if i % 2 == 0 else "SUCCESS"
+        test_tasks6 = [VarType() for i in range(10)]
+        for i, task in enumerate(test_tasks6):
+            task.status = "PENDING" if i % 2 == 0 else "SUCCESS"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks6)
-        self.assertTrue(status == "PENDING" and numComplete == 5)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks6)
+        self.assertTrue(status == "PENDING" and num_complete == 5)
 
-        testTasks7 = testTasks6
-        testTasks7[9].status = "STARTED"
+        test_tasks7 = test_tasks6
+        test_tasks7[9].status = "STARTED"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks7)
-        self.assertTrue(status == "STARTED" and numComplete == 4)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks7)
+        self.assertTrue(status == "STARTED" and num_complete == 4)
 
-        testTasks8 = testTasks7
-        testTasks8[9].status = "RECEIVED"
+        test_tasks8 = test_tasks7
+        test_tasks8[9].status = "RECEIVED"
 
-        (status, numComplete) = TaskUtil.get_task_status(testTasks8)
-        self.assertTrue(status == "RECEIVED" and numComplete == 4)
+        (status, num_complete) = TaskUtil.get_task_status(test_tasks8)
+        self.assertTrue(status == "RECEIVED" and num_complete == 4)
 
         with self.assertRaises(Exception):
-            testTasks9 = [VarType() for i in range(1)]
-            testTasks9[0].status = "attemped"
-            TaskUtil.get_task_status(testTasks9)
+            test_tasks9 = [VarType() for i in range(1)]
+            test_tasks9[0].status = "attemped"
+            TaskUtil.get_task_status(test_tasks9)
 
 
 class DataUtilTest(TestCase):
 
     fixtures = ['test_website.json']
 
-    def testAggregate(self):
+    def test_aggregate(self):
 
-        workload2Res = Result.objects.filter(workload=2)
-        numResults = Result.objects.filter(workload=2).count()
-        knobs = JSONUtil.loads(workload2Res[0].knob_data.data).keys()
-        metrics = JSONUtil.loads(workload2Res[0].metric_data.data).keys()
-        numKnobs = len(knobs)
-        numMetrics = len(metrics)
+        workload2 = Result.objects.filter(workload=2)
+        num_results = Result.objects.filter(workload=2).count()
+        knobs = JSONUtil.loads(workload2[0].knob_data.data).keys()
+        metrics = JSONUtil.loads(workload2[0].metric_data.data).keys()
+        num_knobs = len(knobs)
+        num_metrics = len(metrics)
 
-        testRes = DataUtil.aggregate_data(workload2Res)
+        test_result = DataUtil.aggregate_data(workload2)
 
-        self.assertTrue('X_matrix' in testRes.keys())
-        self.assertTrue('y_matrix' in testRes.keys())
-        self.assertTrue('rowlabels' in testRes.keys())
-        self.assertTrue('X_columnlabels' in testRes.keys())
-        self.assertTrue('y_columnlabels' in testRes.keys())
+        self.assertTrue('X_matrix' in test_result.keys())
+        self.assertTrue('y_matrix' in test_result.keys())
+        self.assertTrue('rowlabels' in test_result.keys())
+        self.assertTrue('X_columnlabels' in test_result.keys())
+        self.assertTrue('y_columnlabels' in test_result.keys())
 
-        self.assertEqual(testRes['X_columnlabels'], knobs)
-        self.assertEqual(testRes['y_columnlabels'], metrics)
-        self.assertEqual(testRes['X_matrix'].shape[0], numResults)
-        self.assertEqual(testRes['y_matrix'].shape[0], numResults)
-        self.assertEqual(testRes['X_matrix'].shape[1], numKnobs)
-        self.assertEqual(testRes['y_matrix'].shape[1], numMetrics)
+        self.assertEqual(test_result['X_columnlabels'], knobs)
+        self.assertEqual(test_result['y_columnlabels'], metrics)
+        self.assertEqual(test_result['X_matrix'].shape[0], num_results)
+        self.assertEqual(test_result['y_matrix'].shape[0], num_results)
+        self.assertEqual(test_result['X_matrix'].shape[1], num_knobs)
+        self.assertEqual(test_result['y_matrix'].shape[1], num_metrics)
 
-    def testCombine(self):
+    def test_combine(self):
         import numpy as np
-        testNoDupsRowLabels = np.array(["Workload-0", "Workload-1"])
-        testNoDupsX = np.matrix([[0.22, 5, "string", "11:11", "fsync", True],
-                                 [0.21, 6, "string", "11:12", "fsync", True]])
-        testNoDupsY = np.matrix([[30, 30, 40],
-                                 [10, 10, 40]])
+        test_dedup_row_labels = np.array(["Workload-0", "Workload-1"])
+        test_dedup_x = np.matrix([[0.22, 5, "string", "11:11", "fsync", True],
+                                  [0.21, 6, "string", "11:12", "fsync", True]])
+        test_dedup_y = np.matrix([[30, 30, 40],
+                                  [10, 10, 40]])
 
-        testX, testY, rowlabels = DataUtil.combine_duplicate_rows(
-            testNoDupsX, testNoDupsY, testNoDupsRowLabels)
+        test_x, test_y, row_labels = DataUtil.combine_duplicate_rows(
+            test_dedup_x, test_dedup_y, test_dedup_row_labels)
 
-        self.assertEqual(len(testX), len(testY))
-        self.assertEqual(len(testX), len(rowlabels))
+        self.assertEqual(len(test_x), len(test_y))
+        self.assertEqual(len(test_x), len(row_labels))
 
-        self.assertEqual(rowlabels[0], tuple([testNoDupsRowLabels[0]]))
-        self.assertEqual(rowlabels[1], tuple([testNoDupsRowLabels[1]]))
-        self.assertTrue((testX[0] == testNoDupsX[0]).all())
-        self.assertTrue((testX[1] == testNoDupsX[1]).all())
-        self.assertTrue((testY[0] == testNoDupsY[0]).all())
-        self.assertTrue((testY[1] == testNoDupsY[1]).all())
+        self.assertEqual(row_labels[0], tuple([test_dedup_row_labels[0]]))
+        self.assertEqual(row_labels[1], tuple([test_dedup_row_labels[1]]))
+        self.assertTrue((test_x[0] == test_dedup_x[0]).all())
+        self.assertTrue((test_x[1] == test_dedup_x[1]).all())
+        self.assertTrue((test_y[0] == test_dedup_y[0]).all())
+        self.assertTrue((test_y[1] == test_dedup_y[1]).all())
 
-        testRowLabels = np.array(["Workload-0",
-                                  "Workload-1",
-                                  "Workload-2",
-                                  "Workload-3"])
-        testXMat = np.matrix([[0.22, 5, "string", "timestamp", "enum", True],
-                              [0.3, 5, "rstring", "timestamp2", "enum", False],
-                              [0.22, 5, "string", "timestamp", "enum", True],
-                              [0.3, 5, "r", "timestamp2", "enum", False]])
-        testYMat = np.matrix([[20, 30, 40],
-                              [30, 30, 40],
-                              [20, 30, 40],
-                              [32, 30, 40]])
+        test_row_labels = np.array(["Workload-0",
+                                    "Workload-1",
+                                    "Workload-2",
+                                    "Workload-3"])
+        test_x_matrix = np.matrix([[0.22, 5, "string", "timestamp", "enum", True],
+                                   [0.3, 5, "rstring", "timestamp2", "enum", False],
+                                   [0.22, 5, "string", "timestamp", "enum", True],
+                                   [0.3, 5, "r", "timestamp2", "enum", False]])
+        test_y_matrix = np.matrix([[20, 30, 40],
+                                   [30, 30, 40],
+                                   [20, 30, 40],
+                                   [32, 30, 40]])
 
-        testX, testY, rowlabels = DataUtil.combine_duplicate_rows(testXMat, testYMat, testRowLabels)
+        test_x, test_y, row_labels = DataUtil.combine_duplicate_rows(
+            test_x_matrix, test_y_matrix, test_row_labels)
 
-        self.assertTrue(len(testX) <= len(testXMat))
-        self.assertTrue(len(testY) <= len(testYMat))
-        self.assertEqual(len(testX), len(testY))
-        self.assertEqual(len(testX), len(rowlabels))
+        self.assertTrue(len(test_x) <= len(test_x_matrix))
+        self.assertTrue(len(test_y) <= len(test_y_matrix))
+        self.assertEqual(len(test_x), len(test_y))
+        self.assertEqual(len(test_x), len(row_labels))
 
-        rowlabelsSet = set(rowlabels)
-        self.assertTrue(tuple(["Workload-0", "Workload-2"]) in rowlabelsSet)
-        self.assertTrue(("Workload-1",) in rowlabelsSet)
-        self.assertTrue(("Workload-3",) in rowlabelsSet)
+        row_labels_set = set(row_labels)
+        self.assertTrue(tuple(["Workload-0", "Workload-2"]) in row_labels_set)
+        self.assertTrue(("Workload-1",) in row_labels_set)
+        self.assertTrue(("Workload-3",) in row_labels_set)
 
         rows = set()
-        for i in testX:
+        for i in test_x:
             self.assertTrue(tuple(i) not in rows)
-            self.assertTrue(i in testXMat)
+            self.assertTrue(i in test_x_matrix)
             rows.add(tuple(i))
 
         rowys = set()
-        for i in testY:
+        for i in test_y:
             self.assertTrue(tuple(i) not in rowys)
-            self.assertTrue(i in testYMat)
+            self.assertTrue(i in test_y_matrix)
             rowys.add(tuple(i))
 
 
 class ConversionUtilTest(TestCase):
-    def testGetRawSize(self):
-        testImpl = PostgresParser(2)
+    def test_get_raw_size(self):
+        test_impl = PostgresParser(2)
 
         # Bytes - In Bytes
-        byteTestConvert = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
-        byteAns = [1024**5, 2 * 1024**4, 3 * 1024**3, 4 * 1024**2, 5 * 1024**1, 6]
-        for i in range(6):
-            self.assertEqual(ConversionUtil.get_raw_size(
-                byteTestConvert[i],
-                system=testImpl.POSTGRES_BYTES_SYSTEM),
-                byteAns[i])
+        byte_test_convert = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
+        byte_ans = [1024**5, 2 * 1024**4, 3 * 1024**3, 4 * 1024**2, 5 * 1024**1, 6]
+        for i, byte_test in enumerate(byte_test_convert):
+            byte_conversion = ConversionUtil.get_raw_size(
+                byte_test, system=test_impl.POSTGRES_BYTES_SYSTEM)
+            self.assertEqual(byte_conversion, byte_ans[i])
 
-        # Time - In Milliseconds?
-        dayTestConvert = ['1000ms', '1s', '10min', '20h', '1d']
-        dayAns = [1000, 1000, 600000, 72000000, 86400000]
-        for i in range(5):
-            self.assertEqual(ConversionUtil.get_raw_size(
-                dayTestConvert[i],
-                system=testImpl.POSTGRES_TIME_SYSTEM),
-                dayAns[i])
+        # Time - In Milliseconds
+        day_test_convert = ['1000ms', '1s', '10min', '20h', '1d']
+        day_ans = [1000, 1000, 600000, 72000000, 86400000]
+        for i, day_test in enumerate(day_test_convert):
+            day_conversion = ConversionUtil.get_raw_size(
+                day_test, system=test_impl.POSTGRES_TIME_SYSTEM)
+            self.assertEqual(day_conversion, day_ans[i])
 
-    def testGetHumanReadable(self):
-        testImpl = PostgresParser(2)
+    def test_get_human_readable(self):
+        test_impl = PostgresParser(2)
 
         # Bytes
-        byteTestConvert = [1024**5, 2 * 1024**4, 3 * 1024**3,
-                           4 * 1024**2, 5 * 1024**1, 6]
-        byteAns = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
-        for i in range(6):
-            self.assertEqual(ConversionUtil.get_human_readable(
-                byteTestConvert[i],
-                system=testImpl.POSTGRES_BYTES_SYSTEM),
-                byteAns[i])
+        byte_test_convert = [1024**5, 2 * 1024**4, 3 * 1024**3,
+                             4 * 1024**2, 5 * 1024**1, 6]
+        byte_ans = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
+        for i, byte_test in enumerate(byte_test_convert):
+            byte_readable = ConversionUtil.get_human_readable(
+                byte_test, system=test_impl.POSTGRES_BYTES_SYSTEM)
+            self.assertEqual(byte_readable, byte_ans[i])
 
         # Time
-        dayTestConvert = [500, 1000, 55000, 600000, 72000000, 86400000]
-        dayAns = ['500ms', '1s', '55s', '10min', '20h', '1d']
-        for i in range(5):
-            self.assertEqual(dayAns[i],
-                             ConversionUtil.get_human_readable(dayTestConvert[i],
-                                                               system=testImpl.POSTGRES_TIME_SYSTEM))
+        day_test_convert = [500, 1000, 55000, 600000, 72000000, 86400000]
+        day_ans = ['500ms', '1s', '55s', '10min', '20h', '1d']
+        for i, day_test in enumerate(day_test_convert):
+            day_readable = ConversionUtil.get_human_readable(
+                day_test, system=test_impl.POSTGRES_TIME_SYSTEM)
+            self.assertEqual(day_readable, day_ans[i])
 
 
 class LabelUtilTest(TestCase):
-    def testStyleLabels(self):
-        LabelStyle = LabelStyleType()
+    def test_style_labels(self):
+        label_style = LabelStyleType()
 
-        testLabelMap = {"Name": "Postgres",
-                        "Test": "LabelUtils",
-                        "DBMS": "dbms",
-                        "??": "Dbms",
-                        "???": "DBms",
-                        "CapF": "random Word"}
+        test_label_map = {"Name": "Postgres",
+                          "Test": "LabelUtils",
+                          "DBMS": "dbms",
+                          "??": "Dbms",
+                          "???": "DBms",
+                          "CapF": "random Word"}
 
-        resTitleLabelMap = LabelUtil.style_labels(testLabelMap,
-                                                  style=LabelStyle.TITLE)
+        res_title_label_map = LabelUtil.style_labels(test_label_map,
+                                                     style=label_style.TITLE)
 
-        testKeys = ["Name", "Test", "DBMS", "??", "???", "CapF"]
-        titleAns = ["Postgres", "Labelutils", "DBMS", "DBMS", "DBMS",
-                    "Random Word"]
+        test_keys = ["Name", "Test", "DBMS", "??", "???", "CapF"]
+        title_ans = ["Postgres", "Labelutils", "DBMS", "DBMS", "DBMS",
+                     "Random Word"]
 
-        for i, key in enumerate(testKeys):
-            self.assertEqual(resTitleLabelMap[key], titleAns[i])
+        for i, key in enumerate(test_keys):
+            self.assertEqual(res_title_label_map[key], title_ans[i])
 
-        resCapfirstLabelMap = LabelUtil.style_labels(testLabelMap,
-                                                     style=LabelStyle.CAPFIRST)
+        res_capfirst_label_map = LabelUtil.style_labels(test_label_map,
+                                                        style=label_style.CAPFIRST)
 
-        capAns = ["Postgres", "LabelUtils", "DBMS", "DBMS", "DBMS",
-                  "Random Word"]
+        cap_ans = ["Postgres", "LabelUtils", "DBMS", "DBMS", "DBMS",
+                   "Random Word"]
 
-        for i, key in enumerate(testKeys):
+        for i, key in enumerate(test_keys):
             if (key == "???"):  # DBms -> DBMS or DBms?
                 continue
-            self.assertEqual(resCapfirstLabelMap[key], capAns[i])
+            self.assertEqual(res_capfirst_label_map[key], cap_ans[i])
 
-        resLowerLabelMap = LabelUtil.style_labels(testLabelMap,
-                                                  style=LabelStyle.LOWER)
+        res_lower_label_map = LabelUtil.style_labels(test_label_map,
+                                                     style=label_style.LOWER)
 
-        lowerAns = ["postgres", "labelutils", "dbms", "dbms", "dbms",
-                    "random word"]
+        lower_ans = ["postgres", "labelutils", "dbms", "dbms", "dbms",
+                     "random word"]
 
-        for i, key in enumerate(testKeys):
-            self.assertEqual(resLowerLabelMap[key], lowerAns[i])
+        for i, key in enumerate(test_keys):
+            self.assertEqual(res_lower_label_map[key], lower_ans[i])
 
         with self.assertRaises(Exception):
-            resExcept = LabelUtil.style_labels(testLabelMap,
-                                               style=LabelStyle.Invalid)
+            LabelUtil.style_labels(test_label_map,
+                                   style=label_style.Invalid)
