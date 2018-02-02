@@ -41,7 +41,7 @@ def upload(basedir, upload_code, upload_url):
             response = requests.post(upload_url + "/new_result/",
                                      files=params,
                                      data={'upload_code': upload_code})
-            LOG.info("Response: %s\n", response)
+            LOG.info("Response: %s\n", response.content)
             sample_idx += 1
 
 

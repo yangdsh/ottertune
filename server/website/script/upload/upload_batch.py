@@ -32,8 +32,7 @@ class ResultUploader(object):
 
     def upload_batch(self, directories, max_files=5):
         for d in directories:
-            cluster_name = 
-            .path.basename(d)
+            cluster_name = os.path.basename(d)
             fnames = glob.glob(os.path.join(d, '*.summary'))
             if max_files < len(fnames):
                 fnames = list(np.random.choice(fnames, max_files))
@@ -72,7 +71,7 @@ class ResultUploader(object):
                                  files=params,
                                  data={'upload_code': self._upload_code,
                                        'cluster_name': cluster_name})
-        LOG.info(response)
+        LOG.info(response.content)
 
         for fh in fhandlers.values():
             fh.close()

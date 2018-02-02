@@ -25,7 +25,7 @@ def upload(upload_code, datadir, upload_url=None):
     response = requests.post(upload_url + "/new_result/",
                              files=params,
                              data={'upload_code': upload_code})
-    LOG.info(response)
+    LOG.info(response.content)
 
 
 if __name__ == "__main__":
