@@ -25,7 +25,7 @@ class BaseParserTests(object):
 
     # TODO: Review when 1-hot encoding is implemented
     def test_convert_enum(self):
-        mock_enum_knob = mock.Mock(spec = KnobCatalog)
+        mock_enum_knob = mock.Mock(spec=KnobCatalog)
         mock_enum_knob.vartype = VarType.ENUM
         mock_enum_knob.enumvals = 'apples,oranges,cake'
         mock_enum_knob.name = 'Test'
@@ -38,7 +38,7 @@ class BaseParserTests(object):
             self.test_dbms.convert_enum('jackyl', mock_enum_knob)
 
     def test_convert_integer(self):
-        mock_int_knob = mock.Mock(spec = KnobCatalog)
+        mock_int_knob = mock.Mock(spec=KnobCatalog)
         mock_int_knob.vartype = VarType.INTEGER
         mock_int_knob.name = 'Test'
 
@@ -53,7 +53,7 @@ class BaseParserTests(object):
             self.test_dbms.convert_integer('notInt', mock_int_knob)
 
     def test_convert_real(self):
-        mock_real_knob = mock.Mock(spec = KnobCatalog)
+        mock_real_knob = mock.Mock(spec=KnobCatalog)
         mock_real_knob.vartype = VarType.REAL
         mock_real_knob.name = 'Test'
 
@@ -180,7 +180,7 @@ class BaseParserTests(object):
         self.assertEqual(test_convert_metrics['throughput_txn_per_sec'], 100)
         self.assertEqual(test_convert_metrics.get('pg_FAKE_METRIC'), None)
 
-    def test_extract_valid_variables(self):
+    def test_extract_valid_variables_old(self):
         test_dbms = Postgres96Parser()
         num_tunable_knobs = len(test_dbms.tunable_knob_catalog_.keys())
 
@@ -333,7 +333,7 @@ class BaseParserTests(object):
             self.assertEqual(len(test_parse_dict.keys()), len(test_dbms.metric_catalog_.keys()))
             self.assertEqual(len(test_parse_log), len(test_dbms.metric_catalog_.keys()) - 14)
 
-    def test_calculate_change_in_metrics(self):
+    def test_calculate_change_in_metrics_old(self):
         test_dbms = Postgres96Parser()
         self.assertEqual(test_dbms.calculate_change_in_metrics({}, {}), {})
 
@@ -601,7 +601,6 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
     def test_convert_integer(self):
         super(Postgres96ParserTests, self).test_convert_integer()
 
-
         # Convert Integer
         knob_unit_bytes = KnobUnitType()
         knob_unit_bytes.unit = 1
@@ -610,22 +609,22 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         knob_unit_other = KnobUnitType()
         knob_unit_other.unit = 3
 
-        self.assertEqual(test_dbms.convert_integer('5', knob_unit_other), 5)
-        self.assertEqual(test_dbms.convert_integer('0', knob_unit_other), 0)
-        self.assertEqual(test_dbms.convert_integer('0.0', knob_unit_other), 0)
-        self.assertEqual(test_dbms.convert_integer('0.5', knob_unit_other), 0)
+        self.assertEqual(self.test_dbms.convert_integer('5', knob_unit_other), 5)
+        self.assertEqual(self.test_dbms.convert_integer('0', knob_unit_other), 0)
+        self.assertEqual(self.test_dbms.convert_integer('0.0', knob_unit_other), 0)
+        self.assertEqual(self.test_dbms.convert_integer('0.5', knob_unit_other), 0)
 
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms
                          .convert_integer('5kB', knob_unit_bytes), 5 * 1024)
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms
                          .convert_integer('4MB', knob_unit_bytes), 4 * 1024 ** 2)
 
-        self.assertEqual(test_dbms.convert_integer('1d', knob_unit_time), 86400000)
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms.convert_integer('1d', knob_unit_time), 86400000)
+        self.assertEqual(self.test_dbms
                          .convert_integer('20h', knob_unit_time), 72000000)
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms
                          .convert_integer('10min', knob_unit_time), 600000)
-        self.assertEqual(test_dbms.convert_integer('1s', knob_unit_time), 1000)
+        self.assertEqual(self.test_dbms.convert_integer('1s', knob_unit_time), 1000)
 
         test_exceptions = [('A', knob_unit_other),
                            ('', knob_unit_other),
@@ -637,7 +636,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
 
         for failure_case, knob_unit in test_exceptions:
             with self.assertRaises(Exception):
-                test_dbms.convert_integer(failure_case, knob_unit)
+                self.test_dbms.convert_integer(failure_case, knob_unit)
 
     def test_format_integer(self):
         test_dbms = PostgresParser(2)
