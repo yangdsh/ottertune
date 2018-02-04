@@ -4,59 +4,131 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 
+from abc import ABCMeta
+import mock
 from django.test import TestCase
 from website.parser.postgres import PostgresParser, Postgres96Parser
 from website.types import BooleanType, VarType, KnobUnitType
+from website.models import KnobCatalog
 
 
-class BaseParserTest(TestCase):
-    def test_converts(self):
-        test_dbms = Postgres96Parser()
+class BaseParserTests(object):
 
-        # Convert Bool
-        bool_param = VarType()
-        test_bool = ['on', 'ON', 'OFF', 'off', 'apavlo']
-        test_bool_ans = [BooleanType.TRUE, BooleanType.TRUE, BooleanType.FALSE,
-                         BooleanType.FALSE, BooleanType.FALSE]
-        for i, val in enumerate(test_bool):
-            self.assertEqual(test_dbms.convert_bool(val, bool_param), test_bool_ans[i])
+    __metaclass__ = ABCMeta
 
-        # Convert Enum
-        # TODO (jackyl): Change tests for 1-hot encoding,
-        # however it's implemented
-        enum_param = VarType()
-        enum_param.enumvals = 'apple,oranges,cake'
-        enum_param.name = "Test"
+    def setUp(self):
+        self.test_dbms = None
 
-        self.assertEqual(test_dbms.convert_enum('apple', enum_param), 0)
-        self.assertEqual(test_dbms.convert_enum('oranges', enum_param), 1)
-        self.assertEqual(test_dbms.convert_enum('cake', enum_param), 2)
+    # TODO: Implement when PR #62 is merged
+    def test_convert_bool(self):
+        pass
+
+    # TODO: Review when 1-hot encoding is implemented
+    def test_convert_enum(self):
+        mock_enum_knob = mock.Mock(spec = KnobCatalog)
+        mock_enum_knob.vartype = VarType.ENUM
+        mock_enum_knob.enumvals = 'apples,oranges,cake'
+        mock_enum_knob.name = 'Test'
+
+        self.assertEqual(self.test_dbms.convert_enum('apples', mock_enum_knob), 0)
+        self.assertEqual(self.test_dbms.convert_enum('oranges', mock_enum_knob), 1)
+        self.assertEqual(self.test_dbms.convert_enum('cake', mock_enum_knob), 2)
 
         with self.assertRaises(Exception):
-            test_dbms.convert_enum('jackyl', enum_param)
+            self.test_dbms.convert_enum('jackyl', mock_enum_knob)
 
-        # Convert Integer
-        # int_param = VarType()
-        # test_int = ['42', '-1', '0', '1', '42.0', '42.5', '42.7']
-        # test_int_ans = [42, -1, 0, 1, 42, 42, 42]
-        #
-        # for i, val in enumerate(test_int):
-        #     self.assertEqual(super(PostgresParser, test_dbms).convert_integer(
-        #         val, int_param), test_int_ans[i])
-        #
-        # with self.assertRaises(Exception):
-        #     test_dbms.convert_integer('notInt', int_param)
+    def test_convert_integer(self):
+        mock_int_knob = mock.Mock(spec = KnobCatalog)
+        mock_int_knob.vartype = VarType.INTEGER
+        mock_int_knob.name = 'Test'
 
-        # Convert Real
-        real_param = VarType()
+        test_int = ['42', '-1', '0', '1', '42.0', '42.5', '42.7']
+        test_int_ans = [42, -1, 0, 1, 42, 42, 42]
+
+        for test_int, test_int_ans in zip(test_int, test_int_ans):
+            test_int_actual = self.test_dbms.convert_integer(test_int, mock_int_knob)
+            self.assertEqual(test_int_actual, test_int_ans)
+
+        with self.assertRaises(Exception):
+            self.test_dbms.convert_integer('notInt', mock_int_knob)
+
+    def test_convert_real(self):
+        mock_real_knob = mock.Mock(spec = KnobCatalog)
+        mock_real_knob.vartype = VarType.REAL
+        mock_real_knob.name = 'Test'
+
         test_real = ['42.0', '42.2', '42.5', '42.7', '-1', '0', '1']
         test_real_ans = [42.0, 42.2, 42.5, 42.7, -1.0, 0.0, 1.0]
 
-        for i, val in enumerate(test_real):
-            self.assertEqual(test_dbms.convert_real(val, real_param), test_real_ans[i])
+        for test_real, test_real_ans in zip(test_real, test_real_ans):
+            test_real_actual = self.test_dbms.convert_real(test_real, mock_real_knob)
+            self.assertEqual(test_real_actual, test_real_ans)
 
         with self.assertRaises(Exception):
-            test_dbms.convert_real('notReal', real_param)
+            self.test_dbms.convert_real('notReal', mock_real_knob)
+
+    def test_convert_string(self):
+        pass
+
+    def test_convert_timestamp(self):
+        pass
+
+    def test_convert_dbms_knobs(self):
+        pass
+
+    def test_convert_dbms_metrics(self):
+        pass
+
+    def test_extract_valid_variables(self):
+        pass
+
+    def test_parse_helper(self):
+        pass
+
+    def test_parse_dbms_variables(self):
+        pass
+
+    def test_parse_dbms_knobs(self):
+        pass
+
+    def test_parse_dbms_metrics(self):
+        pass
+
+    def test_calculate_change_in_metrics(self):
+        pass
+
+    def test_create_knob_configuration(self):
+        pass
+
+    def test_get_nondefault_knob_settings(self):
+        pass
+
+    def test_format_bool(self):
+        pass
+
+    def test_format_enum(self):
+        pass
+
+    def test_format_integer(self):
+        pass
+
+    def test_format_real(self):
+        pass
+
+    def test_format_string(self):
+        pass
+
+    def test_format_timestamp(self):
+        pass
+
+    def test_format_dbms_knobs(self):
+        pass
+
+    def test_filter_numeric_metrics(self):
+        pass
+
+    def test_filter_tunable_knobs(self):
+        pass
 
     def test_convert_catalogs(self):
         # Convert DBMS Knobs
@@ -486,12 +558,15 @@ class BaseParserTest(TestCase):
         self.assertEqual(filtered_knobs.get('global.FAKE_KNOB'), None)
 
 
-class PostgresParserTest(TestCase):
+class Postgres96ParserTests(BaseParserTests, TestCase):
+
+    def setUp(self):
+        self.test_dbms = Postgres96Parser()
 
     def test_properties(self):
-        test_dbms = PostgresParser(2)
-        base_config = test_dbms.base_configuration_settings
+        base_config = self.test_dbms.base_configuration_settings
         base_config_set = set(base_config)
+
         self.assertTrue('global.data_directory' in base_config_set)
         self.assertTrue('global.hba_file' in base_config_set)
         self.assertTrue('global.ident_file' in base_config_set)
@@ -506,27 +581,26 @@ class PostgresParserTest(TestCase):
         self.assertTrue('global.autovacuum' in base_config_set)
         self.assertTrue('global.default_text_search_config' in base_config_set)
 
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms
                          .knob_configuration_filename, 'postgresql.conf')
-        self.assertEqual(test_dbms
+        self.assertEqual(self.test_dbms
                          .transactions_counter, 'pg_stat_database.xact_commit')
 
     def test_parse_version_string(self):
-        test_dbms = PostgresParser(2)
-
-        self.assertTrue(test_dbms.parse_version_string("9.6.1"), "9.6")
-        self.assertTrue(test_dbms.parse_version_string("9.6.3"), "9.6")
-        self.assertTrue(test_dbms.parse_version_string("10.2.1"), "10.2")
-        self.assertTrue(test_dbms.parse_version_string("0.0.0"), "0.0")
+        self.assertTrue(self.test_dbms.parse_version_string("9.6.1"), "9.6")
+        self.assertTrue(self.test_dbms.parse_version_string("9.6.3"), "9.6")
+        self.assertTrue(self.test_dbms.parse_version_string("10.2.1"), "10.2")
+        self.assertTrue(self.test_dbms.parse_version_string("0.0.0"), "0.0")
 
         with self.assertRaises(Exception):
-            test_dbms.parse_version_string("postgres")
+            self.test_dbms.parse_version_string("postgres")
 
         with self.assertRaises(Exception):
-            test_dbms.parse_version_string("1.0")
+            self.test_dbms.parse_version_string("1.0")
 
-    def test_converts(self):
-        test_dbms = PostgresParser(2)
+    def test_convert_integer(self):
+        super(Postgres96ParserTests, self).test_convert_integer()
+
 
         # Convert Integer
         knob_unit_bytes = KnobUnitType()
