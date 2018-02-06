@@ -68,9 +68,11 @@ class BaseParserTests(object):
             self.test_dbms.convert_real('notReal', mock_real_knob)
 
     def test_convert_string(self):
+        # NOTE: Hasn't been used in any currently supported database
         pass
 
     def test_convert_timestamp(self):
+        # NOTE: Hasn't been used in any currently supported database
         pass
 
     @abstractmethod
