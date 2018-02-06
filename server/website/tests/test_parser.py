@@ -4,7 +4,7 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 import mock
 from django.test import TestCase
 from website.parser.postgres import PostgresParser, Postgres96Parser
@@ -73,12 +73,15 @@ class BaseParserTests(object):
     def test_convert_timestamp(self):
         pass
 
+    @abstractmethod
     def test_convert_dbms_knobs(self):
         pass
 
+    @abstractmethod
     def test_convert_dbms_metrics(self):
         pass
 
+    @abstractmethod
     def test_extract_valid_variables(self):
         pass
 
@@ -129,15 +132,18 @@ class BaseParserTests(object):
         with self.assertRaises(Exception):
             self.test_dbms.parse_dbms_variables(test_scope)
 
+    @abstractmethod
     def test_parse_dbms_knobs(self):
         pass
 
+    @abstractmethod
     def test_parse_dbms_metrics(self):
         pass
 
     def test_calculate_change_in_metrics(self):
         self.assertEqual(self.test_dbms.calculate_change_in_metrics({}, {}), {})
 
+    @abstractmethod
     def test_create_knob_configuration(self):
         pass
 
@@ -195,9 +201,11 @@ class BaseParserTests(object):
         with self.assertRaises(Exception):
             self.test_dbms.format_dbms_knobs(test_exceptions)
 
+    @abstractmethod
     def test_filter_numeric_metrics(self):
         pass
 
+    @abstractmethod
     def test_filter_tunable_knobs(self):
         pass
 
