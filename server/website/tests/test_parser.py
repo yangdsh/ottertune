@@ -83,171 +83,14 @@ class BaseParserTests(object):
         pass
 
     def test_parse_helper(self):
-        pass
-
-    def test_parse_dbms_variables(self):
-        pass
-
-    def test_parse_dbms_knobs(self):
-        pass
-
-    def test_parse_dbms_metrics(self):
-        pass
-
-    def test_calculate_change_in_metrics(self):
-        pass
-
-    def test_create_knob_configuration(self):
-        pass
-
-    def test_get_nondefault_knob_settings(self):
-        pass
-
-    def test_format_bool(self):
-        pass
-
-    def test_format_enum(self):
-        pass
-
-    def test_format_integer(self):
-        pass
-
-    def test_format_real(self):
-        pass
-
-    def test_format_string(self):
-        pass
-
-    def test_format_timestamp(self):
-        pass
-
-    def test_format_dbms_knobs(self):
-        pass
-
-    def test_filter_numeric_metrics(self):
-        pass
-
-    def test_filter_tunable_knobs(self):
-        pass
-
-    def test_convert_catalogs(self):
-        # Convert DBMS Knobs
-        test_dbms = Postgres96Parser()
-        test_knobs = {'global.wal_sync_method': 'open_sync',  # Enum
-                      'global.random_page_cost': 0.22,  # Real
-                      'global.archive_command': 'archive',  # String
-                      'global.cpu_tuple_cost': 0.55,  # Real
-                      'global.force_parallel_mode': 'regress',  # Enum
-                      'global.enable_hashjoin': 'on',  # Bool
-                      'global.geqo_effort': 5,  # Int
-                      'global.wal_buffers': 1024,  # Int
-                      'global.FAKE_KNOB': 20}
-
-        test_convert_knobs = test_dbms.convert_dbms_knobs(test_knobs)
-        # TODO: (jackyl) Test tunable knobs of other vartypes (string, bool, timestamp)
-        self.assertEqual(len(test_convert_knobs.keys()), 3)
-        self.assertEqual(test_convert_knobs['global.random_page_cost'], 0.22)
-        # NOTE: (jackyl) Fix enum when 1-hot encoding implemented
-        self.assertEqual(test_convert_knobs['global.wal_sync_method'], 2)
-        self.assertEqual(test_convert_knobs['global.wal_buffers'], 1024)
-
-        test_except_knobs = {'global.wal_sync_method': '3'}
-        with self.assertRaises(Exception):
-            test_dbms.convert_dbms_knobs(test_except_knobs)
-
-        test_nontune_knobs = {'global.enable_hashjoin': 'on'}
-        self.assertEqual(test_dbms.convert_dbms_knobs(test_nontune_knobs), {})
-
-        # TODO: (jackyl) Need exception test for nonexistent var type
-
-        # Convert DBMS Metrics
-        test_metrics = {}
-
-        for key in test_dbms.numeric_metric_catalog_.keys():
-            test_metrics[key] = 2
-        test_metrics['pg_stat_database.xact_commit'] = 10
-        test_metrics['pg_FAKE_METRIC'] = 0
-
-        self.assertEqual(test_metrics.get('throughput_txn_per_sec'), None)
-
-        test_convert_metrics = test_dbms.convert_dbms_metrics(test_metrics, 0.1)
-        for key in test_dbms.numeric_metric_catalog_.keys():
-            if (key == test_dbms.transactions_counter):
-                self.assertEqual(test_convert_metrics[key], 10 / 0.1)
-                continue
-            self.assertEqual(test_convert_metrics[key], 2 / 0.1)
-
-        self.assertEqual(test_convert_metrics['throughput_txn_per_sec'], 100)
-        self.assertEqual(test_convert_metrics.get('pg_FAKE_METRIC'), None)
-
-    def test_extract_valid_variables_old(self):
-        test_dbms = Postgres96Parser()
-        num_tunable_knobs = len(test_dbms.tunable_knob_catalog_.keys())
-
-        test_empty, test_empty_diff = test_dbms.extract_valid_variables(
-            {}, test_dbms.tunable_knob_catalog_)
-        self.assertEqual(len(test_empty.keys()), num_tunable_knobs)
-        self.assertEqual(len(test_empty_diff), num_tunable_knobs)
-
-        test_vars = {'global.wal_sync_method': 'fsync',
-                     'global.random_page_cost': 0.22,
-                     'global.Wal_buffers': 1024,
-                     'global.archive_command': 'archive',
-                     'global.GEQO_EFFORT': 5,
-                     'global.enable_hashjoin': 'on',
-                     'global.cpu_tuple_cost': 0.55,
-                     'global.force_parallel_mode': 'regress',
-                     'global.FAKE_KNOB': 'fake'}
-
-        tune_extract, tune_diff = test_dbms.extract_valid_variables(
-            test_vars, test_dbms.tunable_knob_catalog_)
-
-        self.assertTrue(('miscapitalized', 'global.wal_buffers',
-                         'global.Wal_buffers', 1024) in tune_diff)
-        self.assertTrue(('extra', None, 'global.GEQO_EFFORT', 5) in tune_diff)
-        self.assertTrue(('extra', None, 'global.enable_hashjoin', 'on') in tune_diff)
-        self.assertTrue(('missing', 'global.deadlock_timeout', None, None) in tune_diff)
-        self.assertTrue(('missing', 'global.temp_buffers', None, None) in tune_diff)
-        self.assertTrue(tune_extract.get('global.temp_buffers') is not None)
-        self.assertTrue(tune_extract.get('global.deadlock_timeout') is not None)
-
-        self.assertEqual(tune_extract.get('global.wal_buffers'), 1024)
-        self.assertEqual(tune_extract.get('global.Wal_buffers'), None)
-
-        self.assertEqual(len(tune_extract), len(test_dbms.tunable_knob_catalog_))
-
-        nontune_extract, nontune_diff = test_dbms.extract_valid_variables(
-            test_vars, test_dbms.knob_catalog_)
-
-        self.assertTrue(('miscapitalized', 'global.wal_buffers',
-                         'global.Wal_buffers', 1024) in nontune_diff)
-        self.assertTrue(('miscapitalized', 'global.geqo_effort',
-                         'global.GEQO_EFFORT', 5) in nontune_diff)
-        self.assertTrue(('extra', None, 'global.FAKE_KNOB', 'fake') in nontune_diff)
-        self.assertTrue(('missing', 'global.lc_ctype', None, None) in nontune_diff)
-        self.assertTrue(('missing', 'global.full_page_writes', None, None) in nontune_diff)
-
-        self.assertEqual(nontune_extract.get('global.wal_buffers'), 1024)
-        self.assertEqual(nontune_extract.get('global.geqo_effort'), 5)
-        self.assertEqual(nontune_extract.get('global.Wal_buffers'), None)
-        self.assertEqual(nontune_extract.get('global.GEQO_EFFORT'), None)
-
-    def test_parses(self):
-        test_dbms = Postgres96Parser()
-
-        # Parse Helper
-        test_view_vars = {'global': {'wal_sync_method': 'open_sync',
-                                     'random_page_cost': 0.22},
-                          'local': {'FAKE_KNOB': 'FAKE'}}
+        test_view_vars = {'local': {'FAKE_KNOB': 'FAKE'}}
         test_scope = 'global'
-        test_parse = test_dbms.parse_helper(test_scope, test_view_vars)
+        test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
 
-        self.assertEqual(len(test_parse.keys()), 3)
-        self.assertEqual(test_parse.get('global.wal_sync_method'), ['open_sync'])
-        self.assertEqual(test_parse.get('global.random_page_cost'), [0.22])
+        self.assertEqual(len(test_parse.keys()), 1)
         self.assertEqual(test_parse.get('local.FAKE_KNOB'), ['FAKE'])
 
-        # Parse DBMS Variables
+    def test_parse_dbms_variables(self):
         test_dbms_vars = {'global': {'GlobalView1':
                                      {'cpu_tuple_cost': 0.01,
                                       'random_page_cost': 0.22},
@@ -264,8 +107,9 @@ class BaseParserTests(object):
                                        'random_page_cost': 0.3}}}},
                           'fakeScope': None}
 
-        # NOTE: For local objects, method will not distinguish local objects or tables.
-        test_parse = test_dbms.parse_dbms_variables(test_dbms_vars)
+        # NOTE: For local objects, method will not distinguish
+        # local objects or tables, might overwrite the variables?
+        test_parse = self.test_dbms.parse_dbms_variables(test_dbms_vars)
 
         self.assertEqual(len(test_parse.keys()), 6)
         self.assertEqual(test_parse.get('GlobalView1.cpu_tuple_cost'), [0.01])
@@ -283,285 +127,135 @@ class BaseParserTests(object):
                                         'random_page_cost': 0.25}}}
 
         with self.assertRaises(Exception):
-            test_dbms.parse_dbms_variables(test_scope)
+            self.test_dbms.parse_dbms_variables(test_scope)
 
-        # Parse DBMS Knobs
-        test_knobs = {'global': {'global':
-                                 {'wal_sync_method': 'fsync',
-                                  'random_page_cost': 0.22,
-                                  'wal_buffers': 1024,
-                                  'archive_command': 'archive',
-                                  'geqo_effort': 5,
-                                  'enable_hashjoin': 'on',
-                                  'cpu_tuple_cost': 0.55,
-                                  'force_parallel_mode': 'regress',
-                                  'FAKE_KNOB': 'fake'}}}
+    def test_parse_dbms_knobs(self):
+        pass
 
-        (test_parse_dict, test_parse_log) = test_dbms.parse_dbms_knobs(test_knobs)
+    def test_parse_dbms_metrics(self):
+        pass
 
-        self.assertEqual(len(test_parse_log), len(test_dbms.knob_catalog_.keys()) - 7)
-        self.assertTrue(('extra', None, 'global.FAKE_KNOB', 'fake') in test_parse_log)
+    def test_calculate_change_in_metrics(self):
+        self.assertEqual(self.test_dbms.calculate_change_in_metrics({}, {}), {})
 
-        self.assertEqual(len(test_parse_dict.keys()), len(test_dbms.knob_catalog_.keys()))
-        self.assertEqual(test_parse_dict['global.wal_sync_method'], 'fsync')
-        self.assertEqual(test_parse_dict['global.random_page_cost'], 0.22)
+    def test_create_knob_configuration(self):
+        pass
 
-        # Parse DBMS Metrics
-        test_metrics = {'global':
-                        {'pg_stat_archiver.last_failed_wal': "today",
-                         'pg_stat_bgwriter.buffers_alloc': 256,
-                         'pg_stat_archiver.last_failed_time': "2018-01-10 11:24:30"},
-                        'database':
-                        {'pg_stat_database.tup_fetched': 156,
-                         'pg_stat_database.datid': 1,
-                         'pg_stat_database.datname': "testOttertune",
-                         'pg_stat_database.stats_reset': "2018-01-09 13:00:00"},
-                        'table':
-                        {'pg_stat_user_tables.last_vacuum': "2018-01-09 12:00:00",
-                         'pg_stat_user_tables.relid': 20,
-                         'pg_stat_user_tables.relname': "Managers",
-                         'pg_stat_user_tables.n_tup_upd': 123},
-                        'index':
-                        {'pg_stat_user_indexes.idx_scan': 23,
-                         'pg_stat_user_indexes.relname': "Customers",
-                         'pg_stat_user_indexes.relid': 2}}
+    def test_get_nondefault_knob_settings(self):
+        self.assertEqual(self.test_dbms.get_nondefault_knob_settings({}), {})
 
-        # Doesn't support table or index scope
-        with self.assertRaises(Exception):
-            test_parse_dict, test_parse_log = test_dbms.parse_dbms_metrics(test_metrics)
+    def test_format_bool(self):
+        mock_other_knob = mock.Mock(spec=KnobCatalog)
+        mock_other_knob.unit = KnobUnitType.OTHER
 
-            self.assertEqual(len(test_parse_dict.keys()), len(test_dbms.metric_catalog_.keys()))
-            self.assertEqual(len(test_parse_log), len(test_dbms.metric_catalog_.keys()) - 14)
+        self.assertEqual(self.test_dbms.format_bool(BooleanType.TRUE, mock_other_knob), 'on')
+        self.assertEqual(self.test_dbms.format_bool(BooleanType.FALSE, mock_other_knob), 'off')
 
-    def test_calculate_change_in_metrics_old(self):
-        test_dbms = Postgres96Parser()
-        self.assertEqual(test_dbms.calculate_change_in_metrics({}, {}), {})
+    def test_format_enum(self):
+        mock_enum_knob = mock.Mock(spec=KnobCatalog)
+        mock_enum_knob.enumvals = 'apple,oranges,cake'
 
-        test_metric_start = {'pg_stat_bgwriter.buffers_alloc': 256,
-                             'pg_stat_archiver.last_failed_wal': "today",
-                             'pg_stat_archiver.last_failed_time': "2018-01-10 11:24:30",
-                             'pg_stat_user_tables.n_tup_upd': 123,
-                             'pg_stat_user_tables.relname': "Customers",
-                             'pg_stat_user_tables.relid': 2,
-                             'pg_stat_user_tables.last_vacuum': "2018-01-09 12:00:00",
-                             'pg_stat_database.tup_fetched': 156,
-                             'pg_stat_database.datname': "testOttertune",
-                             'pg_stat_database.datid': 1,
-                             'pg_stat_database.stats_reset': "2018-01-09 13:00:00",
-                             'pg_stat_user_indexes.idx_scan': 23,
-                             'pg_stat_user_indexes.relname': "Managers",
-                             'pg_stat_user_indexes.relid': 20}
+        self.assertEqual(self.test_dbms.format_enum(0, mock_enum_knob), "apple")
+        self.assertEqual(self.test_dbms.format_enum(1, mock_enum_knob), "oranges")
+        self.assertEqual(self.test_dbms.format_enum(2, mock_enum_knob), "cake")
 
-        test_metric_end = {'pg_stat_bgwriter.buffers_alloc': 300,
-                           'pg_stat_archiver.last_failed_wal': "today",
-                           'pg_stat_archiver.last_failed_time': "2018-01-11 11:24:30",
-                           'pg_stat_user_tables.n_tup_upd': 150,
-                           'pg_stat_user_tables.relname': "Customers",
-                           'pg_stat_user_tables.relid': 2,
-                           'pg_stat_user_tables.last_vacuum': "2018-01-10 12:00:00",
-                           'pg_stat_database.tup_fetched': 260,
-                           'pg_stat_database.datname': "testOttertune",
-                           'pg_stat_database.datid': 1,
-                           'pg_stat_database.stats_reset': "2018-01-10 13:00:00",
-                           'pg_stat_user_indexes.idx_scan': 23,
-                           'pg_stat_user_indexes.relname': "Managers",
-                           'pg_stat_user_indexes.relid': 20}
+    def test_format_integer(self):
+        mock_other_knob = mock.Mock(spec=KnobCatalog)
+        mock_other_knob.unit = KnobUnitType.OTHER
 
-        test_adj_metrics = test_dbms.calculate_change_in_metrics(test_metric_start, test_metric_end)
+        test_int = [42, -1, 0, 0.5, 1, 42.0, 42.5, 42.7]
+        test_int_ans = [42, -1, 0, 1, 1, 42, 43, 43]
 
-        self.assertEqual(test_adj_metrics['pg_stat_bgwriter.buffers_alloc'], 44)
-        self.assertEqual(test_adj_metrics['pg_stat_archiver.last_failed_wal'], "today")
-        self.assertEqual(
-            test_adj_metrics['pg_stat_archiver.last_failed_time'], "2018-01-11 11:24:30")
-        self.assertEqual(test_adj_metrics['pg_stat_user_tables.n_tup_upd'], 27)
-        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relname'], "Customers")
-        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relid'], 0)
-        self.assertEqual(test_adj_metrics['pg_stat_user_tables.last_vacuum'], "2018-01-10 12:00:00")
-        self.assertEqual(test_adj_metrics['pg_stat_database.tup_fetched'], 104)
-        self.assertEqual(test_adj_metrics['pg_stat_database.datname'], "testOttertune")
-        self.assertEqual(test_adj_metrics['pg_stat_database.datid'], 0)
-        self.assertEqual(test_adj_metrics['pg_stat_database.stats_reset'], "2018-01-10 13:00:00")
-        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.idx_scan'], 0)
-        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
+        for test_int, actual_test_int in zip(test_int, test_int_ans):
+            self.assertEqual(
+                self.test_dbms.format_integer(test_int, mock_other_knob), actual_test_int)
 
-    def test_create_config(self):
-        import os
-        from website.settings import CONFIG_DIR
-        test_dbms = Postgres96Parser()
+    def test_format_real(self):
+        mock_other_knob = mock.Mock(spec=KnobCatalog)
+        mock_other_knob.unit = KnobUnitType.OTHER
 
-        tuning_knobs = {}
-        custom_knobs = {}
+        test_real = [42, -1, 0, 0.5, 1, 42.0, 42.5, 42.7]
+        test_real_ans = [42.0, -1.0, 0.0, 0.5, 1.0, 42.0, 42.5, 42.7]
 
-        categories = set()
-        for (k, v) in test_dbms.knob_catalog_.iteritems():
-            if (v.category not in categories):
-                categories.add(v.category)
-                tuning_knobs.update({k: v.default})
+        for test_real, actual_test_real in zip(test_real, test_real_ans):
+            self.assertEqual(
+                self.test_dbms.format_real(test_real, mock_other_knob), actual_test_real)
 
-        config_res = test_dbms.create_knob_configuration(tuning_knobs, custom_knobs)
-        config_path = os.path.join(CONFIG_DIR, test_dbms.knob_configuration_filename)
-        with open(config_path, 'r') as f:
-            config_header = f.read()
+    def test_format_string(self):
+        pass
 
-        self.assertTrue(config_header in config_res)
+    def test_format_timestamp(self):
+        pass
 
-        for k in tuning_knobs:
-            line = k[len('global.'):] + ' = \'' + str(tuning_knobs[k]) + '\''
-            self.assertTrue(line in config_res)
+    def test_format_dbms_knobs(self):
+        self.assertEqual(self.test_dbms.format_dbms_knobs({}), {})
+
+        test_exceptions = {'global.FAKE_KNOB': "20"}
 
         with self.assertRaises(Exception):
-            test_dbms.create_knob_configuration(tuning_knobs, {"FAKE_KNOB": 1})
+            self.test_dbms.format_dbms_knobs(test_exceptions)
 
-    def test_get_nondefault_settings(self):
-        test_dbms = Postgres96Parser()
+    def test_filter_numeric_metrics(self):
+        pass
 
-        self.assertEqual(test_dbms.get_nondefault_knob_settings({}), {})
-
-        test_nondefault = {'global.archive_command': "nonempty",  # ''
-                           'global.geqo_effort': "5",  # Default 5
-                           'global.enable_hashjoin': "off",  # Default On
-                           'global.cpu_tuple_cost': "0.01",  # Default 0.01
-                           'global.force_parallel_mode': "off",
-                           'global.wal_sync_method': "fsync",  # fdatasync
-                           'global.random_page_cost': "5.0",  # Default 4.0
-                           'global.wal_buffers': "-1"}  # Default -1
-
-        test_result = test_dbms.get_nondefault_knob_settings(test_nondefault)
-
-        self.assertEqual(len(test_result.keys()), 2)
-        self.assertEqual(test_result.get('global.archive_command'), 'nonempty')
-        self.assertEqual(test_result.get('global.enable_hashjoin'), 'off')
-        self.assertEqual(test_result.get('global.wal_sync_method'), None)
-        self.assertEqual(test_result.get('global.wal_buffers'), None)
-
-    def test_formats(self):
-        test_dbms = PostgresParser(2)
-
-        knob_unit_bytes = KnobUnitType()
-        knob_unit_bytes.unit = 1
-        knob_unit_time = KnobUnitType()
-        knob_unit_time.unit = 2
-        knob_unit_other = KnobUnitType()
-        knob_unit_other.unit = 3
-
-        # Format Bool
-        self.assertEqual(test_dbms.format_bool(BooleanType.TRUE, knob_unit_other), 'on')
-        self.assertEqual(test_dbms.format_bool(BooleanType.FALSE, knob_unit_other), 'off')
-
-        # Format Enum
-        enum_param = VarType()
-        enum_param.enumvals = 'apple,oranges,cake'
-
-        self.assertEqual(test_dbms.format_enum(0, enum_param), "apple")
-        self.assertEqual(test_dbms.format_enum(1, enum_param), "oranges")
-        self.assertEqual(test_dbms.format_enum(2, enum_param), "cake")
-
-        # Format Integer
-        # test_int = [42, -1, 0, 0.5, 1, 42.0, 42.5, 42.7]
-        # test_int_ans = [42, -1, 0, 1, 1, 42, 43, 43]
-        #
-        # for i, val in enumerate(test_int):
-        #     self.assertEqual(
-        #         super(BaseParser, self)
-        #         .format_integer(val, knob_unit_other), test_int_ans[i])
-
-        # Format Real
-        # test_real = [42, -1, 0, 0.5, 1, 42.0, 42.5, 42.7]
-        # test_real_ans = [42.0, -1.0, 0.0, 0.5, 1.0, 42.0, 42.5, 42.7]
-        #
-        # for i, val in enumerate(test_real):
-        #     self.assertEqual(
-        #         super(PostgresParser, test_dbms)
-        #         .format_real(val, knob_unit_other), test_real_ans[i])
-
-    def test_format_knobs(self):
-        # Format DBMS Params
-        test_dbms = Postgres96Parser()
-        self.assertEqual(test_dbms.format_dbms_knobs({}), {})
-
-        test_knobs = {'global.wal_sync_method': 2,  # Enum
-                      'global.random_page_cost': 0.22,  # Real
-                      'global.archive_command': "archive",  # String
-                      'global.cpu_tuple_cost': 0.55,  # Real
-                      'global.force_parallel_mode': 2,  # Enum
-                      'global.enable_hashjoin': BooleanType.TRUE,  # Bool
-                      'global.geqo_effort': 5,  # Int
-                      'global.wal_buffers': 1024}  # Int
-
-        # FIXME: (jackyl) Add tests for string types and timestamps
-        test_formatted_knobs = test_dbms.format_dbms_knobs(test_knobs)
-
-        self.assertEqual(test_formatted_knobs.get('global.wal_sync_method'), 'open_sync')
-        self.assertEqual(test_formatted_knobs.get('global.random_page_cost'), 0.22)
-        self.assertEqual(test_formatted_knobs.get('global.archive_command'), "archive")
-        self.assertEqual(test_formatted_knobs.get('global.cpu_tuple_cost'), 0.55)
-        self.assertEqual(test_formatted_knobs.get('global.force_parallel_mode'), 'regress')
-        self.assertEqual(test_formatted_knobs.get('global.enable_hashjoin'), 'on')
-        self.assertEqual(test_formatted_knobs.get('global.geqo_effort'), 5)
-        self.assertEqual(test_formatted_knobs.get('global.wal_buffers'), '1kB')
-
-        test_exceptions = {}
-        test_exceptions.update(test_knobs)
-        test_exceptions.update({'global.FAKE_KNOB': "20"})
-
-        with self.assertRaises(Exception):
-            test_dbms.format_dbms_knobs(test_exceptions)
-
-    def test_filters(self):
-        test_dbms = Postgres96Parser()
-
-        # Filter Numeric Metrics
-        test_metrics = {'pg_stat_bgwriter.checkpoints_req': (2L, 'global'),
-                        'pg_stat_archiver.last_failed_wal': (1L, 'global'),
-                        'pg_stat_database.stats_reset': (6L, 'database'),
-                        'pg_statio_user_indexes.indexrelname': (1L, 'index'),
-                        'pg_stat_bgwriter.maxwritten_clean': (2L, 'global'),
-                        'pg_stat_database.tup_fetched': (2L, 'database'),
-                        'pg_statio_user_tables.heap_blks_read': (2L, 'table'),
-                        'pg_FAKE_METRIC': (2L, 'database')}
-
-        filtered_metrics = test_dbms.filter_numeric_metrics(test_metrics)
-
-        self.assertEqual(len(filtered_metrics.keys()), 4)
-        self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.checkpoints_req'),
-                         (2L, 'global'))
-        self.assertEqual(filtered_metrics.get('pg_stat_archiver.last_failed_wal'), None)
-        self.assertEqual(filtered_metrics.get('pg_stat_database.stats_reset'), None)
-        self.assertEqual(filtered_metrics.get('pg_statio_user_indexes.indexrelname'),
-                         None)
-        self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.maxwritten_clean'),
-                         (2L, 'global'))
-        self.assertEqual(filtered_metrics.get('pg_stat_database.tup_fetched'),
-                         (2L, 'database'))
-        self.assertEqual(filtered_metrics.get('pg_statio_user_tables.heap_blks_read'),
-                         (2L, 'table'))
-        self.assertEqual(filtered_metrics.get('pg_FAKE_KNOB'), None)
-
-        # Filter Tunable Knobs
-        test_knobs = {'global.wal_sync_method': 5,
-                      'global.random_page_cost': 3,
-                      'global.archive_command': 1,
-                      'global.cpu_tuple_cost': 3,
-                      'global.force_parallel_mode': 5,
-                      'global.enable_hashjoin': 3,
-                      'global.geqo_effort': 2,
-                      'global.wal_buffers': 2,
-                      'global.FAKE_KNOB': 2}
-
-        filtered_knobs = test_dbms.filter_tunable_knobs(test_knobs)
-
-        self.assertEqual(len(filtered_knobs.keys()), 3)
-        self.assertEqual(filtered_knobs.get('global.wal_sync_method'), 5)
-        self.assertEqual(filtered_knobs.get('global.wal_buffers'), 2)
-        self.assertEqual(filtered_knobs.get('global.random_page_cost'), 3)
-        self.assertEqual(filtered_knobs.get('global.cpu_tuple_cost'), None)
-        self.assertEqual(filtered_knobs.get('global.FAKE_KNOB'), None)
+    def test_filter_tunable_knobs(self):
+        pass
 
 
 class Postgres96ParserTests(BaseParserTests, TestCase):
 
     def setUp(self):
         self.test_dbms = Postgres96Parser()
+
+    def test_convert_dbms_knobs(self):
+        super(Postgres96ParserTests, self).test_convert_dbms_knobs()
+
+        test_knobs = {'global.wal_sync_method': 'open_sync',  # Enum
+                      'global.random_page_cost': 0.22,  # Real
+                      'global.archive_command': 'archive',  # String
+                      'global.cpu_tuple_cost': 0.55,  # Real
+                      'global.force_parallel_mode': 'regress',  # Enum
+                      'global.enable_hashjoin': 'on',  # Bool
+                      'global.geqo_effort': 5,  # Int
+                      'global.wal_buffers': 1024,  # Int
+                      'global.FAKE_KNOB': 20}
+
+        test_convert_knobs = self.test_dbms.convert_dbms_knobs(test_knobs)
+        self.assertEqual(len(test_convert_knobs.keys()), 3)
+        self.assertEqual(test_convert_knobs['global.random_page_cost'], 0.22)
+
+        # TODO: (jackyl) Fix enum when 1-hot encoding implemented
+        self.assertEqual(test_convert_knobs['global.wal_sync_method'], 2)
+        self.assertEqual(test_convert_knobs['global.wal_buffers'], 1024)
+
+        test_except_knobs = {'global.wal_sync_method': '3'}
+        with self.assertRaises(Exception):
+            self.test_dbms.convert_dbms_knobs(test_except_knobs)
+
+        test_nontune_knobs = {'global.enable_hashjoin': 'on'}
+        self.assertEqual(self.test_dbms.convert_dbms_knobs(test_nontune_knobs), {})
+
+    def test_convert_dbms_metrics(self):
+        super(Postgres96ParserTests, self).test_convert_dbms_metrics()
+
+        test_metrics = {}
+
+        for key in self.test_dbms.numeric_metric_catalog_.keys():
+            test_metrics[key] = 2
+        test_metrics['pg_stat_database.xact_commit'] = 10
+        test_metrics['pg_FAKE_METRIC'] = 0
+
+        self.assertEqual(test_metrics.get('throughput_txn_per_sec'), None)
+
+        test_convert_metrics = self.test_dbms.convert_dbms_metrics(test_metrics, 0.1)
+        for key in self.test_dbms.numeric_metric_catalog_.keys():
+            if (key == self.test_dbms.transactions_counter):
+                self.assertEqual(test_convert_metrics[key], 10 / 0.1)
+                continue
+            self.assertEqual(test_convert_metrics[key], 2 / 0.1)
+
+        self.assertEqual(test_convert_metrics['throughput_txn_per_sec'], 100)
+        self.assertEqual(test_convert_metrics.get('pg_FAKE_METRIC'), None)
 
     def test_properties(self):
         base_config = self.test_dbms.base_configuration_settings
@@ -598,6 +292,57 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         with self.assertRaises(Exception):
             self.test_dbms.parse_version_string("1.0")
 
+    def test_extract_valid_variables(self):
+        num_tunable_knobs = len(self.test_dbms.tunable_knob_catalog_.keys())
+
+        test_empty, test_empty_diff = self.test_dbms.extract_valid_variables(
+            {}, self.test_dbms.tunable_knob_catalog_)
+        self.assertEqual(len(test_empty.keys()), num_tunable_knobs)
+        self.assertEqual(len(test_empty_diff), num_tunable_knobs)
+
+        test_vars = {'global.wal_sync_method': 'fsync',
+                     'global.random_page_cost': 0.22,
+                     'global.Wal_buffers': 1024,
+                     'global.archive_command': 'archive',
+                     'global.GEQO_EFFORT': 5,
+                     'global.enable_hashjoin': 'on',
+                     'global.cpu_tuple_cost': 0.55,
+                     'global.force_parallel_mode': 'regress',
+                     'global.FAKE_KNOB': 'fake'}
+
+        tune_extract, tune_diff = self.test_dbms.extract_valid_variables(
+            test_vars, self.test_dbms.tunable_knob_catalog_)
+
+        self.assertTrue(('miscapitalized', 'global.wal_buffers',
+                         'global.Wal_buffers', 1024) in tune_diff)
+        self.assertTrue(('extra', None, 'global.GEQO_EFFORT', 5) in tune_diff)
+        self.assertTrue(('extra', None, 'global.enable_hashjoin', 'on') in tune_diff)
+        self.assertTrue(('missing', 'global.deadlock_timeout', None, None) in tune_diff)
+        self.assertTrue(('missing', 'global.temp_buffers', None, None) in tune_diff)
+        self.assertTrue(tune_extract.get('global.temp_buffers') is not None)
+        self.assertTrue(tune_extract.get('global.deadlock_timeout') is not None)
+
+        self.assertEqual(tune_extract.get('global.wal_buffers'), 1024)
+        self.assertEqual(tune_extract.get('global.Wal_buffers'), None)
+
+        self.assertEqual(len(tune_extract), len(self.test_dbms.tunable_knob_catalog_))
+
+        nontune_extract, nontune_diff = self.test_dbms.extract_valid_variables(
+            test_vars, self.test_dbms.knob_catalog_)
+
+        self.assertTrue(('miscapitalized', 'global.wal_buffers',
+                         'global.Wal_buffers', 1024) in nontune_diff)
+        self.assertTrue(('miscapitalized', 'global.geqo_effort',
+                         'global.GEQO_EFFORT', 5) in nontune_diff)
+        self.assertTrue(('extra', None, 'global.FAKE_KNOB', 'fake') in nontune_diff)
+        self.assertTrue(('missing', 'global.lc_ctype', None, None) in nontune_diff)
+        self.assertTrue(('missing', 'global.full_page_writes', None, None) in nontune_diff)
+
+        self.assertEqual(nontune_extract.get('global.wal_buffers'), 1024)
+        self.assertEqual(nontune_extract.get('global.geqo_effort'), 5)
+        self.assertEqual(nontune_extract.get('global.Wal_buffers'), None)
+        self.assertEqual(nontune_extract.get('global.GEQO_EFFORT'), None)
+
     def test_convert_integer(self):
         super(Postgres96ParserTests, self).test_convert_integer()
 
@@ -628,15 +373,92 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
 
         test_exceptions = [('A', knob_unit_other),
                            ('', knob_unit_other),
-                           ('-20', knob_unit_other),
-                           ('-1s', knob_unit_time),
+                           ('', knob_unit_bytes),
+                           ('', knob_unit_time),
                            ('1S', knob_unit_time),
-                           ('-1MB', knob_unit_bytes),
                            ('1mb', knob_unit_bytes)]
 
         for failure_case, knob_unit in test_exceptions:
             with self.assertRaises(Exception):
                 self.test_dbms.convert_integer(failure_case, knob_unit)
+
+    def test_calculate_change_in_metrics(self):
+        super(Postgres96ParserTests, self).test_calculate_change_in_metrics()
+
+        test_metric_start = {'pg_stat_bgwriter.buffers_alloc': 256,
+                             'pg_stat_archiver.last_failed_wal': "today",
+                             'pg_stat_archiver.last_failed_time': "2018-01-10 11:24:30",
+                             'pg_stat_user_tables.n_tup_upd': 123,
+                             'pg_stat_user_tables.relname': "Customers",
+                             'pg_stat_user_tables.relid': 2,
+                             'pg_stat_user_tables.last_vacuum': "2018-01-09 12:00:00",
+                             'pg_stat_database.tup_fetched': 156,
+                             'pg_stat_database.datname': "testOttertune",
+                             'pg_stat_database.datid': 1,
+                             'pg_stat_database.stats_reset': "2018-01-09 13:00:00",
+                             'pg_stat_user_indexes.idx_scan': 23,
+                             'pg_stat_user_indexes.relname': "Managers",
+                             'pg_stat_user_indexes.relid': 20}
+
+        test_metric_end = {'pg_stat_bgwriter.buffers_alloc': 300,
+                           'pg_stat_archiver.last_failed_wal': "today",
+                           'pg_stat_archiver.last_failed_time': "2018-01-11 11:24:30",
+                           'pg_stat_user_tables.n_tup_upd': 150,
+                           'pg_stat_user_tables.relname': "Customers",
+                           'pg_stat_user_tables.relid': 2,
+                           'pg_stat_user_tables.last_vacuum': "2018-01-10 12:00:00",
+                           'pg_stat_database.tup_fetched': 260,
+                           'pg_stat_database.datname': "testOttertune",
+                           'pg_stat_database.datid': 1,
+                           'pg_stat_database.stats_reset': "2018-01-10 13:00:00",
+                           'pg_stat_user_indexes.idx_scan': 23,
+                           'pg_stat_user_indexes.relname': "Managers",
+                           'pg_stat_user_indexes.relid': 20}
+
+        test_adj_metrics = self.test_dbms.calculate_change_in_metrics(
+            test_metric_start, test_metric_end)
+
+        self.assertEqual(test_adj_metrics['pg_stat_bgwriter.buffers_alloc'], 44)
+        self.assertEqual(test_adj_metrics['pg_stat_archiver.last_failed_wal'], "today")
+        self.assertEqual(
+            test_adj_metrics['pg_stat_archiver.last_failed_time'], "2018-01-11 11:24:30")
+        self.assertEqual(test_adj_metrics['pg_stat_user_tables.n_tup_upd'], 27)
+        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relname'], "Customers")
+        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relid'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_user_tables.last_vacuum'], "2018-01-10 12:00:00")
+        self.assertEqual(test_adj_metrics['pg_stat_database.tup_fetched'], 104)
+        self.assertEqual(test_adj_metrics['pg_stat_database.datname'], "testOttertune")
+        self.assertEqual(test_adj_metrics['pg_stat_database.datid'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_database.stats_reset'], "2018-01-10 13:00:00")
+        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.idx_scan'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
+
+    def test_create_knob_configuration(self):
+        import os
+        from website.settings import CONFIG_DIR
+
+        tuning_knobs = {}
+        custom_knobs = {}
+
+        categories = set()
+        for (k, v) in self.test_dbms.knob_catalog_.iteritems():
+            if (v.category not in categories):
+                categories.add(v.category)
+                tuning_knobs.update({k: v.default})
+
+        config_res = self.test_dbms.create_knob_configuration(tuning_knobs, custom_knobs)
+        config_path = os.path.join(CONFIG_DIR, self.test_dbms.knob_configuration_filename)
+        with open(config_path, 'r') as f:
+            config_header = f.read()
+
+        self.assertTrue(config_header in config_res)
+
+        for k in tuning_knobs:
+            line = k[len('global.'):] + ' = \'' + str(tuning_knobs[k]) + '\''
+            self.assertTrue(line in config_res)
+
+        with self.assertRaises(Exception):
+            self.test_dbms.create_knob_configuration(tuning_knobs, {"FAKE_KNOB": 1})
 
     def test_format_integer(self):
         test_dbms = PostgresParser(2)
@@ -661,3 +483,140 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_dbms.format_integer(600000, knob_unit_time), '10min')
         self.assertEqual(test_dbms.format_integer(1000, knob_unit_time), '1s')
         self.assertEqual(test_dbms.format_integer(500, knob_unit_time), '500ms')
+
+    def test_format_dbms_knobs(self):
+        super(Postgres96ParserTests, self).test_format_dbms_knobs()
+
+        test_knobs = {'global.wal_sync_method': 2,  # Enum
+                      'global.random_page_cost': 0.22,  # Real
+                      'global.archive_command': "archive",  # String
+                      'global.cpu_tuple_cost': 0.55,  # Real
+                      'global.force_parallel_mode': 2,  # Enum
+                      'global.enable_hashjoin': BooleanType.TRUE,  # Bool
+                      'global.geqo_effort': 5,  # Int
+                      'global.wal_buffers': 1024}  # Int
+
+        test_formatted_knobs = self.test_dbms.format_dbms_knobs(test_knobs)
+
+        self.assertEqual(test_formatted_knobs.get('global.wal_sync_method'), 'open_sync')
+        self.assertEqual(test_formatted_knobs.get('global.random_page_cost'), 0.22)
+        self.assertEqual(test_formatted_knobs.get('global.archive_command'), "archive")
+        self.assertEqual(test_formatted_knobs.get('global.cpu_tuple_cost'), 0.55)
+        self.assertEqual(test_formatted_knobs.get('global.force_parallel_mode'), 'regress')
+        self.assertEqual(test_formatted_knobs.get('global.enable_hashjoin'), 'on')
+        self.assertEqual(test_formatted_knobs.get('global.geqo_effort'), 5)
+        self.assertEqual(test_formatted_knobs.get('global.wal_buffers'), '1kB')
+
+    def test_filter_numeric_metrics(self):
+        super(Postgres96ParserTests, self).test_filter_numeric_metrics()
+
+        test_metrics = {'pg_stat_bgwriter.checkpoints_req': (2L, 'global'),
+                        'pg_stat_archiver.last_failed_wal': (1L, 'global'),
+                        'pg_stat_database.stats_reset': (6L, 'database'),
+                        'pg_statio_user_indexes.indexrelname': (1L, 'index'),
+                        'pg_stat_bgwriter.maxwritten_clean': (2L, 'global'),
+                        'pg_stat_database.tup_fetched': (2L, 'database'),
+                        'pg_statio_user_tables.heap_blks_read': (2L, 'table'),
+                        'pg_FAKE_METRIC': (2L, 'database')}
+
+        filtered_metrics = self.test_dbms.filter_numeric_metrics(test_metrics)
+
+        self.assertEqual(len(filtered_metrics.keys()), 4)
+        self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.checkpoints_req'),
+                         (2L, 'global'))
+        self.assertEqual(filtered_metrics.get('pg_stat_archiver.last_failed_wal'), None)
+        self.assertEqual(filtered_metrics.get('pg_stat_database.stats_reset'), None)
+        self.assertEqual(filtered_metrics.get('pg_statio_user_indexes.indexrelname'),
+                         None)
+        self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.maxwritten_clean'),
+                         (2L, 'global'))
+        self.assertEqual(filtered_metrics.get('pg_stat_database.tup_fetched'),
+                         (2L, 'database'))
+        self.assertEqual(filtered_metrics.get('pg_statio_user_tables.heap_blks_read'),
+                         (2L, 'table'))
+        self.assertEqual(filtered_metrics.get('pg_FAKE_KNOB'), None)
+
+    def test_filter_tunable_knobs(self):
+        super(Postgres96ParserTests, self).test_filter_tunable_knobs()
+
+        test_knobs = {'global.wal_sync_method': 5,
+                      'global.random_page_cost': 3,
+                      'global.archive_command': 1,
+                      'global.cpu_tuple_cost': 3,
+                      'global.force_parallel_mode': 5,
+                      'global.enable_hashjoin': 3,
+                      'global.geqo_effort': 2,
+                      'global.wal_buffers': 2,
+                      'global.FAKE_KNOB': 2}
+
+        filtered_knobs = self.test_dbms.filter_tunable_knobs(test_knobs)
+
+        self.assertEqual(len(filtered_knobs.keys()), 3)
+        self.assertEqual(filtered_knobs.get('global.wal_sync_method'), 5)
+        self.assertEqual(filtered_knobs.get('global.wal_buffers'), 2)
+        self.assertEqual(filtered_knobs.get('global.random_page_cost'), 3)
+        self.assertEqual(filtered_knobs.get('global.cpu_tuple_cost'), None)
+        self.assertEqual(filtered_knobs.get('global.FAKE_KNOB'), None)
+
+    def test_parse_helper(self):
+        super(Postgres96ParserTests, self).test_parse_helper()
+
+        test_view_vars = {'global': {'wal_sync_method': 'open_sync',
+                                     'random_page_cost': 0.22},
+                          'local': {'FAKE_KNOB': 'FAKE'}}
+        test_scope = 'global'
+        test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
+
+        self.assertEqual(len(test_parse.keys()), 3)
+        self.assertEqual(test_parse.get('global.wal_sync_method'), ['open_sync'])
+        self.assertEqual(test_parse.get('global.random_page_cost'), [0.22])
+        self.assertEqual(test_parse.get('local.FAKE_KNOB'), ['FAKE'])
+
+    def test_parse_dbms_knobs(self):
+        test_knobs = {'global': {'global':
+                                 {'wal_sync_method': 'fsync',
+                                  'random_page_cost': 0.22,
+                                  'wal_buffers': 1024,
+                                  'archive_command': 'archive',
+                                  'geqo_effort': 5,
+                                  'enable_hashjoin': 'on',
+                                  'cpu_tuple_cost': 0.55,
+                                  'force_parallel_mode': 'regress',
+                                  'FAKE_KNOB': 'fake'}}}
+
+        (test_parse_dict, test_parse_log) = self.test_dbms.parse_dbms_knobs(test_knobs)
+
+        self.assertEqual(len(test_parse_log), len(self.test_dbms.knob_catalog_.keys()) - 7)
+        self.assertTrue(('extra', None, 'global.FAKE_KNOB', 'fake') in test_parse_log)
+
+        self.assertEqual(len(test_parse_dict.keys()), len(self.test_dbms.knob_catalog_.keys()))
+        self.assertEqual(test_parse_dict['global.wal_sync_method'], 'fsync')
+        self.assertEqual(test_parse_dict['global.random_page_cost'], 0.22)
+
+    def test_parse_dbms_metrics(self):
+        test_metrics = {'global':
+                        {'pg_stat_archiver.last_failed_wal': "today",
+                         'pg_stat_bgwriter.buffers_alloc': 256,
+                         'pg_stat_archiver.last_failed_time': "2018-01-10 11:24:30"},
+                        'database':
+                        {'pg_stat_database.tup_fetched': 156,
+                         'pg_stat_database.datid': 1,
+                         'pg_stat_database.datname': "testOttertune",
+                         'pg_stat_database.stats_reset': "2018-01-09 13:00:00"},
+                        'table':
+                        {'pg_stat_user_tables.last_vacuum': "2018-01-09 12:00:00",
+                         'pg_stat_user_tables.relid': 20,
+                         'pg_stat_user_tables.relname': "Managers",
+                         'pg_stat_user_tables.n_tup_upd': 123},
+                        'index':
+                        {'pg_stat_user_indexes.idx_scan': 23,
+                         'pg_stat_user_indexes.relname': "Customers",
+                         'pg_stat_user_indexes.relid': 2}}
+
+        # Doesn't support table or index scope
+        with self.assertRaises(Exception):
+            test_parse_dict, test_parse_log = self.test_dbms.parse_dbms_metrics(test_metrics)
+            self.assertEqual(len(test_parse_dict.keys()),
+                             len(self.test_dbms.metric_catalog_.keys()))
+            self.assertEqual(len(test_parse_log),
+                             len(self.test_dbms.metric_catalog_.keys()) - 14)
