@@ -19,9 +19,19 @@ class BaseParserTests(object):
     def setUp(self):
         self.test_dbms = None
 
-    # TODO: Implement when PR #62 is merged
     def test_convert_bool(self):
-        pass
+        mock_bool_knob = mock.Mock(spec=KnobCatalog)
+
+        for bool_val in self.test_dbms.valid_true_val:
+            self.assertEqual(BooleanType.TRUE,
+                             self.test_dbms.convert_bool(bool_val, mock_bool_knob))
+
+        for bool_val in self.test_dbms.valid_false_val:
+            self.assertEqual(BooleanType.FALSE,
+                             self.test_dbms.convert_bool(bool_val, mock_bool_knob))
+
+        with self.assertRaises(Exception):
+            self.test_dbms.convert_bool('ThisShouldNeverBeABool', mock_bool_knob)
 
     # TODO: Review when 1-hot encoding is implemented
     def test_convert_enum(self):
