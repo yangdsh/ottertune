@@ -5,6 +5,7 @@
 #
 
 import string
+import numpy as np
 from django.test import TestCase
 from website.utils import JSONUtil, MediaUtil, DataUtil, ConversionUtil, LabelUtil, TaskUtil
 from website.parser.postgres import PostgresParser
@@ -162,7 +163,6 @@ class DataUtilTest(TestCase):
         self.assertEqual(test_result['y_matrix'].shape[1], num_metrics)
 
     def test_combine(self):
-        import numpy as np
         test_dedup_row_labels = np.array(["Workload-0", "Workload-1"])
         test_dedup_x = np.matrix([[0.22, 5, "string", "11:11", "fsync", True],
                                   [0.21, 6, "string", "11:12", "fsync", True]])
@@ -223,14 +223,12 @@ class DataUtilTest(TestCase):
 
 class ConversionUtilTest(TestCase):
     def test_get_raw_size(self):
-        test_impl = PostgresParser(2)
-
         # Bytes - In Bytes
         byte_test_convert = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
         byte_ans = [1024**5, 2 * 1024**4, 3 * 1024**3, 4 * 1024**2, 5 * 1024**1, 6]
         for i, byte_test in enumerate(byte_test_convert):
             byte_conversion = ConversionUtil.get_raw_size(
-                byte_test, system=test_impl.POSTGRES_BYTES_SYSTEM)
+                byte_test, system=PostgresParser.POSTGRES_BYTES_SYSTEM)
             self.assertEqual(byte_conversion, byte_ans[i])
 
         # Time - In Milliseconds
@@ -238,19 +236,17 @@ class ConversionUtilTest(TestCase):
         day_ans = [1000, 1000, 600000, 72000000, 86400000]
         for i, day_test in enumerate(day_test_convert):
             day_conversion = ConversionUtil.get_raw_size(
-                day_test, system=test_impl.POSTGRES_TIME_SYSTEM)
+                day_test, system=PostgresParser.POSTGRES_TIME_SYSTEM)
             self.assertEqual(day_conversion, day_ans[i])
 
     def test_get_human_readable(self):
-        test_impl = PostgresParser(2)
-
         # Bytes
         byte_test_convert = [1024**5, 2 * 1024**4, 3 * 1024**3,
                              4 * 1024**2, 5 * 1024**1, 6]
         byte_ans = ['1PB', '2TB', '3GB', '4MB', '5kB', '6B']
         for i, byte_test in enumerate(byte_test_convert):
             byte_readable = ConversionUtil.get_human_readable(
-                byte_test, system=test_impl.POSTGRES_BYTES_SYSTEM)
+                byte_test, system=PostgresParser.POSTGRES_BYTES_SYSTEM)
             self.assertEqual(byte_readable, byte_ans[i])
 
         # Time
@@ -258,7 +254,7 @@ class ConversionUtilTest(TestCase):
         day_ans = ['500ms', '1s', '55s', '10min', '20h', '1d']
         for i, day_test in enumerate(day_test_convert):
             day_readable = ConversionUtil.get_human_readable(
-                day_test, system=test_impl.POSTGRES_TIME_SYSTEM)
+                day_test, system=PostgresParser.POSTGRES_TIME_SYSTEM)
             self.assertEqual(day_readable, day_ans[i])
 
 

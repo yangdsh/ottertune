@@ -33,7 +33,6 @@ class BaseParserTests(object):
         with self.assertRaises(Exception):
             self.test_dbms.convert_bool('ThisShouldNeverBeABool', mock_bool_knob)
 
-    # TODO: Review when 1-hot encoding is implemented
     def test_convert_enum(self):
         mock_enum_knob = mock.Mock(spec=KnobCatalog)
         mock_enum_knob.vartype = VarType.ENUM
@@ -244,7 +243,6 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(len(test_convert_knobs.keys()), 3)
         self.assertEqual(test_convert_knobs['global.random_page_cost'], 0.22)
 
-        # TODO: (jackyl) Fix enum when 1-hot encoding implemented
         self.assertEqual(test_convert_knobs['global.wal_sync_method'], 2)
         self.assertEqual(test_convert_knobs['global.wal_buffers'], 1024)
 
