@@ -1,76 +1,95 @@
+/*
+ * OtterTune - ControllerConfiguration.java
+ *
+ * Copyright (c) 2017-18, Carnegie Mellon University Database Group
+ */
+
 package com.controller;
 
-/**
- * Controller Configuration.
- */
+/** Controller Configuration. */
 public class ControllerConfiguration {
-    private DatabaseType dbtype;
-    private String username;
-    private String password;
-    private String databaseUrl;
-    private String uploadCode;
-    private String uploadURL;
-    private String workloadName;
+  private DatabaseType dbType;
+  private String dbUsername;
+  private String dbPassword;
+  private String dbDriver;
+  private String uploadCode;
+  private String uploadURL;
+  private String workloadName;
 
+  public ControllerConfiguration() {}
 
-    public ControllerConfiguration() {}
+  public ControllerConfiguration(
+      DatabaseType dbType,
+      String dbUsername,
+      String dbPassword,
+      String dbDriver,
+      String uploadCode,
+      String uploadURL,
+      String workloadName) {
+    this.dbType = dbType;
+    this.dbUsername = dbUsername;
+    this.dbPassword = dbPassword;
+    this.dbDriver = dbDriver;
+    this.uploadCode = uploadCode;
+    this.uploadURL = uploadURL;
+    this.workloadName = workloadName;
+  }
 
-    public ControllerConfiguration(DatabaseType dbtype, String username,
-                                   String password, String databaseUrl,
-                                   String uploadCode, String uploadURL,
-                                   String workloadName) {
-        this.dbtype = dbtype;
-        this.username = username;
-        this.password = password;
-        this.databaseUrl = databaseUrl;
-        this.uploadCode = uploadCode;
-        this.uploadURL = uploadURL;
-        this.workloadName = workloadName;
-    }
-    /* Mutators */
-    public void setDbtype(DatabaseType dbtype) {
-        this.dbtype = dbtype;
-    }
-    public void setUsername(String username) {
-        this.username = username;
-    }
-    public void setPassword(String password) {
-        this.password = password;
-    }
-    public void setDatabaseUrl(String dburl) {
-        this.databaseUrl = dburl;
-    }
-    public void setUploadCode(String upcode) {
-        this.uploadCode = upcode;
-    }
-    public void setUploadURL(String upurl) {
-        this.uploadURL = upurl;
-    }
-    public void setWorkloadName(String workloadName) {
-        this.workloadName = workloadName;
-    }
+  /* Mutators */
+  public void setDBType(DatabaseType dbType) {
+    this.dbType = dbType;
+  }
 
-    /* Getters */
-    public DatabaseType getDbtype() {
-        return this.dbtype;
-    }
-    public String getUsername() {
-        return this.username;
-    }
-    public String getPassword() {
-        return this.password;
-    }
-    public String getDatabaseUrl() {
-        return this.databaseUrl;
-    }
-    public String getUploadCode() {
-        return this.uploadCode;
-    }
-    public String getUploadURL() {
-        return this.uploadURL;
-    }
-    public String getWorkloadName() {
-        return this.workloadName;
-    }
+  public void setDBUsername(String dbUsername) {
+    this.dbUsername = dbUsername;
+  }
 
+  public void setPassword(String dbPassword) {
+    this.dbPassword = dbPassword;
+  }
+
+  public void setDBDriver(String dbDriver) {
+    this.dbDriver = dbDriver;
+  }
+
+  public void setUploadCode(String uploadCode) {
+    this.uploadCode = uploadCode;
+  }
+
+  public void setUploadURL(String uploadURL) {
+    this.uploadURL = uploadURL;
+  }
+
+  public void setWorkloadName(String workloadName) {
+    this.workloadName = workloadName;
+  }
+
+  /* Getters */
+  public DatabaseType getDBType() {
+    return this.dbType;
+  }
+
+  public String getDBUsername() {
+    return this.dbUsername;
+  }
+
+  public String getDBPassword() {
+    return this.dbPassword;
+  }
+
+  public String getDBDriver() {
+    return this.dbDriver;
+  }
+
+  public String getUploadCode() {
+    return this.uploadCode;
+  }
+
+  public String getUploadURL() {
+    return this.uploadURL;
+  }
+
+  public String getWorkloadName() {
+    return this.workloadName;
+  }
 }

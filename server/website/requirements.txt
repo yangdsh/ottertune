@@ -6,6 +6,7 @@ django-debug-toolbar==1.5
 django-request-logging==0.4.6
 Fabric==1.13.1
 hurry.filesize==0.9
+matplotlib==2.0.0
 numpy==1.13.1
 requests==2.18.4
 pycodestyle==2.3.1

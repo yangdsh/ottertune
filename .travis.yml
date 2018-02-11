@@ -18,7 +18,7 @@ env:
 
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y python-pip python-dev python-mysqldb
+  - sudo apt-get install -y python-pip python-dev python-mysqldb python-tk
   - mysql -e "CREATE DATABASE IF NOT EXISTS ${DBNAME};"
   - mysql -e "CREATE DATABASE IF NOT EXISTS test_${DBNAME};"
 
@@ -39,6 +39,7 @@ before_script:
 
 script:
   - cd controller && gradle build
+  - cd ../server && python -m unittest discover -s analysis/tests -v
   - cd ../${WEBSITE_ROOT} && coverage run manage.py test --noinput -v 2
   - cd ../.. && python script/validators/source_validator.py
 

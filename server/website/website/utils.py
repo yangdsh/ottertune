@@ -1,3 +1,8 @@
+#
+# OtterTune - utils.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
 '''
 Created on Jul 8, 2017
 
@@ -6,10 +11,11 @@ Created on Jul 8, 2017
 
 import json
 import logging
-import numpy as np
 import string
 from collections import OrderedDict
 from random import choice
+
+import numpy as np
 from django.utils.text import capfirst
 from djcelery.models import TaskMeta
 
@@ -121,6 +127,9 @@ class DataUtil(object):
         num_unique = X_unique.shape[0]
         if num_unique == X_matrix.shape[0]:
             # No duplicate rows
+
+            # For consistency, tuple the rowlabels
+            rowlabels = list(map(lambda x: tuple([x]), rowlabels))  # pylint: disable=bad-builtin,deprecated-lambda
             return X_matrix, y_matrix, rowlabels
 
         # Combine duplicate rows
@@ -147,7 +156,10 @@ class ConversionUtil(object):
                 if len(value) == len(suffix):
                     amount = 1
                 else:
-                    amount = int(value[:-len(suffix)])
+                    try:
+                        amount = int(value[:-len(suffix)])
+                    except ValueError:
+                        continue
                 return amount * factor
         return None
 
@@ -174,5 +186,5 @@ class LabelUtil(object):
             if style != LabelStyleType.LOWER and 'dbms' in label.lower():
                 label = label.replace('dbms', 'DBMS')
                 label = label.replace('Dbms', 'DBMS')
-            style_labels[name] = label
+            style_labels[name] = unicode(label)
         return style_labels
