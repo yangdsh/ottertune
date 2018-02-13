@@ -279,104 +279,58 @@ class PolynomialFeatures(Preprocess):
 # ==========================================================
 class DummyEncoder(Preprocess):
 
-    def __init__(self, n_values, feature_indices):
+    def __init__(self, n_values, categorical_features, cat_columnlabels, noncat_columnlabels):
         import warnings
         from sklearn.preprocessing import OneHotEncoder
 
         if not isinstance(n_values, np.ndarray):
             n_values = np.array(n_values)
-        if not isinstance(feature_indices, np.ndarray):
-            feature_indices = np.array(feature_indices)
-        assert feature_indices.size > 0
-        assert feature_indices.shape == n_values.shape
+        if not isinstance(categorical_features, np.ndarray):
+            categorical_features = np.array(categorical_features)
+        # assert categorical_features.size > 0
+        assert categorical_features.shape == n_values.shape
         for nv in n_values:
             if nv <= 2:
                 raise Exception("Categorical features must have 3+ labels")
 
-        self.feature_indices = feature_indices
-        self.n_values = n_values
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.encoder = OneHotEncoder(n_values=n_values, sparse=False)
-        self.columnlabels = None
-        self.xform_start_indices = None
+        self.cat_columnlabels = cat_columnlabels
+        self.noncat_columnlabels = noncat_columnlabels
+        self.encoder = OneHotEncoder(
+            n_values=n_values, categorical_features=categorical_features, sparse=False)
 
+    # is this useful?
     def fit(self, matrix):
-        return self.fit_with_columnlabels(matrix, columnlabels=None)
-
-    def fit_with_columnlabels(self, matrix, columnlabels=None):
-        assert isinstance(matrix, np.ndarray)
-        X_cat = matrix[:, self.feature_indices]
-        self.encoder.fit(X_cat)
-
-        self.xform_start_indices = np.empty_like(self.feature_indices)
-        for i, (idx, nvals) in enumerate(zip(self.feature_indices, self.n_values)):
-            start_idx = idx + np.sum(self.n_values[:i]) - np.sum(self.n_values[:i].size)
-            self.xform_start_indices[i] = start_idx
-
-        if columnlabels is not None:
-            labels = []
-            cat_index = 0
-            for i in range(matrix.shape[1]):
-                orig_label = columnlabels[i]
-                if i in self.feature_indices:
-                    assert self.feature_indices[cat_index] == i
-                    nvals = self.n_values[cat_index]
-                    labels.extend(["{}#{}".format(orig_label, v)
-                                   for v in range(nvals)])
-                    cat_index += 1
-                else:
-                    labels.append(orig_label)
-            self.columnlabels = np.array(labels)
-        return self
+        return self.encoder.fit(matrix)
 
     def transform(self, matrix, copy=True):
-        num_cat_feats = self.feature_indices.size
-        X_cat = matrix[:, self.feature_indices]
-        X_enc = self.encoder.transform(X_cat)
-        assert X_enc.shape[1] == np.sum(self.n_values)
+        # actually transform the matrix
+        matrix_encoded = self.encoder.transform(matrix)
 
-        nfeats = matrix.shape[1] - num_cat_feats + np.sum(self.n_values)
-        offset = 0
-        cat_index = 0
-        new_matrix = []
-        for i in range(matrix.shape[1]):
-            if i in self.feature_indices:
-                assert self.feature_indices[cat_index] == i
-                nvals = self.n_values[cat_index]
-                new_matrix.append(X_enc[:, offset: offset + nvals])
-                offset += nvals
-                cat_index += 1
-            else:
-                new_matrix.append(matrix[:, i].reshape(matrix.shape[0], 1))
+        # determine new columnlabels
+        # categorical variables are done in order specified by categorical_features
 
-        new_matrix = np.hstack(new_matrix)
-        assert new_matrix.shape == (matrix.shape[0], nfeats)
-        return new_matrix
+        new_labels = []
+        for i, cat_label in enumerate(self.cat_columnlabels):
+            low = self.encoder.feature_indices_[i]
+            high = self.encoder.feature_indices_[i + 1]
+            for j in range(low, high):
+                # eg the categorical variable named cat_var with 5 possible values
+                # turns into 0/1 variables named cat_var____0, ... cat_var____4
+                new_labels.append(cat_label + "____" + str(j - low))
+        # according to sklearn documentation,
+        # "non-categorical features are always stacked to the right of the matrix"
+        # by observation, it looks like the non-categorical features' relative order is preserved
+        # BUT: there is no guarantee made about that behavior!
+        # We either trust OneHotEncoder to be sensible, or look for some other way
+        new_labels += self.noncat_columnlabels
+        return matrix_encoded, new_labels
+
+    def fit_transform(self, matrix, copy=True):
+        self.fit(matrix)
+        return self.transform(matrix)
 
     def inverse_transform(self, matrix, copy=True):
-        assert matrix.ndim == 2
-        n_cat_feats = self.n_values.size
-        cat_idx = 0
-        current_idx = 0
-        nsamples = matrix.shape[0]
-        nfeats = matrix.shape[1] - np.sum(self.n_values) + n_cat_feats
-        new_matrix = np.empty((nsamples, nfeats))
-        for i in range(nfeats):
-            if cat_idx < n_cat_feats and current_idx == self.xform_start_indices[cat_idx]:
-                new_col = np.ones((nsamples,)) * np.nan
-                nvals = self.n_values[cat_idx]
-                for n in range(nvals):
-                    col = matrix[:, current_idx + n]
-                    new_col[col == 1] = n
-                assert np.all(np.isfinite(new_col))
-                current_idx += nvals
-                cat_idx += 1
-            else:
-                new_col = np.array(matrix[:, current_idx])
-                current_idx += 1
-            new_matrix[:, i] = new_col
-        return new_matrix
+        raise NotImplementedError("This method is not supported")
 
 
 def dummy_encoder_helper(config_mgr, featured_knobs):
@@ -395,6 +349,59 @@ def dummy_encoder_helper(config_mgr, featured_knobs):
     cat_knob_indices = np.array(cat_knob_indices)
     n_values = np.array(n_values)
     return n_values, cat_knob_indices, params
+
+
+def dummy_encoder_setup(config_mgr, featured_knobs):
+    # Justin: this is doing what dummy_encoder_helper is intended to do
+    # if dummy_encoder_helper can be removed, then we can flip this one in
+    n_values = []
+    cat_knob_indices = []
+    cat_knob_names = []
+    noncat_knob_names = []
+
+    for i, knob_name in enumerate(featured_knobs):
+        # TODO: knob_name might not be unique
+        # need to have some information about the dbms to also filter on,
+        # but run_knob_identification (which calls this function) only has knob and metric matrices
+        knobs = config_mgr.filter(name=knob_name)
+        if len(knobs) != 1:
+            # perhaps this is extreme
+            # at least in the case with multiple entries returned, I could just pick one...
+            raise Exception(
+                "KnobCatalog cannot find a unique knob corresponding to {}".format(knob_name))
+        knob = knobs[0]
+        # check if knob is categorical
+        # 5 is hard-coded. I tried to use website.types.VarType,
+        # but pylint complained that I was not importing a module or something?
+        if knob.vartype == 5 and len(knob.enumvals) > 2:
+            n_values.append(len(knob.enumvals))
+            cat_knob_indices.append(i)
+            cat_knob_names.append(knob_name)
+        else:
+            noncat_knob_names.append(knob_name)
+
+    n_values = np.array(n_values)
+    cat_knob_indices = np.array(cat_knob_indices)
+    return n_values, cat_knob_indices, cat_knob_names, noncat_knob_names
+
+
+def consolidate_columnlabels(columnlabels):
+    import re
+    # use this to check if a label was created by dummy encoder
+    p = re.compile(r'(.*)____\d+')
+
+    consolidated_columnlabels = []
+    cat_seen = set()  # avoid duplicate cat_labels
+    for lab in columnlabels:
+        m = p.match(lab)
+        # m.group(1) is the original column name
+        if m and m.group(1) not in cat_seen:
+            cat_seen.add(m.group(1))
+            consolidated_columnlabels.append(m.group(1))
+        else:
+            # non-categorical variable
+            consolidated_columnlabels.append(lab)
+    return consolidated_columnlabels
 
 
 def fix_scaler(scaler, encoder, params):
