@@ -70,11 +70,10 @@ class ConfigurationRecommendation(UpdateTask):  # pylint: disable=abstract-metho
         task_meta.save()
 
         # Create next configuration to try
-        nondefault_params = JSONUtil.loads(
-            result.session.nondefault_settings)
-        config = Parser.create_knob_configuration(
-            result.dbms.pk, formatted_params, nondefault_params)
-        result.next_configuration = config
+        # nondefault_params = JSONUtil.loads(
+        #     result.session.nondefault_settings)
+        config = Parser.create_knob_configuration(result.dbms.pk, formatted_params)
+        result.next_configuration = JSONUtil.dumps(config)
         result.save()
 
 
@@ -93,7 +92,7 @@ def aggregate_target_results(result_id):
     target_results = Result.objects.filter(session=newest_result.session,
                                            dbms=newest_result.dbms,
                                            workload=newest_result.workload)
-    if len(target_results) == 0:
+    if target_results:
         raise Exception('Cannot find any results for session_id={}, dbms_id={}'
                         .format(newest_result.session, newest_result.dbms))
     agg_data = DataUtil.aggregate_data(target_results)
@@ -154,7 +153,7 @@ def configuration_recommendation(target_data):
     # Filter ys by current target objective metric
     target_objective = newest_result.session.target_objective
     target_obj_idx = [i for i, cl in enumerate(y_columnlabels) if cl == target_objective]
-    if len(target_obj_idx) == 0:
+    if target_obj_idx:
         raise Exception(('Could not find target objective in metrics '
                          '(target_obj={})').format(target_objective))
     elif len(target_obj_idx) > 1:
@@ -273,7 +272,7 @@ def map_workload(target_data):
 
     # Compute workload mapping data for each unique workload
     unique_workloads = pipeline_data.values_list('workload', flat=True).distinct()
-    assert len(unique_workloads) > 0
+    assert unique_workloads
     workload_data = {}
     for unique_workload in unique_workloads:
         # Load knob & metric data for this workload
