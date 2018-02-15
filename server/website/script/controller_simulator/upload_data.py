@@ -55,7 +55,7 @@ def main():
                         help='The website\'s URL')
     args = parser.parse_args()
     upload_url = "http://0.0.0.0:8000" if not args.upload_url else args.upload_url
-    upload(args.datadir, args.upload_code, upload_url)
+    upload(args.datadir[0], args.upload_code[0], upload_url)
 
 
 if __name__ == "__main__":
