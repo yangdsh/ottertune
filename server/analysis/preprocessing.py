@@ -280,7 +280,6 @@ class PolynomialFeatures(Preprocess):
 class DummyEncoder(Preprocess):
 
     def __init__(self, n_values, categorical_features, cat_columnlabels, noncat_columnlabels):
-        import warnings
         from sklearn.preprocessing import OneHotEncoder
 
         if not isinstance(n_values, np.ndarray):
@@ -298,7 +297,6 @@ class DummyEncoder(Preprocess):
         self.encoder = OneHotEncoder(
             n_values=n_values, categorical_features=categorical_features, sparse=False)
 
-    # is this useful?
     def fit(self, matrix):
         return self.encoder.fit(matrix)
 
@@ -315,7 +313,7 @@ class DummyEncoder(Preprocess):
             high = self.encoder.feature_indices_[i + 1]
             for j in range(low, high):
                 # eg the categorical variable named cat_var with 5 possible values
-                # turns into 0/1 variables named cat_var____0, ... cat_var____4
+                # turns into 0/1 variables named cat_var____0, ..., cat_var____4
                 new_labels.append(cat_label + "____" + str(j - low))
         # according to sklearn documentation,
         # "non-categorical features are always stacked to the right of the matrix"
@@ -331,58 +329,6 @@ class DummyEncoder(Preprocess):
 
     def inverse_transform(self, matrix, copy=True):
         raise NotImplementedError("This method is not supported")
-
-
-def dummy_encoder_helper(config_mgr, featured_knobs):
-    # Note: this function will not work without a config manager.
-    # It just needs the type information about each of the knobs
-    # being passed in.
-    cat_knob_indices = []
-    n_values = []
-    params = []
-    for i, knob_name in enumerate(featured_knobs):
-        knob = config_mgr._find_param(knob_name)  # pylint: disable=protected-access
-        params.append(knob)
-        if knob.iscategorical and knob.data_type != "boolean":
-            cat_knob_indices.append(i)
-            n_values.append(len(knob.valid_values))
-    cat_knob_indices = np.array(cat_knob_indices)
-    n_values = np.array(n_values)
-    return n_values, cat_knob_indices, params
-
-
-def dummy_encoder_setup(config_mgr, featured_knobs):
-    # Justin: this is doing what dummy_encoder_helper is intended to do
-    # if dummy_encoder_helper can be removed, then we can flip this one in
-    n_values = []
-    cat_knob_indices = []
-    cat_knob_names = []
-    noncat_knob_names = []
-
-    for i, knob_name in enumerate(featured_knobs):
-        # TODO: knob_name might not be unique
-        # need to have some information about the dbms to also filter on,
-        # but run_knob_identification (which calls this function) only has knob and metric matrices
-        knobs = config_mgr.filter(name=knob_name)
-        if len(knobs) != 1:
-            # perhaps this is extreme
-            # at least in the case with multiple entries returned, I could just pick one...
-            raise Exception(
-                "KnobCatalog cannot find a unique knob corresponding to {}".format(knob_name))
-        knob = knobs[0]
-        # check if knob is categorical
-        # 5 is hard-coded. I tried to use website.types.VarType,
-        # but pylint complained that I was not importing a module or something?
-        if knob.vartype == 5 and len(knob.enumvals) > 2:
-            n_values.append(len(knob.enumvals))
-            cat_knob_indices.append(i)
-            cat_knob_names.append(knob_name)
-        else:
-            noncat_knob_names.append(knob_name)
-
-    n_values = np.array(n_values)
-    cat_knob_indices = np.array(cat_knob_indices)
-    return n_values, cat_knob_indices, cat_knob_names, noncat_knob_names
 
 
 def consolidate_columnlabels(columnlabels):
