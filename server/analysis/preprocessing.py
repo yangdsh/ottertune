@@ -306,7 +306,6 @@ class DummyEncoder(Preprocess):
 
         # determine new columnlabels
         # categorical variables are done in order specified by categorical_features
-
         new_labels = []
         for i, cat_label in enumerate(self.cat_columnlabels):
             low = self.encoder.feature_indices_[i]
@@ -341,9 +340,10 @@ def consolidate_columnlabels(columnlabels):
     for lab in columnlabels:
         m = p.match(lab)
         # m.group(1) is the original column name
-        if m and m.group(1) not in cat_seen:
-            cat_seen.add(m.group(1))
-            consolidated_columnlabels.append(m.group(1))
+        if m:
+            if m.group(1) not in cat_seen:
+                cat_seen.add(m.group(1))
+                consolidated_columnlabels.append(m.group(1))
         else:
             # non-categorical variable
             consolidated_columnlabels.append(lab)
