@@ -294,16 +294,20 @@ def dummy_encoder_helper(featured_knobs):
         # but run_knob_identification (which calls this function) only has knob and metric matrices
         # so cannot use dbms id to additionally filter
         knobs = KnobCatalog.objects.filter(name=knob_name)
-        if len(knobs) != 1:
-            # perhaps this is extreme
+        if len(knobs) == 0:
             raise Exception(
-                "KnobCatalog cannot find a unique knob corresponding to {}".format(knob_name))
+                "KnobCatalog found {} occurences of knob {}".format(len(knobs), knob_name))
         knob = knobs[0]
-        # check if knob is categorical
-        if knob.vartype == VarType.ENUM and len(knob.enumvals) > 2:
-            n_values.append(len(knob.enumvals))
-            cat_knob_indices.append(i)
-            cat_knob_names.append(knob_name)
+        # check if knob is categorical, with more than 2 levels
+        if knob.vartype == VarType.ENUM:
+            # enumvals is a comma delimited list
+            enumvals = knob.enumvals.split(",")
+            if len(enumvals) > 2:
+                n_values.append(len(enumvals))
+                cat_knob_indices.append(i)
+                cat_knob_names.append(knob_name)
+            else:
+                noncat_knob_names.append(knob_name)
         else:
             noncat_knob_names.append(knob_name)
 

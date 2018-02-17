@@ -7,8 +7,12 @@ import copy
 import numpy as np
 from django.test import TestCase, override_settings
 
-from website.tasks import periodic_tasks
-from website.models import PipelineData, PipelineRun, Workload
+from website.models import Workload, PipelineRun, PipelineData
+from website.tasks.periodic_tasks import (run_background_tasks,
+                                          aggregate_data,
+                                          run_workload_characterization,
+                                          run_knob_identification,
+                                          dummy_encoder_helper)
 from website.types import PipelineTaskType
 
 CELERY_TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
@@ -20,7 +24,7 @@ class BackgroundTestCase(TestCase):
     fixtures = ['test_website.json']
 
     def testNoError(self):
-        result = periodic_tasks.run_background_tasks.delay()
+        result = run_background_tasks.delay()
         self.assertTrue(result.successful())
 
     def testNoWorkloads(self):
@@ -29,7 +33,7 @@ class BackgroundTestCase(TestCase):
         workloads.delete()
 
         # background task should not fail
-        result = periodic_tasks.run_background_tasks.delay()
+        result = run_background_tasks.delay()
         self.assertTrue(result.successful())
 
     def testNewPipelineRun(self):
@@ -38,7 +42,7 @@ class BackgroundTestCase(TestCase):
         workloads = Workload.objects.all()
         if len(workloads) > 0:
             runs_before = len(PipelineRun.objects.all())
-            periodic_tasks.run_background_tasks.delay()
+            run_background_tasks.delay()
             runs_after = len(PipelineRun.objects.all())
             self.assertEqual(runs_before + 1, runs_after)
 
@@ -46,7 +50,7 @@ class BackgroundTestCase(TestCase):
         workloads = Workload.objects.all()
         pruned_before = [len(PipelineData.objects.filter(
             workload=workload, task_type=task_type)) for workload in workloads]
-        periodic_tasks.run_background_tasks.delay()
+        run_background_tasks.delay()
         pruned_after = [len(PipelineData.objects.filter(
             workload=workload, task_type=task_type)) for workload in workloads]
         for before, after in zip(pruned_before, pruned_after):
@@ -66,7 +70,7 @@ class AggregateTestCase(TestCase):
     def testValidWorkload(self):
         workloads = Workload.objects.all()
         valid_workload = workloads[0]
-        dicts = periodic_tasks.aggregate_data(valid_workload)
+        dicts = aggregate_data(valid_workload)
         keys = ['data', 'rowlabels', 'columnlabels']
         for d in dicts:
             for k in keys:
@@ -79,8 +83,8 @@ class PrunedMetricTestCase(TestCase):
 
     def testValidPrunedMetrics(self):
         workloads = Workload.objects.all()
-        metric_data = periodic_tasks.aggregate_data(workloads[0])[1]
-        pruned_metrics = periodic_tasks.run_workload_characterization(metric_data)
+        metric_data = aggregate_data(workloads[0])[1]
+        pruned_metrics = run_workload_characterization(metric_data)
         for m in pruned_metrics:
             self.assertIn(m, metric_data['columnlabels'])
 
@@ -91,7 +95,7 @@ class RankedKnobTestCase(TestCase):
 
     def testValidImportantKnobs(self):
         workloads = Workload.objects.all()
-        knob_data, metric_data = periodic_tasks.aggregate_data(workloads[0])
+        knob_data, metric_data = aggregate_data(workloads[0])
 
         # instead of doing actual metric pruning by factor analysis /
         # clustering, just randomly select 5 nonconstant metrics
@@ -113,6 +117,36 @@ class RankedKnobTestCase(TestCase):
         }
 
         # run knob_identificastion using knob_data and fake pruned metrics
-        ranked_knobs = periodic_tasks.run_knob_identification(knob_data, pruned_metric_data)
+        ranked_knobs = run_knob_identification(knob_data, pruned_metric_data)
         for k in ranked_knobs:
             self.assertIn(k, knob_data['columnlabels'])
+
+
+class DummyEncoderHelperTestCase(TestCase):
+
+    fixtures = ['postgres-96_knobs.json']
+
+    def test_no_featured_categorical(self):
+        featured_knobs = ['global.backend_flush_after',
+                          'global.bgwriter_delay',
+                          'global.wal_writer_delay',
+                          'global.work_mem']
+        categorical_info = dummy_encoder_helper(featured_knobs)
+        self.assertEqual(len(categorical_info['n_values']), 0)
+        self.assertEqual(len(categorical_info['categorical_features']), 0)
+        self.assertEqual(categorical_info['cat_columnlabels'], [])
+        self.assertEqual(categorical_info['noncat_columnlabels'], featured_knobs)
+
+    def test_featured_categorical(self):
+        featured_knobs = ['global.backend_flush_after',
+                          'global.bgwriter_delay',
+                          'global.wal_writer_delay',
+                          'global.work_mem',
+                          'global.wal_sync_method']  # last knob categorical
+        categorical_info = dummy_encoder_helper(featured_knobs)
+        self.assertEqual(len(categorical_info['n_values']), 1)
+        self.assertEqual(categorical_info['n_values'][0], 4)
+        self.assertEqual(len(categorical_info['categorical_features']), 1)
+        self.assertEqual(categorical_info['categorical_features'][0], 4)
+        self.assertEqual(categorical_info['cat_columnlabels'], ['global.wal_sync_method'])
+        self.assertEqual(categorical_info['noncat_columnlabels'], featured_knobs[:-1])
