@@ -452,31 +452,31 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
 
     def test_create_knob_configuration(self):
-        import os
-        from website.settings import CONFIG_DIR
+        test_config = self.test_dbms.create_knob_configuration({})
 
-        tuning_knobs = {}
-        custom_knobs = {}
+        categories = ["Autovacuum", "Client Connection Defaults / Locale and Formatting",
+                      "Connections and Authentication / Connection Settings",
+                      "File Locations",
+                      "Reporting and Logging / What to Log",
+                      "Statistics / Query and Index Statistics Collector"]
 
-        categories = set()
-        for (k, v) in self.test_dbms.knob_catalog_.iteritems():
-            if (v.category not in categories):
-                categories.add(v.category)
-                tuning_knobs.update({k: v.default})
+        for category in categories:
+            self.assertTrue(category in test_config.keys())
 
-        config_res = self.test_dbms.create_knob_configuration(tuning_knobs, custom_knobs)
-        config_path = os.path.join(CONFIG_DIR, self.test_dbms.knob_configuration_filename)
-        with open(config_path, 'r') as f:
-            config_header = f.read()
+        self.assertEqual(test_config["Autovacuum"][0][0], "global.autovacuum")
+        self.assertEqual(test_config["Autovacuum"][0][1], "on")
 
-        self.assertTrue(config_header in config_res)
+        test_config = self.test_dbms.create_knob_configuration({"global.autovacuum": "off"})
 
-        for k in tuning_knobs:
-            line = k[len('global.'):] + ' = \'' + str(tuning_knobs[k]) + '\''
-            self.assertTrue(line in config_res)
+        self.assertEqual(test_config["Autovacuum"][0][0], "global.autovacuum")
+        self.assertEqual(test_config["Autovacuum"][0][1], "off")
 
-        with self.assertRaises(Exception):
-            self.test_dbms.create_knob_configuration(tuning_knobs, {"FAKE_KNOB": 1})
+        test_config = self.test_dbms.create_knob_configuration({"global.log_planner_stats": "on"})
+
+        self.assertTrue(test_config.get("Statistics / Monitoring") is not None)
+        self.assertEqual(len(test_config["Statistics / Monitoring"]), 1)
+        self.assertEqual(test_config["Statistics / Monitoring"][0][0], "global.log_planner_stats")
+        self.assertEqual(test_config["Statistics / Monitoring"][0][1], "on")
 
     def test_format_integer(self):
         test_dbms = PostgresParser(2)

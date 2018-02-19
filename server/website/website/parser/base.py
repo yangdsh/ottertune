@@ -11,12 +11,10 @@ Created on Dec 12, 2017
 Parser interface.
 '''
 
-import os
 from abc import ABCMeta, abstractmethod, abstractproperty
 from collections import OrderedDict
 
 from website.models import KnobCatalog, MetricCatalog
-from website.settings import CONFIG_DIR
 from website.types import BooleanType, MetricType, VarType
 
 
@@ -252,7 +250,7 @@ class BaseParser(object):
                 valid_metrics[name] = values[0]
             elif metric.metric_type == MetricType.COUNTER:
                 values = [int(v) for v in values if v is not None]
-                if len(values) == 0:
+                if values:
                     valid_metrics[name] = 0
                 else:
                     valid_metrics[name] = str(sum(values))
@@ -282,39 +280,30 @@ class BaseParser(object):
                 adjusted_metrics[met_name] = end_val
         return adjusted_metrics
 
-    def create_knob_configuration(self, tuning_knobs, custom_knobs):
+    def create_knob_configuration(self, tuning_knobs):
         config_knobs = self.base_configuration_settings
-        config_knobs.update(custom_knobs)
 
-        categories = {}
+        configuration = {}
         for knob_name, knob_value in config_knobs.iteritems():
             category = self.knob_catalog_[knob_name].category
-            if category not in categories:
-                categories[category] = []
-            categories[category].append((knob_name, knob_value))
-        categories = OrderedDict(sorted(categories.iteritems()))
+            if category not in configuration:
+                configuration[category] = []
+            configuration[category].append((knob_name, knob_value))
 
-        config_path = os.path.join(CONFIG_DIR, self.knob_configuration_filename)
-        with open(config_path, 'r') as f:
-            config = f.read()
-
-        header_fmt = ('#' + ('-' * 78) + '\n# {cat1}\n#' +
-                      ('-' * 78) + '\n\n').format
-        subheader_fmt = '# - {cat2} -\n\n'.format
-        for category, knobs in categories.iteritems():
-            parts = [p.strip() for p in category.upper().split(' / ')]
-            config += header_fmt(cat1=parts[0])
-            if len(parts) == 2:
-                config += subheader_fmt(cat2=parts[1])
-            for knob_name, knob_value in sorted(knobs):
-                config += '{} = \'{}\'\n'.format(knob_name, knob_value)
-            config += '\n'
-        config += header_fmt(cat1='TUNING PARAMETERS')
         for knob_name, knob_value in sorted(tuning_knobs.iteritems()):
             if knob_name.startswith('global.'):
-                knob_name = knob_name[len('global.'):]
-            config += '{} = \'{}\'\n'.format(knob_name, knob_value)
-        return config
+                category = self.knob_catalog_[knob_name].category
+                if category not in configuration:
+                    configuration[category] = []
+
+                for knob_config in configuration[category]:
+                    if (knob_config[0] == knob_name):
+                        configuration[category].remove(knob_config)
+                configuration[category].append((knob_name, knob_value))
+
+        configuration = OrderedDict(sorted(configuration.iteritems()))
+
+        return configuration
 
     def get_nondefault_knob_settings(self, knobs):
         nondefault_settings = OrderedDict()

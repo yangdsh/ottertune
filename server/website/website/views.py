@@ -186,12 +186,19 @@ def session_view(request, project_id, session_id):
     # Group the session's results by DBMS & workload
     dbmss = {}
     workloads = {}
+    dbmss_ids = set()
+    workloads_ids = set()
     for res in results:
-        dbmss[res.dbms.key] = res.dbms
-        workload_name = res.workload.name
-        if workload_name not in workloads:
-            workloads[workload_name] = set()
-        workloads[workload_name].add(res.workload)
+        if res.dbms_id not in dbmss_ids:
+            dbmss_ids.add(res.dbms_id)
+            res_dbms = res.dbms
+            dbmss[res_dbms.key] = res_dbms
+
+        if res.workload_id not in workloads_ids:
+            workloads_ids.add(res.workload_id)
+            res_workload = res.workload
+            workloads[res_workload.name] = set()
+            workloads[res_workload.name].add(res_workload)
 
     # Sort so names will be ordered in the sidebar
     workloads = OrderedDict([(k, sorted(list(v))) for
@@ -617,6 +624,17 @@ def workload_view(request, project_id, session_id, wkld_id):  # pylint: disable=
 
 
 @login_required(login_url=reverse_lazy('login'))
+def download_next_config(request):
+    data = request.GET
+    result_id = data['id']
+    res = Result.objects.get(pk=result_id)
+    response = HttpResponse(res.next_configuration,
+                            content_type='text/plain')
+    response['Content-Disposition'] = 'attachment; filename=result_' + str(result_id) + '.cnf'
+    return response
+
+
+@login_required(login_url=reverse_lazy('login'))
 def tuner_status_view(request, project_id, session_id, result_id):  # pylint: disable=unused-argument
     res = Result.objects.get(pk=result_id)
 
@@ -818,3 +836,26 @@ def get_timeline_data(request):
             data_package['timelines'].append(data)
 
     return HttpResponse(JSONUtil.dumps(data_package), content_type='application/json')
+
+
+# get the lastest result
+def give_result(request, upload_code):  # pylint: disable=unused-argument
+    try:
+        session = Session.objects.get(upload_code=upload_code)
+    except Session.DoesNotExist:
+        LOG.warning("Invalid upload code: %s", upload_code)
+        return HttpResponse("Invalid upload code: " + upload_code)
+    results = Result.objects.filter(session=session)
+    lastest_result = results[len(results) - 1]
+
+    tasks = TaskUtil.get_tasks(lastest_result.task_ids)
+    overall_status, _ = TaskUtil.get_task_status(tasks)
+
+    if overall_status in ['PENDING', 'RECEIVED', 'STARTED']:
+        return HttpResponse("Result not ready")
+    # unclear behaviors for REVOKED and RETRY, treat as failure
+    elif overall_status in ['FAILURE', 'REVOKED', 'RETRY']:
+        return HttpResponse("Fail")
+
+    # success
+    return redirect('/get_result_data_file/?id=' + str(lastest_result.pk) + '&type=next_conf')
