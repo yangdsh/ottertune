@@ -41,6 +41,9 @@ def run_background_tasks():
     for workload in unique_workloads:
         # Aggregate the knob & metric data for this workload
         knob_data, metric_data = aggregate_data(workload)
+        if len(knob_data['data']) < 10:
+            print "not enough data found!"
+            continue
 
         # Knob_data and metric_data are 2D numpy arrays. Convert them into a
         # JSON-friendly (nested) lists and then save them as new PipelineData
@@ -183,8 +186,7 @@ def run_workload_characterization(metric_data):
 
     # Fit factor analysis model
     fa_model = FactorAnalysis()
-    # For now we use 5 latent variables
-    fa_model.fit(shuffled_matrix, nonconst_columnlabels, n_components=5)
+    fa_model.fit(shuffled_matrix, nonconst_columnlabels)
 
     # Components: metrics * factors
     components = fa_model.components_.T.copy()
@@ -197,12 +199,12 @@ def run_workload_characterization(metric_data):
                       sample_labels=nonconst_columnlabels,
                       estimator_params={'n_init': 50})
 
-    # Compute optimal # clusters, k, using gap statistics
-    gapk = create_kselection_model("gap-statistic")
-    gapk.fit(components, kmeans_models.cluster_map_)
+    # Compute optimal # clusters, k, using DetK
+    detk = create_kselection_model("det-k")
+    detk.fit(components, kmeans_models.cluster_map_)
 
     # Get pruned metrics, cloest samples of each cluster center
-    pruned_metrics = kmeans_models.cluster_map_[gapk.optimal_num_clusters_].get_closest_samples()
+    pruned_metrics = kmeans_models.cluster_map_[detk.optimal_num_clusters_].get_closest_samples()
 
     # Return pruned metrics
     return pruned_metrics

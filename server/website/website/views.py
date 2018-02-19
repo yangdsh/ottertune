@@ -23,13 +23,15 @@ from pytz import timezone
 from .forms import NewResultForm, ProjectForm, SessionForm
 from .models import (BackupData, DBMSCatalog, Hardware, KnobCatalog,
                      KnobData, MetricCatalog, MetricData, MetricManager,
-                     Project, Result, Session, Workload)
+                     Project, Result, Session, Workload, PipelineRun)
 from .parser import Parser
 from .tasks import (aggregate_target_results, map_workload,
                     configuration_recommendation)
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType,
                     TaskType, VarType)
 from .utils import JSONUtil, LabelUtil, MediaUtil, TaskUtil
+
+import random
 
 LOG = logging.getLogger(__name__)
 

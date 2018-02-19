@@ -3,21 +3,25 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
+import json
 import numpy as np
 from celery.task import task, Task
 from celery.utils.log import get_task_logger
 from djcelery.models import TaskMeta
 from sklearn.preprocessing import StandardScaler
 
+import random
+
 from analysis.gp_tf import GPR, GPRGD
 from analysis.preprocessing import Bin
-from website.models import PipelineData, PipelineRun, Result, Workload
+from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
 
-LOG = get_task_logger(__name__)
+from website.types import VarType
 
+LOG = get_task_logger(__name__)
 
 class UpdateTask(Task):  # pylint: disable=abstract-method
 
@@ -25,7 +29,6 @@ class UpdateTask(Task):  # pylint: disable=abstract-method
         self.rate_limit = '50/m'
         self.max_retries = 3
         self.default_retry_delay = 60
-
 
 class AggregateTargetResults(UpdateTask):  # pylint: disable=abstract-method
 
@@ -79,13 +82,26 @@ class ConfigurationRecommendation(UpdateTask):  # pylint: disable=abstract-metho
 
 @task(base=AggregateTargetResults, name='aggregate_target_results')
 def aggregate_target_results(result_id):
+    LOG.info('agg data called')
     # Check that we've completed the background tasks at least once. We need
     # this data in order to make a configuration recommendation (until we
     # implement a sampling technique to generate new training data).
     latest_pipeline_run = PipelineRun.objects.get_latest()
     if latest_pipeline_run is None:
-        raise Exception("No previous data available. Implement me!")
+        result = Result.objects.filter(pk=result_id)
+        knobs_ = KnobCatalog.objects.filter(dbms=result[0].dbms)
+        knobs_catalog = {k.name: k for k in knobs_}
+        knobs = {k: v for k, v in
+                 knobs_catalog.iteritems()}
+        random_knob_result = genRandData(knobs)
+        result[0].knob_data.data = random_knob_result
 
+        agg_data = DataUtil.aggregate_data(result)
+
+        agg_data['newest_result_id'] = result_id
+        result[0].next_configuration = agg_data
+        return agg_data
+    print('pipeline not none')
     # Aggregate all knob config results tried by the target so far in this
     # tuning session.
     newest_result = Result.objects.get(pk=result_id)
@@ -98,12 +114,49 @@ def aggregate_target_results(result_id):
     agg_data['newest_result_id'] = result_id
     return agg_data
 
+def genRandData(knobs):
+    random_knob_result = {}
+    for name, metadata in knobs.iteritems():
+        if metadata.vartype == VarType.BOOL:
+            flag = random.randint(0,1)
+            if flag == 0:
+                random_knob_result[name] = False
+            else:
+                random_knob_result[name] = True
+        elif metadata.vartype == VarType.ENUM:
+            enumvals = metadata.enumvals.split(',')
+            enumvals_len = len(enumvals)
+            rand_idx = random.randint(0, enumvals_len-1)
+            LOG.info(str(type(enumvals)))
+            random_knob_result[name] = enumvals[rand_idx]
+        elif metadata.vartype == VarType.INTEGER:
+            random_knob_result[name] = random.randint(int(metadata.minval), int(metadata.maxval))
+        elif metadata.vartype == VarType.REAL:
+            random_knob_result[name] = random.uniform(float(metadata.minval), float(metadata.maxval))
+        elif metadata.vartype == VarType.STRING:
+            random_knob_result[name] = "None"
+        elif metadata.vartype == VarType.TIMESTAMP:
+            random_knob_result[name] = "None"
+        else:
+            raise Exception(
+                'Unknown variable type: {}'.format(metadata.vartype))
+    return random_knob_result
 
 @task(base=ConfigurationRecommendation, name='configuration_recommendation')
 def configuration_recommendation(target_data):
+    LOG.info('configuration_recommendation called')
     latest_pipeline_run = PipelineRun.objects.get_latest()
-    assert latest_pipeline_run is not None
-    assert target_data['scores'] is not None
+    # assert latest_pipeline_run is not None
+    # assert target_data['scores'] is not None
+
+    if latest_pipeline_run is None:
+        assert target_data is not None
+        LOG.info(target_data['X_matrix'])
+        LOG.info(target_data['y_matrix'])
+        LOG.info(target_data['rowlabels'])
+        LOG.info(target_data['X_columnlabels'])
+        LOG.info(target_data['y_columnlabels'])
+        return target_data
 
     # Load mapped workload data
     mapped_workload_id = target_data['mapped_workload'][0]
@@ -245,9 +298,18 @@ def load_data_helper(filtered_pipeline_data, workload, task_type):
 
 @task(base=MapWorkload, name='map_workload')
 def map_workload(target_data):
+    LOG.info('map workload called')
     # Get the latest version of pipeline data that's been computed so far.
     latest_pipeline_run = PipelineRun.objects.get_latest()
-    assert latest_pipeline_run is not None
+    # assert latest_pipeline_run is not None
+    if latest_pipeline_run is None:
+        LOG.info(target_data['X_matrix'])
+        LOG.info(target_data['y_matrix'])
+        LOG.info(target_data['rowlabels'])
+        LOG.info(target_data['X_columnlabels'])
+        LOG.info(target_data['y_columnlabels'])
+        return target_data
+        # return None
 
     newest_result = Result.objects.get(pk=target_data['newest_result_id'])
     target_workload = newest_result.workload
@@ -272,10 +334,20 @@ def map_workload(target_data):
     # Compute workload mapping data for each unique workload
     unique_workloads = pipeline_data.values_list('workload', flat=True).distinct()
     assert len(unique_workloads) > 0
+    # TODO: fix here
+    # if len(unique_workloads) == 0:
+    #     target_data['bad'] = True
+    #     return None
+
     workload_data = {}
     for unique_workload in unique_workloads:
         # Load knob & metric data for this workload
         knob_data = load_data_helper(pipeline_data, unique_workload, PipelineTaskType.KNOB_DATA)
+        print knob_data
+        ## TODO: fix here
+        # if len(knob_data) < 10:
+            # return None
+
         metric_data = load_data_helper(pipeline_data, unique_workload, PipelineTaskType.METRIC_DATA)
         X_matrix = np.array(knob_data["data"])
         y_matrix = np.array(metric_data["data"])
