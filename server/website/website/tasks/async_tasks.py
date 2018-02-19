@@ -70,8 +70,6 @@ class ConfigurationRecommendation(UpdateTask):  # pylint: disable=abstract-metho
         task_meta.save()
 
         # Create next configuration to try
-        # nondefault_params = JSONUtil.loads(
-        #     result.session.nondefault_settings)
         config = Parser.create_knob_configuration(result.dbms.pk, formatted_params)
         result.next_configuration = JSONUtil.dumps(config)
         result.save()
