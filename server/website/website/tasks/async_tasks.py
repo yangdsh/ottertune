@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 
 import random
 
+from analysis.gp import GPRNP
 from analysis.gp_tf import GPR, GPRGD
 from analysis.preprocessing import Bin
 from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog
@@ -48,13 +49,17 @@ class MapWorkload(UpdateTask):  # pylint: disable=abstract-method
         super(MapWorkload, self).on_success(retval, task_id, args, kwargs)
 
         # Replace result with formatted result
-        new_res = {
-            'scores': sorted(args[0]['scores'].iteritems()),
-            'mapped_workload_id': args[0]['mapped_workload'],
-        }
-        task_meta = TaskMeta.objects.get(task_id=task_id)
-        task_meta.result = new_res  # Only store scores
-        task_meta.save()
+        if not args[0]['bad']:
+            new_res = {
+                'scores': sorted(args[0]['scores'].iteritems()),
+                'mapped_workload_id': args[0]['mapped_workload'],
+            }
+            task_meta = TaskMeta.objects.get(task_id=task_id)
+            task_meta.result = new_res  # Only store scores
+            task_meta.save()
+        else:
+            task_meta = TaskMeta.objects.get(task_id=task_id)
+            task_meta.save()
 
 
 class ConfigurationRecommendation(UpdateTask):  # pylint: disable=abstract-method
@@ -79,7 +84,6 @@ class ConfigurationRecommendation(UpdateTask):  # pylint: disable=abstract-metho
 
 @task(base=AggregateTargetResults, name='aggregate_target_results')
 def aggregate_target_results(result_id):
-    LOG.info('agg data called')
     # Check that we've completed the background tasks at least once. We need
     # this data in order to make a configuration recommendation (until we
     # implement a sampling technique to generate new training data).
@@ -91,14 +95,14 @@ def aggregate_target_results(result_id):
         knobs = {k: v for k, v in
                  knobs_catalog.iteritems()}
         random_knob_result = genRandData(knobs)
-        result[0].knob_data.data = random_knob_result
+        # result[0].knob_data.data = random_knob_result
 
         agg_data = DataUtil.aggregate_data(result)
-
         agg_data['newest_result_id'] = result_id
-        result[0].next_configuration = agg_data
+        agg_data['bad'] = True
+        agg_data['config_recommend'] = random_knob_result
+        # result[0].next_configuration = agg_data
         return agg_data
-    print('pipeline not none')
     # Aggregate all knob config results tried by the target so far in this
     # tuning session and this tuning workload.
     newest_result = Result.objects.get(pk=result_id)
@@ -125,8 +129,7 @@ def genRandData(knobs):
             enumvals = metadata.enumvals.split(',')
             enumvals_len = len(enumvals)
             rand_idx = random.randint(0, enumvals_len-1)
-            LOG.info(str(type(enumvals)))
-            random_knob_result[name] = enumvals[rand_idx]
+            random_knob_result[name] = rand_idx
         elif metadata.vartype == VarType.INTEGER:
             random_knob_result[name] = random.randint(int(metadata.minval), int(metadata.maxval))
         elif metadata.vartype == VarType.REAL:
@@ -144,16 +147,17 @@ def genRandData(knobs):
 def configuration_recommendation(target_data):
     LOG.info('configuration_recommendation called')
     latest_pipeline_run = PipelineRun.objects.get_latest()
-    # assert latest_pipeline_run is not None
-    # assert target_data['scores'] is not None
+
+    if target_data['bad']:
+        return target_data['config_recommend']
+
+
+    assert latest_pipeline_run is not None
+    assert target_data['scores'] is not None
+
 
     if latest_pipeline_run is None:
         assert target_data is not None
-        LOG.info(target_data['X_matrix'])
-        LOG.info(target_data['y_matrix'])
-        LOG.info(target_data['rowlabels'])
-        LOG.info(target_data['X_columnlabels'])
-        LOG.info(target_data['y_columnlabels'])
         return target_data
 
     # Load mapped workload data
@@ -296,18 +300,17 @@ def load_data_helper(filtered_pipeline_data, workload, task_type):
 
 @task(base=MapWorkload, name='map_workload')
 def map_workload(target_data):
-    LOG.info('map workload called')
     # Get the latest version of pipeline data that's been computed so far.
     latest_pipeline_run = PipelineRun.objects.get_latest()
-    # assert latest_pipeline_run is not None
-    if latest_pipeline_run is None:
-        LOG.info(target_data['X_matrix'])
-        LOG.info(target_data['y_matrix'])
-        LOG.info(target_data['rowlabels'])
-        LOG.info(target_data['X_columnlabels'])
-        LOG.info(target_data['y_columnlabels'])
+    if target_data['bad']:
+        assert target_data is not None
         return target_data
-        # return None
+    assert latest_pipeline_run is not None
+
+    # if latest_pipeline_run is None:
+    #     assert target_data is not None
+    #     return target_data
+    #     # return None
 
     newest_result = Result.objects.get(pk=target_data['newest_result_id'])
     target_workload = newest_result.workload

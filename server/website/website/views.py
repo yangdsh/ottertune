@@ -453,6 +453,7 @@ def handle_result_files(session, files):
     response = chain(aggregate_target_results.s(result.pk),
                      map_workload.s(),
                      configuration_recommendation.s()).apply_async()
+    print(str(type(response)))
     taskmeta_ids = [response.parent.parent.id, response.parent.id, response.id]
     result.task_ids = ','.join(taskmeta_ids)
     result.save()
