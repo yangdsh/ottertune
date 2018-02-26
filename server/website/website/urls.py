@@ -21,6 +21,7 @@ urlpatterns = [
     url(r'^signup/', website_views.signup_view, name='signup'),
     url(r'^login/', website_views.login_view, name='login'),
     url(r'^logout/$', website_views.logout_view, name='logout'),
+    url(r'^change_password/', website_views.change_password_view, name='change_password'),
 
     # URLs for project views
     url(r'^$', website_views.redirect_home),
