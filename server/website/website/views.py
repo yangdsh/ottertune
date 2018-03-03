@@ -457,6 +457,7 @@ def handle_result_files(session, files):
     taskmeta_ids = [response.parent.parent.id, response.parent.id, response.id]
     result.task_ids = ','.join(taskmeta_ids)
     result.save()
+
     return HttpResponse("Result stored successfully! Running tuner... (status={})".format(
         response.status))
 
@@ -649,6 +650,7 @@ def tuner_status_view(request, project_id, session_id, result_id):  # pylint: di
         completion_time = tasks[-1].date_done
         total_runtime = (completion_time - res.creation_time).total_seconds()
         total_runtime = '{0:.2f} seconds'.format(total_runtime)
+
 
     task_info = [(tname, task) for tname, task in
                  zip(TaskType.TYPE_NAMES.values(), tasks)]
