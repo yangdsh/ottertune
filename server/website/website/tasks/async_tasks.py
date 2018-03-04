@@ -105,9 +105,10 @@ def aggregate_target_results(result_id):
         # check if the user input data is >10
         if len(agg_data['rowlabels']) > 10:
             agg_data['trainable_no_workload'] = True
+        else:
+            agg_data['trainable_no_workload'] = False
         agg_data['newest_result_id'] = result_id
         agg_data['bad'] = True
-        agg_data['trainable_no_workload'] = False
         agg_data['config_recommend'] = random_knob_result
         # result[0].next_configuration = agg_data
         return agg_data
