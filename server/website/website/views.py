@@ -23,15 +23,13 @@ from pytz import timezone
 from .forms import NewResultForm, ProjectForm, SessionForm
 from .models import (BackupData, DBMSCatalog, Hardware, KnobCatalog,
                      KnobData, MetricCatalog, MetricData, MetricManager,
-                     Project, Result, Session, Workload, PipelineRun)
+                     Project, Result, Session, Workload)
 from .parser import Parser
 from .tasks import (aggregate_target_results, map_workload,
                     configuration_recommendation)
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType,
                     TaskType, VarType)
 from .utils import JSONUtil, LabelUtil, MediaUtil, TaskUtil
-
-import random
 
 LOG = logging.getLogger(__name__)
 
@@ -453,7 +451,6 @@ def handle_result_files(session, files):
     response = chain(aggregate_target_results.s(result.pk),
                      map_workload.s(),
                      configuration_recommendation.s()).apply_async()
-    print(str(type(response)))
     taskmeta_ids = [response.parent.parent.id, response.parent.id, response.id]
     result.task_ids = ','.join(taskmeta_ids)
     result.save()
@@ -650,7 +647,6 @@ def tuner_status_view(request, project_id, session_id, result_id):  # pylint: di
         completion_time = tasks[-1].date_done
         total_runtime = (completion_time - res.creation_time).total_seconds()
         total_runtime = '{0:.2f} seconds'.format(total_runtime)
-
 
     task_info = [(tname, task) for tname, task in
                  zip(TaskType.TYPE_NAMES.values(), tasks)]

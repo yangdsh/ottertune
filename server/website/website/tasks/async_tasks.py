@@ -3,17 +3,16 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
-import json
+import random
 import numpy as np
+
 from celery.task import task, Task
 from celery.utils.log import get_task_logger
 from djcelery.models import TaskMeta
 from sklearn.preprocessing import StandardScaler
 
-import random
-
 from analysis.gp import GPRNP
-from analysis.gp_tf import GPR, GPRGD
+from analysis.gp_tf import GPRGD
 from analysis.preprocessing import Bin
 from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog
 from website.parser import Parser
@@ -100,7 +99,7 @@ def aggregate_target_results(result_id):
         knobs_catalog = {k.name: k for k in knobs_}
         knobs = {k: v for k, v in
                  knobs_catalog.iteritems()}
-        random_knob_result = genRandData(knobs)
+        random_knob_result = gen_random_data(knobs)
         # result[0].knob_data.data = random_knob_result
 
         agg_data = DataUtil.aggregate_data(result)
@@ -129,7 +128,7 @@ def aggregate_target_results(result_id):
     return agg_data
 
 
-def genRandData(knobs):
+def gen_random_data(knobs):
     random_knob_result = {}
     for name, metadata in knobs.iteritems():
         if metadata.vartype == VarType.BOOL:
@@ -146,7 +145,8 @@ def genRandData(knobs):
         elif metadata.vartype == VarType.INTEGER:
             random_knob_result[name] = random.randint(int(metadata.minval), int(metadata.maxval))
         elif metadata.vartype == VarType.REAL:
-            random_knob_result[name] = random.uniform(float(metadata.minval), float(metadata.maxval))
+            random_knob_result[name] = random.uniform(
+                float(metadata.minval), float(metadata.maxval))
         elif metadata.vartype == VarType.STRING:
             random_knob_result[name] = "None"
         elif metadata.vartype == VarType.TIMESTAMP:

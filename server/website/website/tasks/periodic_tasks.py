@@ -42,7 +42,6 @@ def run_background_tasks():
         # Aggregate the knob & metric data for this workload
         knob_data, metric_data = aggregate_data(workload)
         if len(knob_data['data']) < 10:
-            print "not enough data found!"
             continue
 
         # Knob_data and metric_data are 2D numpy arrays. Convert them into a
