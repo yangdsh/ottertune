@@ -24,12 +24,14 @@ from website.types import VarType
 
 LOG = get_task_logger(__name__)
 
+
 class UpdateTask(Task):  # pylint: disable=abstract-method
 
     def __init__(self):
         self.rate_limit = '50/m'
         self.max_retries = 3
         self.default_retry_delay = 60
+
 
 class AggregateTargetResults(UpdateTask):  # pylint: disable=abstract-method
 
@@ -126,11 +128,12 @@ def aggregate_target_results(result_id):
     agg_data['trainable_no_workload'] = False
     return agg_data
 
+
 def genRandData(knobs):
     random_knob_result = {}
     for name, metadata in knobs.iteritems():
         if metadata.vartype == VarType.BOOL:
-            flag = random.randint(0,1)
+            flag = random.randint(0, 1)
             if flag == 0:
                 random_knob_result[name] = False
             else:
@@ -138,7 +141,7 @@ def genRandData(knobs):
         elif metadata.vartype == VarType.ENUM:
             enumvals = metadata.enumvals.split(',')
             enumvals_len = len(enumvals)
-            rand_idx = random.randint(0, enumvals_len-1)
+            rand_idx = random.randint(0, enumvals_len - 1)
             random_knob_result[name] = rand_idx
         elif metadata.vartype == VarType.INTEGER:
             random_knob_result[name] = random.randint(int(metadata.minval), int(metadata.maxval))
@@ -152,6 +155,7 @@ def genRandData(knobs):
             raise Exception(
                 'Unknown variable type: {}'.format(metadata.vartype))
     return random_knob_result
+
 
 @task(base=ConfigurationRecommendation, name='configuration_recommendation')
 def configuration_recommendation(target_data):
@@ -268,7 +272,7 @@ def configuration_recommendation(target_data):
                 y_workload_scaler = StandardScaler()
                 y_scaled = y_workload_scaler.fit_transform(y_target)
 
-    else: # user does have enough data but no previous workload
+    else:   # user does have enough data but no previous workload
         X_target = target_data['X_matrix']
         y_target = target_data['y_matrix']
         X_columnlabels = target_data['rowlabels']
