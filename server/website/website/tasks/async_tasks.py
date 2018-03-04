@@ -360,19 +360,11 @@ def map_workload(target_data):
     # Compute workload mapping data for each unique workload
     unique_workloads = pipeline_data.values_list('workload', flat=True).distinct()
     assert len(unique_workloads) > 0
-    # TODO: fix here
-    # if len(unique_workloads) == 0:
-    #     target_data['bad'] = True
-    #     return None
 
     workload_data = {}
     for unique_workload in unique_workloads:
         # Load knob & metric data for this workload
         knob_data = load_data_helper(pipeline_data, unique_workload, PipelineTaskType.KNOB_DATA)
-        print knob_data
-        ## TODO: fix here
-        # if len(knob_data) < 10:
-            # return None
 
         metric_data = load_data_helper(pipeline_data, unique_workload, PipelineTaskType.METRIC_DATA)
         X_matrix = np.array(knob_data["data"])
