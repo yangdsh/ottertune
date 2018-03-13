@@ -29,7 +29,7 @@ def upload(upload_code, datadir):
 
     datagen, headers = multipart_encode(params)
 
-    request = urllib2.Request("http://0.0.0.0:8000/new_result/", datagen, headers)
+    request = urllib2.Request("https://0.0.0.0:8000/new_result/", datagen, headers)
 
     LOG.info(urllib2.urlopen(request).read())
 
