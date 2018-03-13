@@ -250,7 +250,7 @@ class BaseParser(object):
                 valid_metrics[name] = values[0]
             elif metric.metric_type == MetricType.COUNTER:
                 values = [int(v) for v in values if v is not None]
-                if values:
+                if len(values) == 0:
                     valid_metrics[name] = 0
                 else:
                     valid_metrics[name] = str(sum(values))
