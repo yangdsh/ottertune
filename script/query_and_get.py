@@ -6,7 +6,7 @@
 '''
 Created on Feb 11, 2018
 
-@author: taodai, bohan
+@author: taodai
 '''
 
 import urllib2
@@ -36,7 +36,7 @@ def main():
         if 'Fail' in response:
             LOG.info('Tuning failed\n')
             break
-        elif 'not ready' in response:
+        elif response == 'null' or 'not ready' in response:
             time.sleep(query_interval)
             timer += query_interval
             LOG.info('%s s\n', str(timer))
