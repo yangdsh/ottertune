@@ -8,7 +8,9 @@ from collections import OrderedDict
 
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, QueryDict
 from django.shortcuts import redirect, render, get_object_or_404
@@ -61,6 +63,23 @@ def signup_view(request):
     token.update(csrf(request))
     token['form'] = form
     return render(request, 'signup.html', token)
+
+
+def change_password_view(request):
+    if not request.user.is_authenticated():
+        return redirect(reverse('home_project'))
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            return redirect(reverse('home_projects'))
+    else:
+        form = PasswordChangeForm(request.user)
+    token = {}
+    token.update(csrf(request))
+    token['form'] = form
+    return render(request, 'change_password.html', token)
 
 
 def login_view(request):
@@ -861,5 +880,4 @@ def give_result(request, upload_code):  # pylint: disable=unused-argument
 
     # success
     res = Result.objects.get(pk=lastest_result.pk)
-
     return HttpResponse(JSONUtil.dumps(res.next_configuration), content_type='application/json')

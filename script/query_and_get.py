@@ -6,7 +6,7 @@
 '''
 Created on Feb 11, 2018
 
-@author: taodai
+@author: taodai, bohan
 '''
 
 import urllib2
@@ -21,7 +21,7 @@ LOG.setLevel(logging.INFO)
 
 
 # take 3 arguments, save result to next_config in working directory
-# base_url: for instance, http://0.0.0.0:8000/
+# base_url: for instance, https://0.0.0.0:8000/
 # upload_code: upload code...
 # query_interval: time (in second) between queries
 def main():

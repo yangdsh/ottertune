@@ -63,7 +63,7 @@ urlpatterns = [
     url(r'^static/(?P<path>.*)$', never_cache(serve)),
 
     # Back door
-    url(r'^query_and_get/(?P<upload_code>[0-9]+)$', website_views.give_result, name="backdoor"),
+    url(r'^query_and_get/(?P<upload_code>[0-9a-zA-Z]+)$', website_views.give_result, name="backdoor"),
 ]
 
 if settings.DEBUG:
