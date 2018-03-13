@@ -215,14 +215,18 @@ def configuration_recommendation(target_data):
     # technique
     num_samples = 20
     X_samples = np.empty((num_samples, X_scaled.shape[1]))
+    X_min = np.empty(X_scaled.shape[1])
+    X_max = np.empty(X_scaled.shape[1])
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
+        X_min[i] = col_min
+        X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
             num_samples) * (col_max - col_min) + col_min
 
     model = GPRGD()
-    model.fit(X_scaled, y_scaled, ridge)
+    model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
     res = model.predict(X_samples)
 
     # FIXME: whether we select the min/max for the best config depends
