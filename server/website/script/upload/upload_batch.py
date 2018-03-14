@@ -85,7 +85,7 @@ class ResultUploader(object):
 
 
 def main():
-    url = 'http://0.0.0.0:8000/new_result/'
+    url = 'https://0.0.0.0:8000/new_result/'
     upload_code = 'O50GE1HC8S1BHU8L6F8D'
     uploader = ResultUploader(upload_code, url)
     dirnames = glob.glob(os.path.join(os.path.expanduser(

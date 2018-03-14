@@ -119,7 +119,7 @@ def aggregate_target_results(result_id):
     target_results = Result.objects.filter(session=newest_result.session,
                                            dbms=newest_result.dbms,
                                            workload=newest_result.workload)
-    if target_results:
+    if len(target_results) == 0:
         raise Exception('Cannot find any results for session_id={}, dbms_id={}'
                         .format(newest_result.session, newest_result.dbms))
     agg_data = DataUtil.aggregate_data(target_results)
@@ -302,14 +302,22 @@ def configuration_recommendation(target_data):
     # technique
     num_samples = 20
     X_samples = np.empty((num_samples, X_scaled.shape[1]))
+    X_min = np.empty(X_scaled.shape[1])
+    X_max = np.empty(X_scaled.shape[1])
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
+        X_min[i] = col_min
+        X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
             num_samples) * (col_max - col_min) + col_min
 
+    # FIXME: Maximize the throughput, hardcode
+    # Use gradient descent to minimize -throughput
+    y_scaled = -y_scaled
+
     model = GPRGD()
-    model.fit(X_scaled, y_scaled, ridge)
+    model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
     res = model.predict(X_samples)
 
     # FIXME: whether we select the min/max for the best config depends
@@ -364,7 +372,6 @@ def map_workload(target_data):
     # Compute workload mapping data for each unique workload
     unique_workloads = pipeline_data.values_list('workload', flat=True).distinct()
     assert len(unique_workloads) > 0
-
     workload_data = {}
     for unique_workload in unique_workloads:
         # Load knob & metric data for this workload
