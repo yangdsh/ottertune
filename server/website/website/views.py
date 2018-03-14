@@ -480,7 +480,6 @@ def handle_result_files(session, files):
                         .format(response.status, result_id))
 
 
-
 @login_required(login_url=reverse_lazy('login'))
 def dbms_knobs_reference(request, dbms_name, version, knob_name):
     knob = get_object_or_404(KnobCatalog, dbms__type=DBMSType.type(dbms_name),
