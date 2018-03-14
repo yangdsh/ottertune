@@ -250,7 +250,7 @@ class BaseParser(object):
                 valid_metrics[name] = values[0]
             elif metric.metric_type == MetricType.COUNTER:
                 values = [int(v) for v in values if v is not None]
-                if values:
+                if len(values) == 0:
                     valid_metrics[name] = 0
                 else:
                     valid_metrics[name] = str(sum(values))
@@ -281,28 +281,14 @@ class BaseParser(object):
         return adjusted_metrics
 
     def create_knob_configuration(self, tuning_knobs):
-        config_knobs = self.base_configuration_settings
-
         configuration = {}
-        for knob_name, knob_value in config_knobs.iteritems():
-            category = self.knob_catalog_[knob_name].category
-            if category not in configuration:
-                configuration[category] = []
-            configuration[category].append((knob_name, knob_value))
-
         for knob_name, knob_value in sorted(tuning_knobs.iteritems()):
+            # FIX ME: for now it only shows the global knobs, works for Postgres
             if knob_name.startswith('global.'):
-                category = self.knob_catalog_[knob_name].category
-                if category not in configuration:
-                    configuration[category] = []
-
-                for knob_config in configuration[category]:
-                    if (knob_config[0] == knob_name):
-                        configuration[category].remove(knob_config)
-                configuration[category].append((knob_name, knob_value))
+                knob_name_global = knob_name[knob_name.find('.') + 1:]
+                configuration[knob_name_global] = knob_value
 
         configuration = OrderedDict(sorted(configuration.iteritems()))
-
         return configuration
 
     def get_nondefault_knob_settings(self, knobs):
