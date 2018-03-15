@@ -265,7 +265,6 @@ def configuration_recommendation(target_data):
             y_workload_scaler = StandardScaler()
             y_scaled = y_workload_scaler.fit_transform(y_target)
 
-   
     # FIXME (dva): check if these are good values for the ridge
     ridge = np.empty(X_scaled.shape[0])
     ridge[:X_target.shape[0]] = 0.01
