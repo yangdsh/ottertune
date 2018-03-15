@@ -3,9 +3,9 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
+import argparse
 import logging
 import os
-import sys
 import urllib2
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
@@ -18,7 +18,7 @@ LOG.addHandler(logging.StreamHandler())
 LOG.setLevel(logging.INFO)
 
 
-def upload(upload_code, datadir):
+def upload(datadir, upload_code, server):
     params = {
         'summary': open(os.path.join(datadir, 'sample-0__summary.json'), "r"),
         'knobs': open(os.path.join(datadir, 'sample-0__knobs.json'), "r"),
@@ -29,12 +29,22 @@ def upload(upload_code, datadir):
 
     datagen, headers = multipart_encode(params)
 
-    request = urllib2.Request("https://0.0.0.0:8000/new_result/", datagen, headers)
+    request = urllib2.Request(server + "/new_result/", datagen, headers)
 
     LOG.info(urllib2.urlopen(request).read())
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Upload generated data to the website")
+    parser.add_argument('datadir', type=str, nargs=1,
+                        help='Directory containing the generated data')
+    parser.add_argument('upload_code', type=str, nargs=1,
+                        help='The website\'s upload code')
+    parser.add_argument('server', type=str, default='http://0.0.0.0:8000',
+                        nargs='?', help='The server\'s address (ip:port)')
+    args = parser.parse_args()
+    upload(args.datadir[0], args.upload_code[0], args.server)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        LOG.error("Usage: python upload.py [upload_code] [path_to_sample_data]")
-    upload(sys.argv[1], sys.argv[2])
+    main()
