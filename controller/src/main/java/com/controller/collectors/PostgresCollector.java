@@ -10,10 +10,18 @@ import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;
 import com.controller.util.json.JSONObject;
 import com.controller.util.json.JSONStringer;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import org.apache.log4j.Logger;
-
-import java.sql.*;
-import java.util.*;
 
 public class PostgresCollector extends DBCollector {
   private static final Logger LOG = Logger.getLogger(PostgresCollector.class);
@@ -23,27 +31,27 @@ public class PostgresCollector extends DBCollector {
   private static final String PARAMETERS_SQL = "SHOW ALL;";
 
   private static final String[] PG_STAT_VIEWS = {
-          "pg_stat_archiver", "pg_stat_bgwriter", "pg_stat_database",
-          "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
-          "pg_stat_user_indexes", "pg_statio_user_indexes"
+    "pg_stat_archiver", "pg_stat_bgwriter", "pg_stat_database",
+    "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
+    "pg_stat_user_indexes", "pg_statio_user_indexes"
   };
 
   private static final String[] PG_STAT_VIEWS_OLD_VERSION = {
-          "pg_stat_bgwriter", "pg_stat_database",
-          "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
-          "pg_stat_user_indexes", "pg_statio_user_indexes"
+    "pg_stat_bgwriter", "pg_stat_database",
+    "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
+    "pg_stat_user_indexes", "pg_statio_user_indexes"
   };
 
   private static final String[] PG_STAT_VIEWS_LOCAL_DATABASE = {
-          "pg_stat_database", "pg_stat_database_conflicts"
+    "pg_stat_database", "pg_stat_database_conflicts"
   };
   private static final String PG_STAT_VIEWS_LOCAL_DATABASE_KEY = "datname";
   private static final String[] PG_STAT_VIEWS_LOCAL_TABLE = {
-          "pg_stat_user_tables", "pg_statio_user_tables"
+    "pg_stat_user_tables", "pg_statio_user_tables"
   };
   private static final String PG_STAT_VIEWS_LOCAL_TABLE_KEY = "relname";
   private static final String[] PG_STAT_VIEWS_LOCAL_INDEXES = {
-          "pg_stat_user_indexes", "pg_statio_user_indexes"
+    "pg_stat_user_indexes", "pg_statio_user_indexes"
   };
   private static final String PG_STAT_VIEWS_LOCAL_INDEXES_KEY = "relname";
 
@@ -70,12 +78,12 @@ public class PostgresCollector extends DBCollector {
       }
 
       // Collect DBMS internal metrics
-      String[] pg_stat_views = PG_STAT_VIEWS;
-      if(Float.parseFloat(this.version.toString()) < 9.4) {
-        pg_stat_views = PG_STAT_VIEWS_OLD_VERSION;
+      String[] pgStatViews = PG_STAT_VIEWS;
+      if (Float.parseFloat(this.version.toString()) < 9.4) {
+        pgStatViews = PG_STAT_VIEWS_OLD_VERSION;
       }
 
-      for (String viewName : pg_stat_views) {
+      for (String viewName : pgStatViews) {
         out = s.executeQuery("SELECT * FROM " + viewName);
         pgMetrics.put(viewName, getMetrics(out));
       }
