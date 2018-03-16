@@ -452,33 +452,26 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
 
     def test_create_knob_configuration(self):
-        # Fix ME: update this test
-        '''
-        test_config = self.test_dbms.create_knob_configuration({})
-        categories = ["Autovacuum", "Client Connection Defaults / Locale and Formatting",
-                      "Connections and Authentication / Connection Settings",
-                      "File Locations",
-                      "Reporting and Logging / What to Log",
-                      "Statistics / Query and Index Statistics Collector"]
+        empty_config = self.test_dbms.create_knob_configuration({})
+        self.assertEqual(empty_config, {})
 
-        for category in categories:
-            self.assertTrue(category in test_config.keys())
+        tuning_knobs = {"global.autovacuum": "on",
+                        "global.log_planner_stats": "on",
+                        "global.cpu_tuple_cost": 0.5,
+                        "global.FAKE_KNOB": 20,
+                        "pg_stat_archiver.last_failed_wal": "today"}
 
-        self.assertEqual(test_config["Autovacuum"][0][0], "global.autovacuum")
-        self.assertEqual(test_config["Autovacuum"][0][1], "on")
+        test_config = self.test_dbms.create_knob_configuration(tuning_knobs)
 
-        test_config = self.test_dbms.create_knob_configuration({"global.autovacuum": "off"})
+        actual_keys = [("autovacuum", "on"),
+                       ("log_planner_stats", "on"),
+                       ("cpu_tuple_cost", 0.5),
+                       ("FAKE_KNOB", 20)]
 
-        self.assertEqual(test_config["Autovacuum"][0][0], "global.autovacuum")
-        self.assertEqual(test_config["Autovacuum"][0][1], "off")
+        self.assertTrue(len(test_config.keys()), 4)
 
-        test_config = self.test_dbms.create_knob_configuration({"global.log_planner_stats": "on"})
-
-        self.assertTrue(test_config.get("Statistics / Monitoring") is not None)
-        self.assertEqual(len(test_config["Statistics / Monitoring"]), 1)
-        self.assertEqual(test_config["Statistics / Monitoring"][0][0], "global.log_planner_stats")
-        self.assertEqual(test_config["Statistics / Monitoring"][0][1], "on")
-        '''
+        for k, v in actual_keys:
+            self.assertEqual(test_config.get(k), v)
 
     def test_format_integer(self):
         test_dbms = PostgresParser(2)
