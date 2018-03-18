@@ -113,7 +113,15 @@ class PostgresParser(BaseParser):
 
 class Postgres96Parser(PostgresParser):
 
-    def __init__(self):
+    def __init__(self, version):
         dbms = DBMSCatalog.objects.get(
-            type=DBMSType.POSTGRES, version='9.6')
+            type=DBMSType.POSTGRES, version=version)
         super(Postgres96Parser, self).__init__(dbms.pk)
+
+
+class PostgresOldParser(PostgresParser):
+
+    def __init__(self, version):
+        dbms = DBMSCatalog.objects.get(
+            type=DBMSType.POSTGRES, version=version)
+        super(PostgresOldParser, self).__init__(dbms.pk)
