@@ -6,19 +6,19 @@
 
 package com.controller;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 
 /**
  * Uploading the result.
@@ -38,18 +38,20 @@ public class ResultUploader {
         filesToSend.add(f);
       }
 
-      CloseableHttpClient httpclient = HttpClients.createDefault();
+//      CloseableHttpClient httpclient = HttpClients.createDefault();
+      CloseableHttpClient httpclient = HttpClientBuilder.create().build();
       HttpPost httppost = new HttpPost(uploadURL);
 
       MultipartEntityBuilder mb =
-          MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
+        MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
       for (int i = 0; i < filesToSendNames.size(); i++) {
-        mb.addPart(filesToSendNames.get(i), new FileBody(filesToSend.get(i)));
+        mb.addBinaryBody(filesToSendNames.get(i), filesToSend.get(i));
       }
 
       HttpEntity reqEntity = mb.build();
       httppost.setEntity(reqEntity);
       CloseableHttpResponse response = httpclient.execute(httppost);
+      System.out.println(response);
       try {
         HttpEntity resEntity = response.getEntity();
         EntityUtils.consume(resEntity);

@@ -10,18 +10,10 @@ import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;
 import com.controller.util.json.JSONObject;
 import com.controller.util.json.JSONStringer;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import org.apache.log4j.Logger;
+
+import java.sql.*;
+import java.util.*;
 
 public class PostgresCollector extends DBCollector {
   private static final Logger LOG = Logger.getLogger(PostgresCollector.class);
@@ -29,6 +21,8 @@ public class PostgresCollector extends DBCollector {
   private static final String VERSION_SQL = "SELECT version();";
 
   private static final String PARAMETERS_SQL = "SHOW ALL;";
+
+  private boolean oldVersion = false;
 
   private static final String[] PG_STAT_VIEWS = {
     "pg_stat_archiver", "pg_stat_bgwriter", "pg_stat_database",
@@ -68,7 +62,10 @@ public class PostgresCollector extends DBCollector {
       ResultSet out = s.executeQuery(VERSION_SQL);
       if (out.next()) {
         String[] outStr = out.getString(1).split(" ");
-        this.version.append(outStr[1]);
+        String[] verStr = outStr[1].split("\\.");
+        this.version.append(verStr[0]);
+        this.version.append(".");
+        this.version.append(verStr[1]);
       }
 
       // Collect DBMS parameters
@@ -80,6 +77,7 @@ public class PostgresCollector extends DBCollector {
       // Collect DBMS internal metrics
       String[] pgStatViews = PG_STAT_VIEWS;
       if (Float.parseFloat(this.version.toString()) < 9.4) {
+        this.oldVersion = true;
         pgStatViews = PG_STAT_VIEWS_OLD_VERSION;
       }
 
@@ -135,8 +133,10 @@ public class PostgresCollector extends DBCollector {
       JSONObject jobGlobal = new JSONObject();
 
       // "pg_stat_archiver" (only one instance in the list)
-      Map<String, String> archiverList = pgMetrics.get("pg_stat_archiver").get(0);
-      jobGlobal.put("pg_stat_archiver", genMapJSONObj(archiverList));
+      if(!this.oldVersion) {
+        Map<String, String> archiverList = pgMetrics.get("pg_stat_archiver").get(0);
+        jobGlobal.put("pg_stat_archiver", genMapJSONObj(archiverList));
+      }
 
       // "pg_stat_bgwriter" (only one instance in the list)
       Map<String, String> bgwriterList = pgMetrics.get("pg_stat_bgwriter").get(0);
