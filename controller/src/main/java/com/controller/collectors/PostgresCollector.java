@@ -10,10 +10,18 @@ import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;
 import com.controller.util.json.JSONObject;
 import com.controller.util.json.JSONStringer;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import org.apache.log4j.Logger;
-
-import java.sql.*;
-import java.util.*;
 
 public class PostgresCollector extends DBCollector {
   private static final Logger LOG = Logger.getLogger(PostgresCollector.class);
@@ -133,7 +141,7 @@ public class PostgresCollector extends DBCollector {
       JSONObject jobGlobal = new JSONObject();
 
       // "pg_stat_archiver" (only one instance in the list)
-      if(!this.oldVersion) {
+      if (!this.oldVersion) {
         Map<String, String> archiverList = pgMetrics.get("pg_stat_archiver").get(0);
         jobGlobal.put("pg_stat_archiver", genMapJSONObj(archiverList));
       }
