@@ -99,8 +99,11 @@ class MetricManager(models.Manager):
                        'transactions / second',
                        'txn/sec', 1, MORE_IS_BETTER)
 
+    LATENCY = '99th_lat_ms'
+    LATENCY_META = (LATENCY, 'Latency', 'microsecond', 'ms', 2, LESS_IS_BETTER)
+
     # Objective function metric metadata
-    OBJ_META = {THROUGHPUT: THROUGHPUT_META}
+    OBJ_META = {THROUGHPUT: THROUGHPUT_META, LATENCY: LATENCY_META}
 
     @staticmethod
     def get_default_metrics(target_objective=None):
@@ -181,7 +184,13 @@ class Session(BaseModel):
 
     upload_code = models.CharField(max_length=30, unique=True)
     tuning_session = models.BooleanField()
-    target_objective = models.CharField(max_length=64, null=True)
+
+    TARGET_OBJECTIVES = [
+        ('throughput_txn_per_sec', 'Throughput'),
+        ('99th_lat_ms', '99th Percentile Latency')
+    ]
+    # target_objective = models.CharField(max_length=64, null=True)
+    target_objective = models.CharField(choices=TARGET_OBJECTIVES, max_length=64, null=True)
     nondefault_settings = models.TextField(null=True)
 
     def clean(self):

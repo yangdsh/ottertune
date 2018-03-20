@@ -53,6 +53,9 @@ class MyRocksParser(BaseParser):
     def transactions_counter(self):
         return 'session_status.questions'
 
+    def latency_timer(self):
+        return 'session_status.questions'
+
     def convert_integer(self, int_value, metadata):
         converted = None
         try:
@@ -214,7 +217,7 @@ class MyRocksParser(BaseParser):
             valid_metrics, self.metric_catalog_, default_value='0')
         return valid_metrics, diffs
 
-    def convert_dbms_metrics(self, metrics, observation_time):
+    def convert_dbms_metrics(self, metrics, observation_time, target_objective=None):
         metric_data = {}
         for name, value in metrics.iteritems():
             prt_name = MyRocksParser.partial_name(name)
@@ -227,9 +230,10 @@ class MyRocksParser(BaseParser):
                     raise Exception('Unknown metric type for {}: {}'.format(
                         name, metadata.metric_type))
 
-        if self.transactions_counter not in metric_data:
-            raise Exception("Cannot compute throughput (no objective function)")
+        # if self.transactions_counter not in metric_data:
+        #     raise Exception("Cannot compute throughput (no objective function)")
         metric_data['throughput_txn_per_sec'] = metric_data[self.transactions_counter]
+        metric_data['99th_lat_ms'] = metric_data[self.latency_timer]
         return metric_data
 
     def convert_dbms_knobs(self, knobs):
