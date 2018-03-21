@@ -72,16 +72,6 @@ class PostgresParser(BaseParser):
     @property
     def latency_timer(self):
         return 'pg_stat_database.xact_commit'
-    # @property
-    # def target_metric(self, target_objective=None):
-    #     if target_objective == 'throughput_txn_per_sec' or target_objective == None:
-    #         # throughput
-    #         # return 'pg_stat_database.xact_commit'
-    #         return self.transactions_counter
-    #     else:
-    #         # latency
-    #         # return 'pg_stat_database.xact_commit'
-    #         return self.latency_timer
 
     def convert_integer(self, int_value, metadata):
         converted = None
