@@ -59,12 +59,9 @@ class BaseParser(object):
     def target_metric(self, target_objective=None):
         if target_objective == 'throughput_txn_per_sec' or target_objective is None:
             # throughput
-            # return 'pg_stat_database.xact_commit'
             return self.transactions_counter
         else:
-            # latency
-            # return 'pg_stat_database.xact_commit'
-            return self.latency_timer
+            return None
 
     @abstractmethod
     def parse_version_string(self, version_string):
@@ -174,21 +171,17 @@ class BaseParser(object):
             else:
                 raise Exception(
                     'Unknown metric type for {}: {}'.format(name, metadata.metric_type))
-        # if self.transactions_counter not in metric_data and self.latency_timer not in metric_data:
-        #     raise Exception("Cannot compute throughput or latency (no objective function)")
 
         if target_objective is not None and self.target_metric(target_objective) not in metric_data:
             raise Exception("Cannot find objective function")
 
-        # if target_objective != None:
-        #     metric_data[target_objective] = metric_data[self.target_metric(target_objective)]
-        # else:
-        #     # default
-        #     metric_data['throughput_txn_per_sec'] =  \
-        #       metric_data[self.target_metric(target_objective)]
+        if target_objective is not None:
+            metric_data[target_objective] = metric_data[self.target_metric(target_objective)]
+        else:
+            # default
+            metric_data['throughput_txn_per_sec'] = \
+                metric_data[self.target_metric(target_objective)]
 
-        metric_data['throughput_txn_per_sec'] = metric_data[self.transactions_counter]
-        metric_data['99th_lat_ms'] = metric_data[self.latency_timer]
         return metric_data
 
     @staticmethod
