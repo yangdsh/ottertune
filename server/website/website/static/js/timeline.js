@@ -159,6 +159,7 @@ function render(data) {
         "sPaginationType": "full_numbers",
         "bDestroy": true
     });
+    
     if (fixed_header != null) {
         fixed_header.fnUpdate();
     } else {
@@ -234,11 +235,20 @@ function initializeSite(event) {
     $("select[name^='additional']").bind('change', updateUrl);
     $("input[name='metric']"   ).on('click', updateUrl);
     $("#equidistant"              ).bind('change', updateUrl);
+    $("#metrictable_length").on('change', updateUrl);
+    var mt = $("#metrictable").dataTable({
+        "bFilter": false,
+        "bAutoWidth": true,
+        "bDestroy": true,
+
+    });
+
 }
 
 function refreshSite(event) {
     setValuesOfInputFields(event);
     refreshContent();
+
 }
 
 function setValuesOfInputFields(event) {
@@ -312,6 +322,7 @@ function init(def) {
 
     // Init and change handlers are set to the refreshContent handler
     $.address.init(initializeSite).change(refreshSite);
+    
 }
 
 return {
