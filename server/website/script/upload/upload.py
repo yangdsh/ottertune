@@ -20,10 +20,10 @@ LOG.setLevel(logging.INFO)
 
 def upload(datadir, upload_code, server):
     params = {
-        'summary': open(os.path.join(datadir, 'sample-0__summary.json'), "r"),
-        'knobs': open(os.path.join(datadir, 'sample-0__knobs.json'), "r"),
-        'metrics_start': open(os.path.join(datadir, 'sample-0__metrics_start.json'), 'r'),
-        'metrics_end': open(os.path.join(datadir, 'sample-0__metrics_end.json'), 'r'),
+        'summary': open(os.path.join(datadir, 'summary.json'), "r"),
+        'knobs': open(os.path.join(datadir, 'knobs.json'), "r"),
+        'metrics_before': open(os.path.join(datadir, 'metrics_before.json'), 'r'),
+        'metrics_after': open(os.path.join(datadir, 'metrics_after.json'), 'r'),
         'upload_code': upload_code,
     }
 
