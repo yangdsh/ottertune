@@ -181,7 +181,11 @@ class Session(BaseModel):
 
     upload_code = models.CharField(max_length=30, unique=True)
     tuning_session = models.BooleanField()
-    target_objective = models.CharField(max_length=64, null=True)
+
+    TARGET_OBJECTIVES = [
+        ('throughput_txn_per_sec', 'Throughput')
+    ]
+    target_objective = models.CharField(choices=TARGET_OBJECTIVES, max_length=64, null=True)
     nondefault_settings = models.TextField(null=True)
 
     def clean(self):

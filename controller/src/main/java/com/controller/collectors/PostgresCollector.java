@@ -36,6 +36,12 @@ public class PostgresCollector extends DBCollector {
     "pg_stat_user_indexes", "pg_statio_user_indexes"
   };
 
+  private static final String[] PG_STAT_VIEWS_OLD_VERSION = {
+    "pg_stat_bgwriter", "pg_stat_database",
+    "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
+    "pg_stat_user_indexes", "pg_statio_user_indexes"
+  };
+
   private static final String[] PG_STAT_VIEWS_LOCAL_DATABASE = {
     "pg_stat_database", "pg_stat_database_conflicts"
   };
@@ -61,7 +67,8 @@ public class PostgresCollector extends DBCollector {
       // Collect DBMS version
       ResultSet out = s.executeQuery(VERSION_SQL);
       if (out.next()) {
-        this.version.append(out.getString(1));
+        String[] outStr = out.getString(1).split(" ");
+        this.version.append(outStr[1]);
       }
 
       // Collect DBMS parameters
@@ -71,7 +78,12 @@ public class PostgresCollector extends DBCollector {
       }
 
       // Collect DBMS internal metrics
-      for (String viewName : PG_STAT_VIEWS) {
+      String[] pgStatViews = PG_STAT_VIEWS;
+      if (Float.parseFloat(this.version.toString()) < 9.4) {
+        pgStatViews = PG_STAT_VIEWS_OLD_VERSION;
+      }
+
+      for (String viewName : pgStatViews) {
         out = s.executeQuery("SELECT * FROM " + viewName);
         pgMetrics.put(viewName, getMetrics(out));
       }
