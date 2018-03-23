@@ -71,8 +71,9 @@ public class PostgresCollector extends DBCollector {
         String version = outStr[1];
         String[] tmp = version.split("\\.");
         // Convert version 9.3.21 to 9.3
-        if (tmp.length > 2) 
+        if (tmp.length > 2) {  
           version = tmp[0] + "." + tmp[1];
+        }
         this.version.append(version);
       }
 
