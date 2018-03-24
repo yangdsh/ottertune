@@ -53,16 +53,16 @@ class BaseParser(object):
     def latency_timer(self):
         pass
 
-    # @abstractproperty
-    # def target_metric(self, target_metric):
-    #     pass
     def target_metric(self, target_objective=None):
         if target_objective == 'throughput_txn_per_sec' or target_objective is None:
             # throughput
             return self.transactions_counter
+        elif target_objective == '99th_lat_ms':
+            # 99 percentile latency
+            return self.latency_timer
         else:
-            return None
-
+            raise Exception("Target Objective {} Not Supported".format(bool_value))
+    
     @abstractmethod
     def parse_version_string(self, version_string):
         pass

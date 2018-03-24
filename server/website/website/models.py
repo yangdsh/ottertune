@@ -183,7 +183,8 @@ class Session(BaseModel):
     tuning_session = models.BooleanField()
 
     TARGET_OBJECTIVES = [
-        ('throughput_txn_per_sec', 'Throughput')
+        ('throughput_txn_per_sec', 'Throughput'),
+        ('99th_lat_ms', '99 Percentile Latency')
     ]
     target_objective = models.CharField(choices=TARGET_OBJECTIVES, max_length=64, null=True)
     nondefault_settings = models.TextField(null=True)
