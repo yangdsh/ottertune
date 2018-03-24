@@ -61,8 +61,8 @@ class BaseParser(object):
             # 99 percentile latency
             return self.latency_timer
         else:
-            raise Exception("Target Objective {} Not Supported".format(bool_value))
-    
+            raise Exception("Target Objective {} Not Supported".format(target_objective))
+
     @abstractmethod
     def parse_version_string(self, version_string):
         pass
