@@ -165,7 +165,7 @@ def loop():
 
 @task
 def run_loops(max_iter=5):
-    for i in range(max_iter):
+    for i in range(int(max_iter)):
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
         LOG.info('The %s-th Loop Ends / Total Loops %s', i + 1, max_iter)
