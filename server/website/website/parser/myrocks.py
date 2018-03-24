@@ -237,7 +237,8 @@ class MyRocksParser(BaseParser):
             metric_data[target_objective] = metric_data[self.target_metric(target_objective)]
         else:
             # default
-            metric_data['throughput_txn_per_sec'] = metric_data[self.target_metric(target_objective)]
+            metric_data['throughput_txn_per_sec'] = \
+                metric_data[self.target_metric(target_objective)]
         return metric_data
 
     def convert_dbms_knobs(self, knobs):

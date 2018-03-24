@@ -99,8 +99,12 @@ class MetricManager(models.Manager):
                        'transactions / second',
                        'txn/sec', 1, MORE_IS_BETTER)
 
+    LATENCY_99 = '99th_lat_ms'
+    LATENCY_99_META = (LATENCY_99, '99 Percentile Latency',
+                       'milliseconds', 'ms', 1, LESS_IS_BETTER)
+
     # Objective function metric metadata
-    OBJ_META = {THROUGHPUT: THROUGHPUT_META}
+    OBJ_META = {THROUGHPUT: THROUGHPUT_META, LATENCY_99: LATENCY_99_META}
 
     @staticmethod
     def get_default_metrics(target_objective=None):
