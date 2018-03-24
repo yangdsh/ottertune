@@ -230,10 +230,15 @@ class MyRocksParser(BaseParser):
                     raise Exception('Unknown metric type for {}: {}'.format(
                         name, metadata.metric_type))
 
-        # if self.transactions_counter not in metric_data:
-        #     raise Exception("Cannot compute throughput (no objective function)")
-        metric_data['throughput_txn_per_sec'] = metric_data[self.transactions_counter]
-        metric_data['99th_lat_ms'] = metric_data[self.latency_timer]
+        if target_objective is not None and self.target_metric(target_objective) not in metric_data:
+            raise Exception("Cannot find objective function")
+
+        if target_objective is not None:
+            metric_data[target_objective] = metric_data[self.target_metric(target_objective)]
+        else:
+            # default
+            metric_data['throughput_txn_per_sec'] = \
+                metric_data[self.target_metric(target_objective)]
         return metric_data
 
     def convert_dbms_knobs(self, knobs):
