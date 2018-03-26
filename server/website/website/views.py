@@ -405,12 +405,10 @@ def handle_result_files(session, files):
         dbms = DBMSCatalog.objects.get(
             type=dbms_type, version=dbms_version)
     except ObjectDoesNotExist:
-        print('not supported')
         return HttpResponse('{} v{} is not yet supported.'.format(
             dbms_type, dbms_version))
 
     if dbms != session.dbms:
-        print('not session dbms, expected :{}, actual: {}'.format(session.dbms.full_name, dbms.full_name))
         return HttpResponse('The DBMS must match the type and version '
                             'specified when creating the session. '
                             '(expected=' + session.dbms.full_name + ') '
