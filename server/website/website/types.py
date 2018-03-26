@@ -115,6 +115,19 @@ class KnobUnitType(BaseType):
         OTHER: 'other',
     }
 
+class KnobResourceType(BaseType):
+    MEMORY = 1
+    CPU = 2
+    STORAGE = 3
+    OTHER = 4
+
+    TYPE_NAMES = {
+        MEMORY: 'Memory',
+        CPU: 'CPU',
+        STORAGE: 'Stroage',
+        OTHER: 'Other',
+    }
+
 
 class PipelineTaskType(BaseType):
     PRUNED_METRICS = 1
