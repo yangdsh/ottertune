@@ -139,8 +139,7 @@ public class PostgresCollector extends DBCollector {
       stringer.key(JSON_GLOBAL_KEY);
       // create global objects for two views: "pg_stat_archiver" and "pg_stat_bgwriter"
       JSONObject jobGlobal = new JSONObject();
-
-      // "pg_stat_archiver" (only one instance in the list)
+      // "pg_stat_archiver" (only one instance in the list) >= version 9.4
       if (!this.oldVersion) {
         Map<String, String> archiverList = pgMetrics.get("pg_stat_archiver").get(0);
         jobGlobal.put("pg_stat_archiver", genMapJSONObj(archiverList));

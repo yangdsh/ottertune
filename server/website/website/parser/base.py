@@ -49,6 +49,20 @@ class BaseParser(object):
     def transactions_counter(self):
         pass
 
+    @abstractproperty
+    def latency_timer(self):
+        pass
+
+    def target_metric(self, target_objective=None):
+        if target_objective == 'throughput_txn_per_sec' or target_objective is None:
+            # throughput
+            return self.transactions_counter
+        elif target_objective == '99th_lat_ms':
+            # 99 percentile latency
+            return self.latency_timer
+        else:
+            raise Exception("Target Objective {} Not Supported".format(target_objective))
+
     @abstractmethod
     def parse_version_string(self, version_string):
         pass
@@ -145,7 +159,7 @@ class BaseParser(object):
     def _check_knob_bool_val(self, value):
         return value in self.valid_true_val or value in self.valid_false_val
 
-    def convert_dbms_metrics(self, metrics, observation_time):
+    def convert_dbms_metrics(self, metrics, observation_time, target_objective=None):
         #         if len(metrics) != len(self.numeric_metric_catalog_):
         #             raise Exception('The number of metrics should be equal!')
         metric_data = {}
@@ -157,9 +171,17 @@ class BaseParser(object):
             else:
                 raise Exception(
                     'Unknown metric type for {}: {}'.format(name, metadata.metric_type))
-        if self.transactions_counter not in metric_data:
-            raise Exception("Cannot compute throughput (no objective function)")
-        metric_data['throughput_txn_per_sec'] = metric_data[self.transactions_counter]
+
+        if target_objective is not None and self.target_metric(target_objective) not in metric_data:
+            raise Exception("Cannot find objective function")
+
+        if target_objective is not None:
+            metric_data[target_objective] = metric_data[self.target_metric(target_objective)]
+        else:
+            # default
+            metric_data['throughput_txn_per_sec'] = \
+                metric_data[self.target_metric(target_objective)]
+
         return metric_data
 
     @staticmethod

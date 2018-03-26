@@ -434,7 +434,7 @@ def handle_result_files(session, files):
         dbms.pk, initial_metric_dict, final_metric_dict)
     initial_metric_diffs.extend(final_metric_diffs)
     numeric_metric_dict = Parser.convert_dbms_metrics(
-        dbms.pk, metric_dict, observation_time)
+        dbms.pk, metric_dict, observation_time, session.target_objective)
     metric_data = MetricData.objects.create_metric_data(
         session, JSONUtil.dumps(metric_dict, pprint=True, sort=True),
         JSONUtil.dumps(numeric_metric_dict, pprint=True, sort=True), dbms)

@@ -13,6 +13,7 @@ import urllib2
 import sys
 import time
 import logging
+import json
 
 # Logging
 LOG = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def main():
             LOG.info('%s s\n', str(timer))
         else:
             next_conf_f = open('next_config', 'w')
-            next_conf_f.write(response)
+            next_conf_f.write(json.loads(response))
             next_conf_f.close()
             break
     elapsed_time = time.time() - start

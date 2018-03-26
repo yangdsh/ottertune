@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from analysis.gp import GPRNP
 from analysis.gp_tf import GPRGD
 from analysis.preprocessing import Bin
-from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog
+from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog, MetricCatalog
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
@@ -218,6 +218,13 @@ def configuration_recommendation(target_data):
         raise Exception(('Found {} instances of target objective in '
                          'metrics (target_obj={})').format(len(target_obj_idx),
                                                            target_objective))
+
+    metric_meta = MetricCatalog.objects.get_metric_meta(newest_result.session.dbms, True)
+    if metric_meta[target_objective] == '(less is better)':
+        lessisbetter = True
+    else:
+        lessisbetter = False
+
     y_workload = y_workload[:, target_obj_idx]
     y_target = y_target[:, target_obj_idx]
     y_columnlabels = y_columnlabels[target_obj_idx]
@@ -286,7 +293,8 @@ def configuration_recommendation(target_data):
 
     # FIXME: Maximize the throughput, hardcode
     # Use gradient descent to minimize -throughput
-    y_scaled = -y_scaled
+    if not lessisbetter:
+        y_scaled = -y_scaled
 
     model = GPRGD()
     model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
