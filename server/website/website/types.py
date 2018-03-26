@@ -115,6 +115,7 @@ class KnobUnitType(BaseType):
         OTHER: 'other',
     }
 
+
 class KnobResourceType(BaseType):
     MEMORY = 1
     CPU = 2
