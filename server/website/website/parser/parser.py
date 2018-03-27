@@ -14,7 +14,7 @@ from website.models import DBMSCatalog
 from website.types import DBMSType
 
 from .myrocks import MyRocks56Parser
-from .postgres import Postgres96Parser
+from .postgres import Postgres96Parser, PostgresOldParser
 
 
 class Parser(object):
@@ -26,7 +26,15 @@ class Parser(object):
         if Parser.__DBMS_UTILS_IMPLS is None:
             Parser.__DBMS_UTILS_IMPLS = {
                 DBMSCatalog.objects.get(
-                    type=DBMSType.POSTGRES, version='9.6').pk: Postgres96Parser(),
+                    type=DBMSType.POSTGRES, version='9.3').pk: PostgresOldParser('9.3'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.2').pk: PostgresOldParser('9.2'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.6').pk: Postgres96Parser('9.6'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.4').pk: Postgres96Parser('9.4'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.5').pk: Postgres96Parser('9.5'),
                 DBMSCatalog.objects.get(
                     type=DBMSType.MYROCKS, version='5.6').pk: MyRocks56Parser()
             }

@@ -224,7 +224,7 @@ class BaseParserTests(object):
 class Postgres96ParserTests(BaseParserTests, TestCase):
 
     def setUp(self):
-        self.test_dbms = Postgres96Parser()
+        self.test_dbms = Postgres96Parser(9.6)
 
     def test_convert_dbms_knobs(self):
         super(Postgres96ParserTests, self).test_convert_dbms_knobs()

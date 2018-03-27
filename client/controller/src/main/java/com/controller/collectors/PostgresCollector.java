@@ -30,6 +30,8 @@ public class PostgresCollector extends DBCollector {
 
   private static final String PARAMETERS_SQL = "SHOW ALL;";
 
+  private boolean oldVersion = false;
+
   private static final String[] PG_STAT_VIEWS = {
     "pg_stat_archiver", "pg_stat_bgwriter", "pg_stat_database",
     "pg_stat_database_conflicts", "pg_stat_user_tables", "pg_statio_user_tables",
@@ -68,13 +70,10 @@ public class PostgresCollector extends DBCollector {
       ResultSet out = s.executeQuery(VERSION_SQL);
       if (out.next()) {
         String[] outStr = out.getString(1).split(" ");
-        String version = outStr[1];
-        String[] tmp = version.split("\\.");
-        // Convert version 9.3.21 to 9.3
-        if (tmp.length > 2) {  
-          version = tmp[0] + "." + tmp[1];
-        }
-        this.version.append(version);
+        String[] verStr = outStr[1].split("\\.");
+        this.version.append(verStr[0]);
+        this.version.append(".");
+        this.version.append(verStr[1]);
       }
 
       // Collect DBMS parameters
@@ -86,6 +85,7 @@ public class PostgresCollector extends DBCollector {
       // Collect DBMS internal metrics
       String[] pgStatViews = PG_STAT_VIEWS;
       if (Float.parseFloat(this.version.toString()) < 9.4) {
+        this.oldVersion = true;
         pgStatViews = PG_STAT_VIEWS_OLD_VERSION;
       }
 
@@ -139,9 +139,8 @@ public class PostgresCollector extends DBCollector {
       stringer.key(JSON_GLOBAL_KEY);
       // create global objects for two views: "pg_stat_archiver" and "pg_stat_bgwriter"
       JSONObject jobGlobal = new JSONObject();
-
       // "pg_stat_archiver" (only one instance in the list) >= version 9.4
-      if (Float.parseFloat(this.version.toString()) >= 9.4) {
+      if (!this.oldVersion) {
         Map<String, String> archiverList = pgMetrics.get("pg_stat_archiver").get(0);
         jobGlobal.put("pg_stat_archiver", genMapJSONObj(archiverList));
       }
