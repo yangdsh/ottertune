@@ -227,6 +227,14 @@ function updateSub(event) {
 
 function initializeSite(event) {
     setValuesOfInputFields(event);
+    var mt = $("#metrictable").dataTable({
+        "aaSorting": [],
+        "bFilter": false,
+        "bAutoWidth": true,
+        "bDestroy": true,
+        "iDisplayLength": 35,
+        "aLengthMenu": [[35, 50, 100, -1], [35, 50, 100, "All"]]
+    });
     $("#results_per_page"                ).bind('change', updateUrl);
     $("input[name='dbms']"          ).bind('click', updateUrl);
     $("input[name='workload']"   ).on('change', updateSub);
@@ -235,14 +243,7 @@ function initializeSite(event) {
     $("select[name^='additional']").bind('change', updateUrl);
     $("input[name='metric']"   ).on('click', updateUrl);
     $("#equidistant"              ).bind('change', updateUrl);
-    $("#metrictable_length").on('change', updateUrl);
-    var mt = $("#metrictable").dataTable({
-        "bFilter": false,
-        "bAutoWidth": true,
-        "bDestroy": true,
-
-    });
-
+    
 }
 
 function refreshSite(event) {
