@@ -42,7 +42,7 @@ public class ResultUploader {
       HttpPost httppost = new HttpPost(uploadURL);
 
       MultipartEntityBuilder mb =
-          MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
+              MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
       for (int i = 0; i < filesToSendNames.size(); i++) {
         mb.addPart(filesToSendNames.get(i), new FileBody(filesToSend.get(i)));
       }

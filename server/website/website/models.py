@@ -11,7 +11,7 @@ from django.db import models, DEFAULT_DB_ALIAS
 from django.utils.timezone import now
 
 from .types import (DBMSType, LabelStyleType, MetricType, HardwareType,
-                    KnobUnitType, PipelineTaskType, VarType)
+                    KnobUnitType, PipelineTaskType, VarType, KnobResourceType)
 
 
 class BaseModel(models.Model):
@@ -81,6 +81,7 @@ class KnobCatalog(BaseModel):
     enumvals = models.TextField(null=True, verbose_name="valid values")
     context = models.CharField(max_length=32)
     tunable = models.BooleanField(verbose_name="tunable")
+    resource = models.IntegerField(choices=KnobResourceType.choices(), default=4)
 
 
 MetricMeta = namedtuple('MetricMeta',
