@@ -106,7 +106,7 @@ class Migration(migrations.Migration):
                 ('vartype', models.IntegerField(choices=[(1, b'STRING'), (2, b'INTEGER'), (3, b'REAL'), (4, b'BOOL'), (5, b'ENUM'), (6, b'TIMESTAMP')])),
                 ('summary', models.TextField(null=True, verbose_name=b'description')),
                 ('scope', models.CharField(max_length=16)),
-                ('metric_type', models.IntegerField(choices=[(1, b'COUNTER'), (2, b'INFO')])),
+                ('metric_type', models.IntegerField(choices=[(1, b'COUNTER'), (2, b'INFO'), (3,b'STATISTICS')])),
                 ('dbms', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='website.DBMSCatalog')),
             ],
             options={

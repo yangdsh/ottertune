@@ -56,10 +56,12 @@ class DBMSType(BaseType):
 class MetricType(BaseType):
     COUNTER = 1
     INFO = 2
+    STATISTICS = 3
 
     TYPE_NAMES = {
         COUNTER: 'COUNTER',
         INFO: 'INFO',
+        STATISTICS: 'STATISTICS',
     }
 
 

@@ -232,7 +232,7 @@ def session_view(request, project_id, session_id):
         default_confs = 'none'
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
 
     form_labels = Session.get_labels()
     form_labels['title'] = "Session Info"
@@ -328,7 +328,7 @@ def result_view(request, project_id, session_id, result_id):
     session = target.session
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
     metric_data = JSONUtil.loads(target.metric_data.data)
 
     default_metrics = {mname: metric_data[mname] * metric_meta[mname].scale
@@ -628,7 +628,7 @@ def workload_view(request, project_id, session_id, wkld_id):  # pylint: disable=
     default_knob_confs = [c for c, _ in knob_conf_map.values()][:5]
     LOG.debug("default_knob_confs: %s", default_knob_confs)
 
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
 
     labels = Workload.get_labels()
@@ -713,7 +713,7 @@ def get_workload_data(request):
     data_package = {'results': [],
                     'error': 'None',
                     'metrics': metrics}
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
     for met in data_package['metrics']:
         met_info = metric_meta[met]
         data_package['results'].append({'data': [[]], 'tick': [],
@@ -773,7 +773,7 @@ def get_timeline_data(request):
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
 
-    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
     for met in default_metrics:
         met_info = metric_meta[met]
         columnnames.append(met_info.pprint + ' (' + met_info.short_unit + ')')
