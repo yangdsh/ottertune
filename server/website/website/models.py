@@ -109,9 +109,11 @@ class MetricManager(models.Manager):
 
     @staticmethod
     def get_default_metrics(target_objective=None):
-        default_metrics = list(MetricManager.OBJ_META.keys())
-        if target_objective is not None and target_objective not in default_metrics:
-            default_metrics = [target_objective] + default_metrics
+        # get the target_objective, return the default one if target_objective is None
+        if target_objective is not None:
+            default_metrics = [target_objective]
+        else:
+            default_metrics = [MetricManager.get_default_objective_function()]
         return default_metrics
 
     @staticmethod
@@ -119,7 +121,7 @@ class MetricManager(models.Manager):
         return MetricManager.THROUGHPUT
 
     @staticmethod
-    def get_metric_meta(dbms, include_target_objectives=True):
+    def get_metric_meta(dbms, target_objective=None):
         numeric_metric_names = MetricCatalog.objects.filter(
             dbms=dbms, metric_type=MetricType.COUNTER).values_list('name', flat=True)
         numeric_metrics = {}
@@ -128,9 +130,13 @@ class MetricManager(models.Manager):
                 metname, metname, 'events / second', 'events/sec', 1, '')
         sorted_metrics = [(mname, mmeta) for mname, mmeta in
                           sorted(numeric_metrics.iteritems())]
-        if include_target_objectives:
-            for mname, mmeta in sorted(MetricManager.OBJ_META.iteritems())[::-1]:
-                sorted_metrics.insert(0, (mname, MetricMeta(*mmeta)))
+        if target_objective is not None:
+            mname = target_objective
+        else:
+            mname = MetricManager.get_default_objective_function()
+
+        mmeta = MetricManager.OBJ_META[mname]
+        sorted_metrics.insert(0, (mname, MetricMeta(*mmeta)))
         return OrderedDict(sorted_metrics)
 
 
