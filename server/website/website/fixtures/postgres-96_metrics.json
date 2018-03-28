@@ -599,7 +599,7 @@
             "name": "pg_stat_user_tables.n_dead_tup", 
             "summary": "Estimated number of dead rows", 
             "vartype": 2, 
-            "metric_type": 1, 
+            "metric_type": 3, 
             "scope": "table"
         }, 
         "model": "website.MetricCatalog"
@@ -753,7 +753,7 @@
             "name": "pg_stat_user_tables.n_live_tup", 
             "summary": "Estimated number of live rows", 
             "vartype": 2, 
-            "metric_type": 1, 
+            "metric_type": 3, 
             "scope": "table"
         }, 
         "model": "website.MetricCatalog"
