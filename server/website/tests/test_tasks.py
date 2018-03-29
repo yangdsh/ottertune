@@ -11,8 +11,7 @@ from website.models import Workload, PipelineRun, PipelineData
 from website.tasks.periodic_tasks import (run_background_tasks,
                                           aggregate_data,
                                           run_workload_characterization,
-                                          run_knob_identification,
-                                          dummy_encoder_helper)
+                                          run_knob_identification)
 from website.types import PipelineTaskType
 
 CELERY_TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
@@ -97,8 +96,8 @@ class RankedKnobTestCase(TestCase):
         workloads = Workload.objects.all()
         knob_data, metric_data = aggregate_data(workloads[0])
 
-        # instead of doing actual metric pruning by factor analysis /
-        # clustering, just randomly select 5 nonconstant metrics
+        # instead of doing actual metric pruning by factor analysis / clustering,
+        # just randomly select 5 nonconstant metrics
         nonconst_metric_columnlabels = []
         for col, cl in zip(metric_data['data'].T, metric_data['columnlabels']):
             if np.any(col != col[0]):
@@ -120,33 +119,3 @@ class RankedKnobTestCase(TestCase):
         ranked_knobs = run_knob_identification(knob_data, pruned_metric_data)
         for k in ranked_knobs:
             self.assertIn(k, knob_data['columnlabels'])
-
-
-class DummyEncoderHelperTestCase(TestCase):
-
-    fixtures = ['postgres-96_knobs.json']
-
-    def test_no_featured_categorical(self):
-        featured_knobs = ['global.backend_flush_after',
-                          'global.bgwriter_delay',
-                          'global.wal_writer_delay',
-                          'global.work_mem']
-        categorical_info = dummy_encoder_helper(featured_knobs)
-        self.assertEqual(len(categorical_info['n_values']), 0)
-        self.assertEqual(len(categorical_info['categorical_features']), 0)
-        self.assertEqual(categorical_info['cat_columnlabels'], [])
-        self.assertEqual(categorical_info['noncat_columnlabels'], featured_knobs)
-
-    def test_featured_categorical(self):
-        featured_knobs = ['global.backend_flush_after',
-                          'global.bgwriter_delay',
-                          'global.wal_writer_delay',
-                          'global.work_mem',
-                          'global.wal_sync_method']  # last knob categorical
-        categorical_info = dummy_encoder_helper(featured_knobs)
-        self.assertEqual(len(categorical_info['n_values']), 1)
-        self.assertEqual(categorical_info['n_values'][0], 4)
-        self.assertEqual(len(categorical_info['categorical_features']), 1)
-        self.assertEqual(categorical_info['categorical_features'][0], 4)
-        self.assertEqual(categorical_info['cat_columnlabels'], ['global.wal_sync_method'])
-        self.assertEqual(categorical_info['noncat_columnlabels'], featured_knobs[:-1])

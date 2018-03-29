@@ -17,8 +17,8 @@ from analysis.lasso import LassoPath
 from analysis.preprocessing import (Bin, get_shuffle_indices,
                                     DummyEncoder,
                                     consolidate_columnlabels)
-from website.models import PipelineData, PipelineRun, Result, Workload, KnobCatalog
-from website.types import PipelineTaskType, VarType
+from website.models import PipelineData, PipelineRun, Result, Workload
+from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
 
 # Log debug messages
@@ -253,7 +253,7 @@ def run_knob_identification(knob_data, metric_data):
 
     # determine which knobs need encoding (enums with >2 possible values)
 
-    categorical_info = dummy_encoder_helper(nonconst_knob_columnlabels)
+    categorical_info = DataUtil.dummy_encoder_helper(nonconst_knob_columnlabels)
     # encode categorical variable first (at least, before standardize)
     dummy_encoder = DummyEncoder(categorical_info['n_values'],
                                  categorical_info['categorical_features'],
@@ -281,40 +281,3 @@ def run_knob_identification(knob_data, metric_data):
     consolidated_knobs = consolidate_columnlabels(encoded_knobs)
 
     return consolidated_knobs
-
-
-def dummy_encoder_helper(featured_knobs):
-    n_values = []
-    cat_knob_indices = []
-    cat_knob_names = []
-    noncat_knob_names = []
-
-    for i, knob_name in enumerate(featured_knobs):
-        # TODO/FIX: knob_name might not be unique
-        # but run_knob_identification (which calls this function) only has knob and metric matrices
-        # so cannot use dbms id to additionally filter
-        knobs = KnobCatalog.objects.filter(name=knob_name)
-        if len(knobs) == 0:
-            raise Exception(
-                "KnobCatalog found {} occurences of knob {}".format(len(knobs), knob_name))
-        knob = knobs[0]
-        # check if knob is categorical, with more than 2 levels
-        if knob.vartype == VarType.ENUM:
-            # enumvals is a comma delimited list
-            enumvals = knob.enumvals.split(",")
-            if len(enumvals) > 2:
-                n_values.append(len(enumvals))
-                cat_knob_indices.append(i)
-                cat_knob_names.append(knob_name)
-            else:
-                noncat_knob_names.append(knob_name)
-        else:
-            noncat_knob_names.append(knob_name)
-
-    n_values = np.array(n_values)
-    cat_knob_indices = np.array(cat_knob_indices)
-    categorical_info = {'n_values': n_values,
-                        'categorical_features': cat_knob_indices,
-                        'cat_columnlabels': cat_knob_names,
-                        'noncat_columnlabels': noncat_knob_names}
-    return categorical_info
