@@ -259,8 +259,9 @@ def run_knob_identification(knob_data, metric_data):
                                  categorical_info['categorical_features'],
                                  categorical_info['cat_columnlabels'],
                                  categorical_info['noncat_columnlabels'])
-    encoded_knob_matrix, encoded_knob_columnlabels = dummy_encoder.fit_transform(
+    encoded_knob_matrix = dummy_encoder.fit_transform(
         nonconst_knob_matrix)
+    encoded_knob_columnlabels = dummy_encoder.new_labels
 
     # standardize values in each column to N(0, 1)
     standardizer = StandardScaler()

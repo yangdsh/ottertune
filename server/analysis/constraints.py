@@ -17,63 +17,29 @@ class ParamConstraintHelper(object):
 
     @property
     def num_categorical_params(self):
-        return self.cat_param_indices_.shape[0]
+        return len(self.encoder_.n_values)
 
     def __init__(self, params, scaler, encoder, init_flip_prob, flip_prob_decay):
         if 'inverse_transform' not in dir(scaler):
             raise Exception("Scaler object must provide function inverse_transform(X)")
         if 'transform' not in dir(scaler):
             raise Exception("Scaler object must provide function transform(X)")
-        self.params_ = params
         self.scaler_ = scaler
         self.encoder_ = encoder
         self.init_flip_prob_ = init_flip_prob
         self.flip_prob_decay_ = flip_prob_decay
-        cat_param_indices_ = []
-        for i, param in enumerate(self.params_):
-            if param.iscategorical:
-                cat_param_indices_.append(i)
-        self.cat_param_indices_ = np.array(cat_param_indices_)
 
     def apply_constraints(self, sample, scaled=True, rescale=True):
         conv_sample = self._handle_scaling(sample, scaled)
 
-        if self.encoder_ is not None:
-            n_values = self.encoder_.n_values
-            cat_start_indices = self.encoder_.xform_start_indices
-        current_idx = 0
-        cat_offset = 0
-        for (param, param_val) in zip(self.params_, conv_sample):
-            if param.iscategorical and not param.isboolean:
-                assert current_idx == cat_start_indices[cat_offset]
-                nvals = n_values[cat_offset]
-
-                cvals = conv_sample[current_idx:current_idx + nvals]
-                cvals = np.array(np.arange(nvals) == np.argmax(cvals), dtype=float)
-                assert np.sum(cvals) == 1
-                conv_sample[current_idx:current_idx + nvals] = cvals
-
-                cat_offset += 1
-                current_idx += nvals
-            else:
-                if param.isboolean:
-                    pmin, pmax = 0, 1
-                    param_val = round(param_val)
-                else:
-                    if param.true_range is not None:
-                        pmin, pmax = param.true_range
-                    else:
-                        true_vals = param.true_values
-                        assert true_vals is not None and len(true_vals) > 0, \
-                            "param={}".format(param.name)
-                        pmin, pmax = true_vals[0], true_vals[-1]
-
-                if param_val < pmin:
-                    param_val = pmin
-                elif param_val > pmax:
-                    param_val = pmax
-                conv_sample[current_idx] = param_val
-                current_idx += 1
+        n_values = self.encoder_.n_values_
+        cat_start_indices = self.encoder_.feature_indices_
+        for i, nvals in enumerate(n_values):
+            start_idx = cat_start_indices[i]
+            cvals = conv_sample[start_idx: start_idx + nvals]
+            cvals = np.array(np.arange(nvals) == np.argmax(cvals), dtype=float)
+            assert np.sum(cvals) == 1
+            conv_sample[start_idx: start_idx + nvals] = cvals
         conv_sample = self._handle_rescaling(conv_sample, rescale)
         return conv_sample
 
@@ -113,7 +79,10 @@ class ParamConstraintHelper(object):
         return conv_sample
 
     def randomize_categorical_features(self, sample, scaled=True, rescale=True):
-        n_cat_feats = self.cat_param_indices_.size
+        n_values = self.encoder_.n_values_
+        cat_start_indices = self.encoder_.feature_indices_
+        n_cat_feats = len(n_values)
+
         if n_cat_feats == 0:
             return sample
 
@@ -135,35 +104,19 @@ class ParamConstraintHelper(object):
                                                 replace=False)
         flips = flips[flip_shuffle_indices]
 
-        current_idx, cat_idx, flip_idx = 0, 0, 0
-        for param in self.params_:
-            if param.iscategorical:
-                if param.isboolean:
-                    nvals = 1
-                else:
-                    assert current_idx == self.encoder_.xform_start_indices[cat_idx]
-                    nvals = self.encoder_.n_values[cat_idx]
-                    cat_idx += 1
-                flip = flips[flip_idx]
-                if flip:
-                    current_val = conv_sample[current_idx:current_idx + nvals]
-                    assert np.all(np.logical_or(current_val == 0, current_val == 1)), \
-                        "{0}: value not 0/1: {1}".format(param.name, current_val)
-                    if param.isboolean:
-                        current_val = current_val.squeeze()
-                        r = 1 if current_val == 0 else 0
-                    else:
-                        choices = np.arange(nvals)[current_val != 1]
-                        assert choices.size == nvals - 1
-                        r = np.zeros(nvals)
-                        r[np.random.choice(choices)] = 1
-                        assert np.sum(r) == 1
-                    conv_sample[current_idx:current_idx + nvals] = r
+        for i, nvals in enumerate(n_values):
+            if flips[i]:
+                start_idx = cat_start_indices[i]
+                current_val = conv_sample[start_idx: start_idx + nvals]
+                assert np.all(np.logical_or(current_val == 0, current_val == 1)), \
+                    "categorical {0}: value not 0/1: {1}".format(i, current_val)
+                choices = np.arange(nvals)[current_val != 1]
+                assert choices.size == nvals - 1
+                r = np.zeros(nvals)
+                r[np.random.choice(choices)] = 1
+                assert np.sum(r) == 1
+                conv_sample[start_idx: start_idx + nvals] = r
 
-                current_idx += nvals
-                flip_idx += 1
-            else:
-                current_idx += 1
         conv_sample = self._handle_rescaling(conv_sample, rescale)
         return conv_sample
 

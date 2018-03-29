@@ -292,22 +292,13 @@ class DummyEncoder(Preprocess):
             if nv <= 2:
                 raise Exception("Categorical features must have 3+ labels")
 
-        self.cat_columnlabels = cat_columnlabels
-        self.noncat_columnlabels = noncat_columnlabels
         self.encoder = OneHotEncoder(
             n_values=n_values, categorical_features=categorical_features, sparse=False)
-
-    def fit(self, matrix):
-        return self.encoder.fit(matrix)
-
-    def transform(self, matrix, copy=True):
-        # actually transform the matrix
-        matrix_encoded = self.encoder.transform(matrix)
 
         # determine new columnlabels
         # categorical variables are done in order specified by categorical_features
         new_labels = []
-        for i, cat_label in enumerate(self.cat_columnlabels):
+        for i, cat_label in enumerate(cat_columnlabels):
             low = self.encoder.feature_indices_[i]
             high = self.encoder.feature_indices_[i + 1]
             for j in range(low, high):
@@ -319,8 +310,16 @@ class DummyEncoder(Preprocess):
         # by observation, it looks like the non-categorical features' relative order is preserved
         # BUT: there is no guarantee made about that behavior!
         # We either trust OneHotEncoder to be sensible, or look for some other way
-        new_labels += self.noncat_columnlabels
-        return matrix_encoded, new_labels
+        new_labels += noncat_columnlabels
+        self.new_labels = new_labels
+
+    def fit(self, matrix):
+        return self.encoder.fit(matrix)
+
+    def transform(self, matrix, copy=True):
+        # actually transform the matrix
+        matrix_encoded = self.encoder.transform(matrix)
+        return matrix_encoded
 
     def fit_transform(self, matrix, copy=True):
         self.fit(matrix)
