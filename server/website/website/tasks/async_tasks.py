@@ -18,6 +18,7 @@ from website.models import PipelineData, PipelineRun, Result, Workload, KnobCata
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
+from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, MAX_ITER  # pylint: disable=no-name-in-module
 
 from website.types import VarType
 
@@ -202,7 +203,7 @@ def configuration_recommendation(target_data):
         pipeline_run=latest_pipeline_run,
         workload=mapped_workload,
         task_type=PipelineTaskType.RANKED_KNOBS)
-    ranked_knobs = JSONUtil.loads(ranked_knobs.data)[:10]  # FIXME
+    ranked_knobs = JSONUtil.loads(ranked_knobs.data)[:IMPORTANT_KNOB_NUMBER]
     ranked_knob_idxs = [i for i, cl in enumerate(X_columnlabels) if cl in ranked_knobs]
     X_workload = X_workload[:, ranked_knob_idxs]
     X_target = X_target[:, ranked_knob_idxs]
@@ -219,7 +220,8 @@ def configuration_recommendation(target_data):
                          'metrics (target_obj={})').format(len(target_obj_idx),
                                                            target_objective))
 
-    metric_meta = MetricCatalog.objects.get_metric_meta(newest_result.session.dbms, True)
+    metric_meta = MetricCatalog.objects.get_metric_meta(newest_result.session.dbms,
+                                                        newest_result.session.target_objective)
     if metric_meta[target_objective] == '(less is better)':
         lessisbetter = True
     else:
@@ -279,7 +281,7 @@ def configuration_recommendation(target_data):
 
     # FIXME: we should generate more samples and use a smarter sampling
     # technique
-    num_samples = 20
+    num_samples = NUM_SAMPLES
     X_samples = np.empty((num_samples, X_scaled.shape[1]))
     X_min = np.empty(X_scaled.shape[1])
     X_max = np.empty(X_scaled.shape[1])
@@ -297,17 +299,15 @@ def configuration_recommendation(target_data):
         X_samples[:, i] = np.random.rand(
             num_samples) * (col_max - col_min) + col_min
 
-    # FIXME: Maximize the throughput, hardcode
+    # Maximize the throughput, moreisbetter
     # Use gradient descent to minimize -throughput
     if not lessisbetter:
         y_scaled = -y_scaled
 
-    model = GPRGD()
+    model = GPRGD(max_iter=MAX_ITER)
     model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
     res = model.predict(X_samples)
 
-    # FIXME: whether we select the min/max for the best config depends
-    # on the target objective
     best_config_idx = np.argmin(res.minl.ravel())
     best_config = res.minl_conf[best_config_idx, :]
     best_config = X_scaler.inverse_transform(best_config)
@@ -374,7 +374,8 @@ def map_workload(target_data):
             # For now set ranked knobs & pruned metrics to be those computed
             # for the first workload
             global_ranked_knobs = load_data_helper(
-                pipeline_data, unique_workload, PipelineTaskType.RANKED_KNOBS)[:10]  # FIXME (dva)
+                pipeline_data, unique_workload,
+                PipelineTaskType.RANKED_KNOBS)[:IMPORTANT_KNOB_NUMBER]
             global_pruned_metrics = load_data_helper(
                 pipeline_data, unique_workload, PipelineTaskType.PRUNED_METRICS)
             ranked_knob_idxs = [i for i in range(X_matrix.shape[1]) if X_columnlabels[
@@ -382,12 +383,12 @@ def map_workload(target_data):
             pruned_metric_idxs = [i for i in range(y_matrix.shape[1]) if y_columnlabels[
                 i] in global_pruned_metrics]
 
-            # Filter X & y columnlabels by top 10 ranked_knobs & pruned_metrics
+            # Filter X & y columnlabels by top ranked_knobs & pruned_metrics
             X_columnlabels = X_columnlabels[ranked_knob_idxs]
             y_columnlabels = y_columnlabels[pruned_metric_idxs]
             initialized = True
 
-        # Filter X & y matrices by top 10 ranked_knobs & pruned_metrics
+        # Filter X & y matrices by top ranked_knobs & pruned_metrics
         X_matrix = X_matrix[:, ranked_knob_idxs]
         y_matrix = y_matrix[:, pruned_metric_idxs]
 
