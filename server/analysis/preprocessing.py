@@ -297,6 +297,7 @@ class DummyEncoder(Preprocess):
         self.encoder = OneHotEncoder(
             n_values=n_values, categorical_features=categorical_features, sparse=False)
         self.new_labels = None
+        self.cat_idxs_old = categorical_features
 
     def fit(self, matrix):
         self.encoder.fit(matrix)
@@ -328,7 +329,25 @@ class DummyEncoder(Preprocess):
         return self.transform(matrix)
 
     def inverse_transform(self, matrix, copy=True):
-        raise NotImplementedError("This method is not supported")
+        n_values = self.encoder.n_values_
+        n_features = matrix.shape[-1] - self.encoder.feature_indices_[-1] + len(n_values)
+        noncat_start_idx = self.encoder.feature_indices_[-1]
+        inverted_matrix = np.empty((matrix.shape[0], n_features))
+        cat_idx = 0
+        noncat_idx = 0
+        for i in range(n_features):
+            if i in self.cat_idxs_old:
+                new_col = np.ones((matrix.shape[0],))
+                start_idx = self.encoder.feature_indices_[cat_idx]
+                for j in range(n_values[cat_idx]):
+                    col = matrix[:, start_idx + j]
+                    new_col[col == 1] = j
+                cat_idx += 1
+            else:
+                new_col = np.array(matrix[:, noncat_start_idx + noncat_idx])
+                noncat_idx += 1
+            inverted_matrix[:, i] = new_col
+        return inverted_matrix
 
 
 def consolidate_columnlabels(columnlabels):

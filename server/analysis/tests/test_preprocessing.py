@@ -63,6 +63,21 @@ class TestDummyEncoder(unittest.TestCase):
         expected = ['label1', 'label2', 'noncat']
         self.assertEqual(expected, consolidated)
 
+    def test_inverse_transform(self):
+        X = [[1, 0, 2], [1, 1, 2], [1, 2, 2]]
+        n_values = [3]
+        categorical_features = [1]
+        cat_columnlabels = ['label']
+        noncat_columnlabels = ['a', 'b']
+
+        X_expected = [[1, 0, 0, 1, 2], [0, 1, 0, 1, 2], [0, 0, 1, 1, 2]]
+        enc = DummyEncoder(n_values, categorical_features,
+                           cat_columnlabels, noncat_columnlabels)
+        X_encoded = enc.fit_transform(X)
+        self.assertTrue(np.all(X_encoded == X_expected))
+        X_decoded = enc.inverse_transform(X_encoded)
+        self.assertTrue(np.all(X == X_decoded))
+
 
 if __name__ == '__main__':
     unittest.main()
