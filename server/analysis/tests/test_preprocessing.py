@@ -20,7 +20,8 @@ class TestDummyEncoder(unittest.TestCase):
 
         enc = DummyEncoder(n_values, categorical_features,
                            cat_columnlabels, noncat_columnlabels)
-        X_encoded, new_labels = enc.fit_transform(X)
+        X_encoded = enc.fit_transform(X)
+        new_labels = enc.new_labels
         self.assertTrue(np.all(X == X_encoded))
         self.assertEqual(noncat_columnlabels, new_labels)
 
@@ -35,7 +36,8 @@ class TestDummyEncoder(unittest.TestCase):
         new_labels_expected = ['label____0', 'label____1', 'label____2', 'a', 'b']
         enc = DummyEncoder(n_values, categorical_features,
                            cat_columnlabels, noncat_columnlabels)
-        X_encoded, new_labels = enc.fit_transform(X)
+        X_encoded = enc.fit_transform(X)
+        new_labels = enc.new_labels
         self.assertTrue(np.all(X_expected == X_encoded))
         self.assertEqual(new_labels_expected, new_labels)
 
@@ -50,7 +52,8 @@ class TestDummyEncoder(unittest.TestCase):
         new_labels_expected = ['label____0', 'label____1', 'label____2', 'a', 'b']
         enc = DummyEncoder(n_values, categorical_features,
                            cat_columnlabels, noncat_columnlabels)
-        X_encoded, new_labels = enc.fit_transform(X)
+        X_encoded = enc.fit_transform(X)
+        new_labels = enc.new_labels
         self.assertTrue(np.all(X_expected == X_encoded))
         self.assertEqual(new_labels_expected, new_labels)
 
