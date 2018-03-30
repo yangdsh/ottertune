@@ -20,10 +20,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import sun.misc.Signal;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
@@ -142,19 +139,29 @@ public class Main {
         return;
       }
       PrintWriter knobsWriter =
-          new PrintWriter(FileUtil.joinPath(outputDirectory, "knobs.json"), "UTF-8");
+          new PrintWriter(FileUtil.joinPath(outputDirectory,
+                  "knobs.json"), "UTF-8");
       knobsWriter.println(knobs);
       knobsWriter.close();
 
       // add a signal handler
       Signal.handle(new Signal("INT"), signal -> keepRunning = false);
+      File f = new File("pid.txt");
 
-      // get pid
+      // get pid of this process and write the pid to a file
       if (time < 0) {
         String vmName = ManagementFactory.getRuntimeMXBean().getName();
         int p = vmName.indexOf("@");
         int pid = Integer.valueOf(vmName.substring(0, p));
-        System.out.println(pid);
+        try {
+          f.createNewFile();
+          PrintWriter pidWriter = new PrintWriter(f);
+          pidWriter.println(pid);
+          pidWriter.flush();
+          pidWriter.close();
+        } catch (IOException ioe) {
+          ioe.printStackTrace();
+        }
       }
 
       // record start time
@@ -169,6 +176,7 @@ public class Main {
         while (keepRunning) {
           Thread.sleep(1);
         }
+        f.delete();
       }
 
       long endTime = System.currentTimeMillis();
