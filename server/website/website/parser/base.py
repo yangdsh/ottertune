@@ -296,10 +296,10 @@ class BaseParser(object):
                     self.convert_real
                 start_val = conversion_fn(start_val, met_info)
                 end_val = conversion_fn(end_val, met_info)
-                if met_info.metric_type == MetricType.STATISTICS:
-                    adj_val = end_val
-                elif met_info.metric_type == MetricType.COUNTER:
+                if met_info.metric_type == MetricType.COUNTER:
                     adj_val = end_val - start_val
+                else:  # MetricType.STATISTICS or MetricType.INFO
+                    adj_val = end_val
                 assert adj_val >= 0
                 adjusted_metrics[met_name] = adj_val
             else:

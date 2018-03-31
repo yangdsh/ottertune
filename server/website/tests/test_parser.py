@@ -446,7 +446,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_adj_metrics['pg_stat_user_tables.last_vacuum'], "2018-01-10 12:00:00")
         self.assertEqual(test_adj_metrics['pg_stat_database.tup_fetched'], 104)
         self.assertEqual(test_adj_metrics['pg_stat_database.datname'], "testOttertune")
-        self.assertEqual(test_adj_metrics['pg_stat_database.datid'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_database.datid'], 1)  # MetricType.INFO
         self.assertEqual(test_adj_metrics['pg_stat_database.stats_reset'], "2018-01-10 13:00:00")
         self.assertEqual(test_adj_metrics['pg_stat_user_indexes.idx_scan'], 0)
         self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
