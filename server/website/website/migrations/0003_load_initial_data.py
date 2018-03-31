@@ -12,6 +12,10 @@ def load_initial_data(apps, schema_editor):
         "hardware.json",
         "postgres-96_knobs.json",
         "postgres-96_metrics.json",
+        "postgres-94_knobs.json",
+        "postgres-94_metrics.json",
+        "postgres-92_knobs.json",
+        "postgres-92_metrics.json",
         "myrocks-5.6_knobs.json",
         "myrocks-5.6_metrics.json"
     ]
