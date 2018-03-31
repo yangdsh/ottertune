@@ -442,14 +442,14 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
             test_adj_metrics['pg_stat_archiver.last_failed_time'], "2018-01-11 11:24:30")
         self.assertEqual(test_adj_metrics['pg_stat_user_tables.n_tup_upd'], 27)
         self.assertEqual(test_adj_metrics['pg_stat_user_tables.relname'], "Customers")
-        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relid'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_user_tables.relid'], 2)  # MetricType.INFO
         self.assertEqual(test_adj_metrics['pg_stat_user_tables.last_vacuum'], "2018-01-10 12:00:00")
         self.assertEqual(test_adj_metrics['pg_stat_database.tup_fetched'], 104)
         self.assertEqual(test_adj_metrics['pg_stat_database.datname'], "testOttertune")
         self.assertEqual(test_adj_metrics['pg_stat_database.datid'], 1)  # MetricType.INFO
         self.assertEqual(test_adj_metrics['pg_stat_database.stats_reset'], "2018-01-10 13:00:00")
         self.assertEqual(test_adj_metrics['pg_stat_user_indexes.idx_scan'], 0)
-        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 0)
+        self.assertEqual(test_adj_metrics['pg_stat_user_indexes.relid'], 20)  # MetricType.INFO
 
     def test_create_knob_configuration(self):
         empty_config = self.test_dbms.create_knob_configuration({})
