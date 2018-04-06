@@ -33,7 +33,8 @@ class BaseParser(object):
         self.metric_catalog_ = {m.name: m for m in metrics}
         self.numeric_metric_catalog_ = {m: v for m, v in
                                         self.metric_catalog_.iteritems() if
-                                        v.metric_type == MetricType.COUNTER}
+                                        v.metric_type == MetricType.COUNTER or
+                                        v.metric_type == MetricType.STATISTICS}
         self.valid_true_val = list()
         self.valid_false_val = list()
 
@@ -165,7 +166,8 @@ class BaseParser(object):
         metric_data = {}
         for name, metadata in self.numeric_metric_catalog_.iteritems():
             value = metrics[name]
-            if metadata.metric_type == MetricType.COUNTER:
+            if metadata.metric_type == MetricType.COUNTER or \
+                    metadata.metric_type == MetricType.STATISTICS:
                 converted = self.convert_integer(value, metadata)
                 metric_data[name] = float(converted) / observation_time
             else:
@@ -270,7 +272,8 @@ class BaseParser(object):
             metric = self.metric_catalog_[name]
             if metric.metric_type == MetricType.INFO or len(values) == 1:
                 valid_metrics[name] = values[0]
-            elif metric.metric_type == MetricType.COUNTER:
+            elif metric.metric_type == MetricType.COUNTER or \
+                    metric.metric_type == MetricType.STATISTICS:
                 values = [int(v) for v in values if v is not None]
                 if len(values) == 0:
                     valid_metrics[name] = 0
@@ -293,7 +296,10 @@ class BaseParser(object):
                     self.convert_real
                 start_val = conversion_fn(start_val, met_info)
                 end_val = conversion_fn(end_val, met_info)
-                adj_val = end_val - start_val
+                if met_info.metric_type == MetricType.COUNTER:
+                    adj_val = end_val - start_val
+                else:  # MetricType.STATISTICS or MetricType.INFO
+                    adj_val = end_val
                 assert adj_val >= 0
                 adjusted_metrics[met_name] = adj_val
             else:
