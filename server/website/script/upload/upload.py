@@ -6,11 +6,8 @@
 import argparse
 import logging
 import os
-import urllib2
-from poster.encode import multipart_encode
-from poster.streaminghttp import register_openers
+import requests
 
-register_openers()
 
 # Logging
 LOG = logging.getLogger(__name__)
@@ -20,15 +17,16 @@ LOG.setLevel(logging.INFO)
 
 def upload(datadir, upload_code, url):
     params = {
-        'summary': open(os.path.join(datadir, 'summary.json'), "r"),
-        'knobs': open(os.path.join(datadir, 'knobs.json'), "r"),
-        'metrics_before': open(os.path.join(datadir, 'metrics_before.json'), 'r'),
-        'metrics_after': open(os.path.join(datadir, 'metrics_after.json'), 'r'),
-        'upload_code': upload_code,
+        'summary': open(os.path.join(datadir, 'summary.json'), 'rb'),
+        'knobs': open(os.path.join(datadir, 'knobs.json'), 'rb'),
+        'metrics_start': open(os.path.join(datadir, 'metrics_before.json'), 'rb'),
+        'metrics_end': open(os.path.join(datadir, 'metrics_after.json'), 'rb'),
     }
-    datagen, headers = multipart_encode(params)
-    request = urllib2.Request(url, datagen, headers)
-    LOG.info(urllib2.urlopen(request).read())
+
+    response = requests.post(url,
+                             files=params,
+                             data={'upload_code': upload_code})
+    LOG.info(response.content)
 
 
 def main():
