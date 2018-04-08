@@ -61,13 +61,7 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
     
-##### 6. Preload the static database data
-
-```
-python manage.py loaddata ./preload/*
-```
-    
-##### 7. Start the message broker, celery worker, website server, and periodic task
+##### 6. Start the message broker, celery worker, website server, and periodic task
 
 ```
 sudo rabbitmq-server -detached
