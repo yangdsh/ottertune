@@ -3,10 +3,12 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
+import argparse
 import logging
 import os
 import sys
 import requests
+
 
 # Logging
 LOG = logging.getLogger(__name__)
@@ -14,22 +16,31 @@ LOG.addHandler(logging.StreamHandler())
 LOG.setLevel(logging.INFO)
 
 
-def upload(upload_code, datadir, upload_url=None):
+def upload(datadir, upload_code, url):
     params = {
-        'summary': open(os.path.join(datadir, 'sample-0__summary.json'), 'rb'),
-        'knobs': open(os.path.join(datadir, 'sample-0__knobs.json'), 'rb'),
-        'metrics_start': open(os.path.join(datadir, 'sample-0__metrics_start.json'), 'rb'),
-        'metrics_end': open(os.path.join(datadir, 'sample-0__metrics_end.json'), 'rb'),
+        'summary': open(os.path.join(datadir, 'summary.json'), 'rb'),
+        'knobs': open(os.path.join(datadir, 'knobs.json'), 'rb'),
+        'metrics_start': open(os.path.join(datadir, 'metrics_before.json'), 'rb'),
+        'metrics_end': open(os.path.join(datadir, 'metrics_after.json'), 'rb'),
     }
 
-    response = requests.post(upload_url + "/new_result/",
+    response = requests.post(url,
                              files=params,
                              data={'upload_code': upload_code})
     LOG.info(response.content)
 
+    
+def main():
+    parser = argparse.ArgumentParser(description="Upload generated data to the website")
+    parser.add_argument('datadir', type=str, nargs=1,
+                        help='Directory containing the generated data')
+    parser.add_argument('upload_code', type=str, nargs=1,
+                        help='The website\'s upload code')
+    parser.add_argument('url', type=str, default='http://0.0.0.0:8000/new_result/',
+                        nargs='?', help='The upload url: server_ip/new_result/')
+    args = parser.parse_args()
+    upload(args.datadir[0], args.upload_code[0], args.url)
+
 
 if __name__ == "__main__":
-    if not (3 <= len(sys.argv) <= 4):
-        LOG.error("Usage: python upload.py [upload_code] [path_to_sample_data] [upload_url]")
-    UPLOAD_URL = sys.arv[3] if len(sys.argv) == 4 else "http://0.0.0.0:8000"
-    upload(sys.argv[1], sys.argv[2], UPLOAD_URL)
+    main()

@@ -9,10 +9,12 @@ Created on Dec 12, 2017
 @author: dvanaken
 '''
 
-from .myrocks import MyRocks56Parser
-from .postgres import Postgres96Parser
+
 from website.models import DBMSCatalog
 from website.types import DBMSType
+
+from .myrocks import MyRocks56Parser
+from .postgres import Postgres96Parser, PostgresOldParser
 
 
 class Parser(object):
@@ -24,15 +26,22 @@ class Parser(object):
         if Parser.__DBMS_UTILS_IMPLS is None:
             Parser.__DBMS_UTILS_IMPLS = {
                 DBMSCatalog.objects.get(
-                    type=DBMSType.POSTGRES, version='9.6').pk: Postgres96Parser(),
+                    type=DBMSType.POSTGRES, version='9.3').pk: PostgresOldParser('9.3'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.2').pk: PostgresOldParser('9.2'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.6').pk: Postgres96Parser('9.6'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.4').pk: Postgres96Parser('9.4'),
+                DBMSCatalog.objects.get(
+                    type=DBMSType.POSTGRES, version='9.5').pk: Postgres96Parser('9.5'),
                 DBMSCatalog.objects.get(
                     type=DBMSType.MYROCKS, version='5.6').pk: MyRocks56Parser()
             }
         try:
             if dbms_id is None:
                 return Parser.__DBMS_UTILS_IMPLS
-            else:
-                return Parser.__DBMS_UTILS_IMPLS[dbms_id]
+            return Parser.__DBMS_UTILS_IMPLS[dbms_id]
         except KeyError:
             raise NotImplementedError(
                 'Implement me! ({})'.format(dbms_id))
@@ -53,9 +62,9 @@ class Parser(object):
         return Parser.__utils(dbms_id).convert_dbms_knobs(knobs)
 
     @staticmethod
-    def convert_dbms_metrics(dbms_id, numeric_metrics, observation_time):
+    def convert_dbms_metrics(dbms_id, numeric_metrics, observation_time, target_objective=None):
         return Parser.__utils(dbms_id).convert_dbms_metrics(
-            numeric_metrics, observation_time)
+            numeric_metrics, observation_time, target_objective)
 
     @staticmethod
     def parse_dbms_knobs(dbms_id, knobs):
@@ -70,9 +79,8 @@ class Parser(object):
         return Parser.__utils(dbms_id).get_nondefault_knob_settings(knobs)
 
     @staticmethod
-    def create_knob_configuration(dbms_id, tuning_knobs, custom_knobs):
-        return Parser.__utils(dbms_id).create_knob_configuration(
-            tuning_knobs, custom_knobs)
+    def create_knob_configuration(dbms_id, tuning_knobs):
+        return Parser.__utils(dbms_id).create_knob_configuration(tuning_knobs)
 
     @staticmethod
     def format_dbms_knobs(dbms_id, knobs):

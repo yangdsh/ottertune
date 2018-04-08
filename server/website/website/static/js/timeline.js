@@ -15,7 +15,7 @@ function OnMarkerClickHandler(ev, gridpos, datapos, neighbor, plot) {
     if($("input[name='workload']:checked").val() === "grid") { return false; }
     if (neighbor) {
         result_id = neighbor.data[3];
-        window.location = "/result/?id=" + result_id;
+        window.location = "/projects/" + defaults.project + "/sessions/" + defaults.session + "/results/" + result_id;
     }
 }
 
@@ -159,6 +159,7 @@ function render(data) {
         "sPaginationType": "full_numbers",
         "bDestroy": true
     });
+    
     if (fixed_header != null) {
         fixed_header.fnUpdate();
     } else {
@@ -226,6 +227,14 @@ function updateSub(event) {
 
 function initializeSite(event) {
     setValuesOfInputFields(event);
+    var mt = $("#metrictable").dataTable({
+        "aaSorting": [],
+        "bFilter": false,
+        "bAutoWidth": true,
+        "bDestroy": true,
+        "iDisplayLength": 35,
+        "aLengthMenu": [[35, 50, 100, -1], [35, 50, 100, "All"]]
+    });
     $("#results_per_page"                ).bind('change', updateUrl);
     $("input[name='dbms']"          ).bind('click', updateUrl);
     $("input[name='workload']"   ).on('change', updateSub);
@@ -234,11 +243,13 @@ function initializeSite(event) {
     $("select[name^='additional']").bind('change', updateUrl);
     $("input[name='metric']"   ).on('click', updateUrl);
     $("#equidistant"              ).bind('change', updateUrl);
+    
 }
 
 function refreshSite(event) {
     setValuesOfInputFields(event);
     refreshContent();
+
 }
 
 function setValuesOfInputFields(event) {
@@ -312,6 +323,7 @@ function init(def) {
 
     // Init and change handlers are set to the refreshContent handler
     $.address.init(initializeSite).change(refreshSite);
+    
 }
 
 return {

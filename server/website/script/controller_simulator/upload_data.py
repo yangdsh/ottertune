@@ -47,15 +47,15 @@ def upload(basedir, upload_code, upload_url):
 
 def main():
     parser = argparse.ArgumentParser(description="Upload generated data to the website")
-    parser.add_argument('datadir', type=str, nargs=1,
+    parser.add_argument('basedir', type=str, nargs=1,
                         help='Directory containing the generated data')
     parser.add_argument('upload_code', type=str, nargs=1,
                         help='The website\'s upload code')
-    parser.add_argument('--upload_url', type=str, nargs=1,
-                        help='The website\'s URL')
+    parser.add_argument('upload_url', type=str, default='http://0.0.0.0:8000',
+                        nargs='?', help='The website\'s URL')
+    
     args = parser.parse_args()
-    upload_url = "http://0.0.0.0:8000" if not args.upload_url else args.upload_url
-    upload(args.datadir[0], args.upload_code[0], upload_url)
+    upload(args.basedir[0], args.upload_code[0], args.upload_url)
 
 
 if __name__ == "__main__":

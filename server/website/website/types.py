@@ -56,10 +56,12 @@ class DBMSType(BaseType):
 class MetricType(BaseType):
     COUNTER = 1
     INFO = 2
+    STATISTICS = 3
 
     TYPE_NAMES = {
         COUNTER: 'COUNTER',
         INFO: 'INFO',
+        STATISTICS: 'STATISTICS',
     }
 
 
@@ -113,6 +115,20 @@ class KnobUnitType(BaseType):
         BYTES: 'bytes',
         MILLISECONDS: 'milliseconds',
         OTHER: 'other',
+    }
+
+
+class KnobResourceType(BaseType):
+    MEMORY = 1
+    CPU = 2
+    STORAGE = 3
+    OTHER = 4
+
+    TYPE_NAMES = {
+        MEMORY: 'Memory',
+        CPU: 'CPU',
+        STORAGE: 'Stroage',
+        OTHER: 'Other',
     }
 
 
