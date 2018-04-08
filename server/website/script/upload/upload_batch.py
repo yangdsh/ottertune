@@ -8,7 +8,6 @@ import argparse
 import logging
 import os
 import glob
-import logging
 import numpy as np
 import requests
 
