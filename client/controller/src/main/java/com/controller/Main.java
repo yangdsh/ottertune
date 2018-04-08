@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.cli.CommandLine;
@@ -31,6 +32,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import sun.misc.Signal;
 
 /**
  * Controller main.
@@ -44,16 +46,22 @@ public class Main {
   private static final String DEFAULT_DIRECTORY = "output";
 
   // Default observation period time (5 minutes)
-  private static final int DEFAULT_TIME_SECONDS = 300;
+  private static final int DEFAULT_TIME_SECONDS = -1;
 
   // Path to JSON schema directory
   private static final String SCHEMA_PATH = "src/main/java/com/controller/json_validation_schema";
 
   private static final int TO_MILLISECONDS = 1000;
 
+  private static boolean keepRunning = true;
+
   public static void main(String[] args) {
+
     // Initialize log4j
     PropertyConfigurator.configure("log4j.properties");
+
+    // Initialize keepRunning
+    keepRunning = true;
 
     // Create the command line parser
     CommandLineParser parser = new PosixParser();
@@ -144,13 +152,42 @@ public class Main {
       knobsWriter.println(knobs);
       knobsWriter.close();
 
+      // add a signal handler
+      Signal.handle(new Signal("INT"), signal -> keepRunning = false);
+      File f = new File("pid.txt");
+
+      // get pid of this process and write the pid to a file before recording the start time
+      if (time < 0) {
+        String vmName = ManagementFactory.getRuntimeMXBean().getName();
+        int p = vmName.indexOf("@");
+        int pid = Integer.valueOf(vmName.substring(0, p));
+        try {
+          f.createNewFile();
+          PrintWriter pidWriter = new PrintWriter(f);
+          pidWriter.println(pid);
+          pidWriter.flush();
+          pidWriter.close();
+        } catch (IOException ioe) {
+          ioe.printStackTrace();
+        }
+      }
+
       // record start time
       long startTime = System.currentTimeMillis();
       LOG.info("Starting the experiment ...");
 
       // go to sleep
-      Thread.sleep(time * TO_MILLISECONDS);
+      if (time >= 0) {
+        Thread.sleep(time * TO_MILLISECONDS);
+      } else {
+        while (keepRunning) {
+          Thread.sleep(1);
+        }
+        f.delete();
+      }
+
       long endTime = System.currentTimeMillis();
+      long observationTime = time >= 0 ? time : (endTime - startTime) / TO_MILLISECONDS;
       LOG.info("Done running the experiment");
 
       // summary json obj
@@ -159,7 +196,7 @@ public class Main {
         summary = new JSONObject();
         summary.put("start_time", startTime);
         summary.put("end_time", endTime);
-        summary.put("observation_time", time);
+        summary.put("observation_time", observationTime);
         summary.put("database_type", config.getDBName());
         summary.put("database_version", collector.collectVersion());
         summary.put("workload_name", config.getWorkloadName());
@@ -236,3 +273,4 @@ public class Main {
     return collector;
   }
 }
+
