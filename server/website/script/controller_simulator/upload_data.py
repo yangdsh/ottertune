@@ -53,7 +53,7 @@ def main():
                         help='The website\'s upload code')
     parser.add_argument('upload_url', type=str, default='http://0.0.0.0:8000',
                         nargs='?', help='The website\'s URL')
-    
+
     args = parser.parse_args()
     upload(args.basedir[0], args.upload_code[0], args.upload_url)
 
