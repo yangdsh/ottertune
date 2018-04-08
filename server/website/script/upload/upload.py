@@ -6,7 +6,6 @@
 import argparse
 import logging
 import os
-import sys
 import requests
 
 
@@ -29,7 +28,7 @@ def upload(datadir, upload_code, url):
                              data={'upload_code': upload_code})
     LOG.info(response.content)
 
-    
+
 def main():
     parser = argparse.ArgumentParser(description="Upload generated data to the website")
     parser.add_argument('datadir', type=str, nargs=1,
