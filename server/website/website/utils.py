@@ -43,7 +43,7 @@ class JSONUtil(object):
 
         return json.dumps(config,
                           ensure_ascii=False,
-                          indent=indent).encode("UTF-8")
+                          indent=indent)
 
 
 class MediaUtil(object):
