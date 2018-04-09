@@ -5,7 +5,7 @@
 #
 import random
 import numpy as np
-import Queue as Q
+import queue as Q
 
 from celery.task import task, Task
 from celery.utils.log import get_task_logger
