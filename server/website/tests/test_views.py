@@ -50,7 +50,7 @@ class UserAuthViewTests(TestCase):
     def test_new_signup(self):
         response = self.client.get(reverse('signup'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, u"Create Your Account")
+        self.assertContains(response, "Create Your Account")
 
     def test_logout_view(self):
         self.client.logout()
@@ -74,7 +74,7 @@ class ProjectViewsTests(TestCase):
         post_data = {}
         response = self.client.post(form_addr, post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response, 'form', 'name', u"This field is required.")
+        self.assertFormError(response, 'form', 'name', "This field is required.")
 
     def test_create_project_ok(self):
         form_addr = reverse('new_project')
@@ -92,7 +92,7 @@ class ProjectViewsTests(TestCase):
         form_addr = reverse('edit_project', kwargs={'project_id': TEST_PROJECT_ID})
         post_data = {}
         response = self.client.post(form_addr, post_data)
-        self.assertFormError(response, 'form', 'name', u"This field is required.")
+        self.assertFormError(response, 'form', 'name', "This field is required.")
 
     def test_edit_project_ok(self):
         form_addr = reverse('edit_project', kwargs={'project_id': TEST_PROJECT_ID})
@@ -150,7 +150,7 @@ class SessionViewsTests(TestCase):
         post_data = {}
         response = self.client.post(form_addr, post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response, 'form', 'name', u"This field is required.")
+        self.assertFormError(response, 'form', 'name', "This field is required.")
 
     def test_create_basic_session_ok(self):
         form_addr = reverse('new_session', kwargs={'project_id': TEST_PROJECT_ID})
@@ -190,7 +190,7 @@ class SessionViewsTests(TestCase):
                                                     'session_id': TEST_BASIC_SESSION_ID})
         post_data = {}
         response = self.client.post(form_addr, post_data)
-        self.assertFormError(response, 'form', 'name', u"This field is required.")
+        self.assertFormError(response, 'form', 'name', "This field is required.")
 
     def test_edit_basic_session_ok(self):
         form_addr = reverse('edit_session', kwargs={'project_id': TEST_PROJECT_ID,

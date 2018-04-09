@@ -30,9 +30,9 @@ def load_postgres_metrics():
     with open('/dataset/oltpbench/first_paper_experiments/samples/sample.metrics', 'r') as f:
         sample = json.load(f)
         metric_map = {}
-        for query_name, entries in sample.iteritems():
+        for query_name, entries in list(sample.items()):
             assert len(entries) > 0
-            columns = entries[0].keys()
+            columns = list(entries[0].keys())
             for column in columns:
                 if column not in metric_map:
                     metric_map[column] = []
@@ -41,7 +41,7 @@ def load_postgres_metrics():
 
 
 def main():
-    for dbms, hw in itertools.product(DBMSS.keys(), HARDWARES):
+    for dbms, hw in itertools.product(list(DBMSS.keys()), HARDWARES):
         datapath = os.path.join(DATADIR, '{}_{}'.format(dbms, hw))
         if not os.path.exists(datapath):
             raise IOError('Path does not exist: {}'.format(datapath))

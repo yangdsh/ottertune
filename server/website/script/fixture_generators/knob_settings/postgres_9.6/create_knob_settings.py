@@ -324,7 +324,7 @@ with open('tunable_params.txt', 'w') as f:
     for opt in ['yes', 'maybe', 'no', '']:
         f.write(opt.upper() + '\n')
         f.write('---------------------------------------------------\n')
-        for p, pdict in PARAMS.iteritems():
+        for p, pdict in list(PARAMS.items()):
             if pdict['tunable'] == opt:
                 f.write('{}\t{}\t{}\n'.format(p, pdict['vartype'], pdict['unit']))
         f.write('\n')
@@ -526,7 +526,7 @@ with open('tunable_params.txt', 'w') as f:
 # print "Contexts: {}".format(contexts)
 
 TMP_PARAMS = OrderedDict()
-for k, v in PARAMS.iteritems():
+for k, v in list(PARAMS.items()):
     newname = PARAM_PREFIX + '.' + k
     v['name'] = newname
     TMP_PARAMS[newname] = v
@@ -546,12 +546,12 @@ with open("settings.json", "w") as f:
 
 JSON_SETTINGS = []
 SORTED_KNOB_NAMES = []
-for pname, pinfo in sorted(PARAMS.iteritems()):
+for pname, pinfo in sorted(PARAMS.items()):
     entry = {}
     entry['model'] = 'website.KnobCatalog'
     fields = dict(pinfo)
     fields['tunable'] = fields['tunable'] == 'yes'
-    for k, v in fields.iteritems():
+    for k, v in list(fields.items()):
         if v is not None and not isinstance(v, str) and not isinstance(v, bool):
             fields[k] = str(v)
     fields['dbms'] = 1

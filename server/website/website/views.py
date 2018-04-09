@@ -4,6 +4,7 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 import logging
+import datetime
 from collections import OrderedDict
 
 from django.contrib.auth import login, logout
@@ -56,7 +57,7 @@ def signup_view(request):
             request.POST = new_post
             return login_view(request)
         else:
-            LOG.warn("Signup form is not valid: %s", str(form.errors))
+            LOG.warning("Signup form is not valid: %s", str(form.errors))
     else:
         form = UserCreationForm()
     token = {}
@@ -92,7 +93,7 @@ def login_view(request):
             login(request, form.get_user())
             return redirect(reverse('home_projects'))
         else:
-            LOG.warn("Login form is not valid: %s", str(form.errors))
+            LOG.warning("Login form is not valid: %s", str(form.errors))
     else:
         form = AuthenticationForm()
     token = {}
@@ -219,12 +220,12 @@ def session_view(request, project_id, session_id):
 
     # Sort so names will be ordered in the sidebar
     workloads = OrderedDict([(k, sorted(list(v))) for
-                             k, v in sorted(workloads.iteritems())])
+                             k, v in sorted(workloads.items())])
     dbmss = OrderedDict(sorted(dbmss.items()))
 
     if len(workloads) > 0:
         # Set the default workload to whichever is first
-        default_workload, default_confs = workloads.iteritems().next()
+        default_workload, default_confs = next(iter(list(workloads.items())))
         default_confs = ','.join([str(c.pk) for c in default_confs])
     else:
         # Set the default to display nothing if there are no results yet
@@ -246,7 +247,7 @@ def session_view(request, project_id, session_id):
         'default_equidistant': "on",
         'default_workload': default_workload,
         'defaultspe': default_confs,
-        'metrics': metric_meta.keys(),
+        'metrics': list(metric_meta.keys()),
         'metric_meta': metric_meta,
         'default_metrics': default_metrics,
         'filters': [],
@@ -366,7 +367,7 @@ def new_result(request):
         form = NewResultForm(request.POST, request.FILES)
 
         if not form.is_valid():
-            LOG.warn("New result form is not valid: %s", str(form.errors))
+            LOG.warning("New result form is not valid: %s", str(form.errors))
             return HttpResponse("New result form is not valid: " + str(form.errors))
         upload_code = form.cleaned_data['upload_code']
         try:
@@ -382,9 +383,8 @@ def new_result(request):
 
 def handle_result_files(session, files):
     from celery import chain
-
     # Combine into contiguous files
-    files = {k: ''.join(v.chunks()) for k, v in files.iteritems()}
+    files = {k: b''.join(v.chunks()).decode() for k, v in list(files.items())}
 
     # Load the contents of the controller's summary file
     summary = JSONUtil.loads(files['summary'])
@@ -590,13 +590,13 @@ def dbms_data_view(request, context, dbms_data):
         comp_dict = JSONUtil.loads(comp_data)
         comp_featured_dict = filter_fn(dbms_id, comp_dict)
 
-        all_data = [(k, v, comp_dict[k]) for k, v in all_data_dict.iteritems()]
+        all_data = [(k, v, comp_dict[k]) for k, v in list(all_data_dict.items())]
         featured_data = [(k, v, comp_featured_dict[k])
-                         for k, v in featured_dict.iteritems()]
+                         for k, v in list(featured_dict.items())]
     else:
         comp_id = None
-        all_data = list(all_data_dict.iteritems())
-        featured_data = list(featured_dict.iteritems())
+        all_data = list(all_data_dict.items())
+        featured_data = list(featured_dict.items())
     peer_data = model_class.objects.filter(
         dbms=dbms_data.dbms, session=dbms_data.session)
     peer_data = [peer for peer in peer_data if peer.pk != dbms_data.pk]
@@ -624,8 +624,8 @@ def workload_view(request, project_id, session_id, wkld_id):  # pylint: disable=
         if not latest_result:
             continue
         knob_conf_map[conf.name] = [conf, latest_result]
-    knob_conf_map = OrderedDict(sorted(knob_conf_map.items(), key=lambda x: x[1][0].pk))
-    default_knob_confs = [c for c, _ in knob_conf_map.values()][:5]
+    knob_conf_map = OrderedDict(sorted(list(knob_conf_map.items()), key=lambda x: x[1][0].pk))
+    default_knob_confs = [c for c, _ in list(knob_conf_map.values())][:5]
     LOG.debug("default_knob_confs: %s", default_knob_confs)
 
     metric_meta = MetricCatalog.objects.get_metric_meta(session.dbms, session.target_objective)
@@ -670,7 +670,7 @@ def tuner_status_view(request, project_id, session_id, result_id):  # pylint: di
         total_runtime = '{0:.2f} seconds'.format(total_runtime)
 
     task_info = [(tname, task) for tname, task in
-                 zip(TaskType.TYPE_NAMES.values(), tasks)]
+                 zip(list(TaskType.TYPE_NAMES.values()), tasks)]
 
     context = {"id": result_id,
                "result": res,
@@ -701,8 +701,7 @@ def get_workload_data(request):
 
     results = Result.objects.filter(workload=workload)
     result_data = {r.pk: JSONUtil.loads(r.metric_data.data) for r in results}
-    results = sorted(results, cmp=lambda x, y: int(result_data[y.pk][MetricManager.THROUGHPUT] -
-                                                   result_data[x.pk][MetricManager.THROUGHPUT]))
+    results = sorted(results, key=lambda x: int(result_data[x.pk][MetricManager.THROUGHPUT]))
 
     default_metrics = MetricCatalog.objects.get_default_metrics(session.target_objective)
     metrics = request.GET.get('met', ','.join(default_metrics)).split(',')
@@ -783,8 +782,7 @@ def get_timeline_data(request):
     # Get all results related to the selected session, sort by time
     results = Result.objects.filter(session=session)\
         .select_related('knob_data', 'metric_data', 'workload')
-    results = sorted(results, cmp=lambda x, y: int(
-        (x.observation_end_time - y.observation_end_time).total_seconds()))
+    results = sorted(results, key=lambda x: x.observation_end_time)
 
     display_type = request.GET['wkld']
     if display_type == 'show_none':

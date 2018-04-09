@@ -26,7 +26,7 @@ def get_attr(instance, attr_name):
 
 @register.filter
 def keys(dictionary):
-    return dictionary.keys()
+    return list(dictionary.keys())
 
 
 @register.filter

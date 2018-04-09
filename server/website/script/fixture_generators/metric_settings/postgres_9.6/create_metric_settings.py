@@ -53,7 +53,7 @@ def main():
     final_metrics = []
     numeric_metric_names = []
     vartypes = set()
-    for view_name, mets in sorted(metrics.iteritems()):
+    for view_name, mets in sorted(metrics.items()):
         if 'database' in view_name:
             scope = 'database'
             stats = dbstats

@@ -46,7 +46,7 @@ class ResultUploader(object):
                 for ext in self.REQ_EXTS:
                     next_file = base + ext
                     if not os.path.exists(next_file):
-                        LOG.warn("WARNING: missing file %s, skipping...", next_file)
+                        LOG.warning("WARNING: missing file %s, skipping...", next_file)
                         complete = False
                         break
                 if not complete:
@@ -75,7 +75,7 @@ class ResultUploader(object):
                                        'cluster_name': cluster_name})
         LOG.info(response.content)
 
-        for fh in fhandlers.values():
+        for fh in list(fhandlers.values()):
             fh.close()
 
 

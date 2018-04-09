@@ -31,21 +31,21 @@ def validate_postgres(knobs, dbms):
                                                          dbms.replace('.', '')), 'r') as f:
         knob_info = json.load(f)
         knob_info = {k['fields']['name']: k['fields'] for k in knob_info}
-    for kname, kinfo in knob_info.iteritems():
+    for kname, kinfo in list(knob_info.items()):
         if kname not in knobs and kinfo['tunable'] is True:
             knobs.append(kname)
-            LOG.warn("Adding missing knob to end of list (%s)", kname)
-    knob_names = knob_info.keys()
+            LOG.warning("Adding missing knob to end of list (%s)", kname)
+    knob_names = list(knob_info.keys())
     for kname in knobs:
         if kname not in knob_names:
             if kname not in EXTRA_EXCEPTIONS:
                 raise Exception('Extra knob: {}'.format(kname))
             knobs.remove(kname)
-            LOG.warn("Removing extra knob (%s)", kname)
+            LOG.warning("Removing extra knob (%s)", kname)
 
 
 def main():
-    for dbms, hw in itertools.product(DBMSS.keys(), HARDWARES):
+    for dbms, hw in itertools.product(list(DBMSS.keys()), HARDWARES):
         datapath = os.path.join(DATADIR, '{}_{}'.format(dbms, hw))
         if not os.path.exists(datapath):
             raise IOError('Path does not exist: {}'.format(datapath))

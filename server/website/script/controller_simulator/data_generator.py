@@ -93,7 +93,7 @@ def generate_data(n_workloads, n_samples_per_workload):
 
             for k, (name, loc) in enumerate(locations):
 
-                for kvs in loc.values():
+                for kvs in list(loc.values()):
                     if k % 2 == 0:  # start time must be smaller value
                         met_val = np.random.randint(30000, 70000)
                     else:

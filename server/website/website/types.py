@@ -17,7 +17,7 @@ class BaseType(object):
 
     @classmethod
     def choices(cls):
-        return list(cls.TYPE_NAMES.iteritems())
+        return list(cls.TYPE_NAMES.items())
 
     @classmethod
     def name(cls, ctype):
@@ -25,7 +25,7 @@ class BaseType(object):
 
     @classmethod
     def type(cls, name):
-        return [k for k, v in cls.TYPE_NAMES.iteritems() if
+        return [k for k, v in list(cls.TYPE_NAMES.items()) if
                 v.lower() == name.lower()][0]
 
 

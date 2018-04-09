@@ -19,20 +19,18 @@ from website.types import BooleanType, MetricType, VarType
 
 
 # pylint: disable=no-self-use
-class BaseParser(object):
-
-    __metaclass__ = ABCMeta
+class BaseParser(object, metaclass=ABCMeta):
 
     def __init__(self, dbms_id):
         self.dbms_id_ = dbms_id
         knobs = KnobCatalog.objects.filter(dbms__pk=self.dbms_id_)
         self.knob_catalog_ = {k.name: k for k in knobs}
         self.tunable_knob_catalog_ = {k: v for k, v in
-                                      self.knob_catalog_.iteritems() if v.tunable is True}
+                                      list(self.knob_catalog_.items()) if v.tunable is True}
         metrics = MetricCatalog.objects.filter(dbms__pk=self.dbms_id_)
         self.metric_catalog_ = {m.name: m for m in metrics}
         self.numeric_metric_catalog_ = {m: v for m, v in
-                                        self.metric_catalog_.iteritems() if
+                                        list(self.metric_catalog_.items()) if
                                         v.metric_type == MetricType.COUNTER or
                                         v.metric_type == MetricType.STATISTICS}
         self.valid_true_val = list()
@@ -110,7 +108,7 @@ class BaseParser(object):
 
     def convert_dbms_knobs(self, knobs):
         knob_data = {}
-        for name, metadata in self.tunable_knob_catalog_.iteritems():
+        for name, metadata in list(self.tunable_knob_catalog_.items()):
             if metadata.tunable is False:
                 continue
             if name not in knobs:
@@ -164,7 +162,7 @@ class BaseParser(object):
         #         if len(metrics) != len(self.numeric_metric_catalog_):
         #             raise Exception('The number of metrics should be equal!')
         metric_data = {}
-        for name, metadata in self.numeric_metric_catalog_.iteritems():
+        for name, metadata in list(self.numeric_metric_catalog_.items()):
             value = metrics[name]
             if metadata.metric_type == MetricType.COUNTER or \
                     metadata.metric_type == MetricType.STATISTICS:
@@ -190,14 +188,14 @@ class BaseParser(object):
     def extract_valid_variables(variables, catalog, default_value=None):
         valid_variables = {}
         diff_log = []
-        valid_lc_variables = {k.lower(): v for k, v in catalog.iteritems()}
+        valid_lc_variables = {k.lower(): v for k, v in list(catalog.items())}
 
         # First check that the names of all variables are valid (i.e., listed
         # in the official catalog). Invalid variables are logged as 'extras'.
         # Variable names that are valid but differ in capitalization are still
         # added to valid_variables but with the proper capitalization. They
         # are also logged as 'miscapitalized'.
-        for var_name, var_value in variables.iteritems():
+        for var_name, var_value in list(variables.items()):
             lc_var_name = var_name.lower()
             if lc_var_name in valid_lc_variables:
                 valid_name = valid_lc_variables[lc_var_name].name
@@ -211,8 +209,8 @@ class BaseParser(object):
         # variables. Missing variables are added to valid_variables with the given
         # default_value if provided (or the item's actual default value if not) and
         # logged as 'missing'.
-        lc_variables = {k.lower(): v for k, v in variables.iteritems()}
-        for valid_lc_name, metadata in valid_lc_variables.iteritems():
+        lc_variables = {k.lower(): v for k, v in list(variables.items())}
+        for valid_lc_name, metadata in list(valid_lc_variables.items()):
             if valid_lc_name not in lc_variables:
                 diff_log.append(('missing', metadata.name, None, None))
                 valid_variables[metadata.name] = default_value if \
@@ -222,8 +220,8 @@ class BaseParser(object):
 
     def parse_helper(self, scope, view_variables):
         valid_variables = {}
-        for view_name, variables in view_variables.iteritems():
-            for var_name, var_value in variables.iteritems():
+        for view_name, variables in list(view_variables.items()):
+            for var_name, var_value in list(variables.items()):
                 full_name = '{}.{}'.format(view_name, var_name)
                 if full_name not in valid_variables:
                     valid_variables[full_name] = []
@@ -232,15 +230,15 @@ class BaseParser(object):
 
     def parse_dbms_variables(self, variables):
         valid_variables = {}
-        for scope, sub_vars in variables.iteritems():
+        for scope, sub_vars in list(variables.items()):
             if sub_vars is None:
                 continue
             if scope == 'global':
                 valid_variables.update(self.parse_helper(scope, sub_vars))
             elif scope == 'local':
-                for _, viewnames in sub_vars.iteritems():
-                    for viewname, objnames in viewnames.iteritems():
-                        for _, view_vars in objnames.iteritems():
+                for _, viewnames in list(sub_vars.items()):
+                    for viewname, objnames in list(viewnames.items()):
+                        for _, view_vars in list(objnames.items()):
                             valid_variables.update(self.parse_helper(
                                 scope, {viewname: view_vars}))
             else:
@@ -268,7 +266,7 @@ class BaseParser(object):
             valid_metrics, self.metric_catalog_, default_value='0')
 
         # Combine values
-        for name, values in valid_metrics.iteritems():
+        for name, values in list(valid_metrics.items()):
             metric = self.metric_catalog_[name]
             if metric.metric_type == MetricType.INFO or len(values) == 1:
                 valid_metrics[name] = values[0]
@@ -286,7 +284,7 @@ class BaseParser(object):
 
     def calculate_change_in_metrics(self, metrics_start, metrics_end):
         adjusted_metrics = {}
-        for met_name, start_val in metrics_start.iteritems():
+        for met_name, start_val in list(metrics_start.items()):
             end_val = metrics_end[met_name]
             met_info = self.metric_catalog_[met_name]
             if met_info.vartype == VarType.INTEGER or \
@@ -310,18 +308,18 @@ class BaseParser(object):
 
     def create_knob_configuration(self, tuning_knobs):
         configuration = {}
-        for knob_name, knob_value in sorted(tuning_knobs.iteritems()):
+        for knob_name, knob_value in sorted(tuning_knobs.items()):
             # FIX ME: for now it only shows the global knobs, works for Postgres
             if knob_name.startswith('global.'):
                 knob_name_global = knob_name[knob_name.find('.') + 1:]
                 configuration[knob_name_global] = knob_value
 
-        configuration = OrderedDict(sorted(configuration.iteritems()))
+        configuration = OrderedDict(sorted(configuration.items()))
         return configuration
 
     def get_nondefault_knob_settings(self, knobs):
         nondefault_settings = OrderedDict()
-        for knob_name, metadata in self.knob_catalog_.iteritems():
+        for knob_name, metadata in list(self.knob_catalog_.items()):
             if metadata.tunable is True:
                 continue
             if knob_name not in knobs:
@@ -352,7 +350,7 @@ class BaseParser(object):
 
     def format_dbms_knobs(self, knobs):
         formatted_knobs = {}
-        for knob_name, knob_value in knobs.iteritems():
+        for knob_name, knob_value in list(knobs.items()):
             metadata = self.knob_catalog_.get(knob_name, None)
             if (metadata is None):
                 raise Exception('Unknown knob {}'.format(knob_name))
@@ -379,11 +377,11 @@ class BaseParser(object):
         return formatted_knobs
 
     def filter_numeric_metrics(self, metrics):
-        return OrderedDict([(k, v) for k, v in metrics.iteritems() if
+        return OrderedDict([(k, v) for k, v in list(metrics.items()) if
                             k in self.numeric_metric_catalog_])
 
     def filter_tunable_knobs(self, knobs):
-        return OrderedDict([(k, v) for k, v in knobs.iteritems() if
+        return OrderedDict([(k, v) for k, v in list(knobs.items()) if
                             k in self.tunable_knob_catalog_])
 
 # pylint: enable=no-self-use
