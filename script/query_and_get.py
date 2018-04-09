@@ -9,7 +9,7 @@ Created on Feb 11, 2018
 @author: taodai
 '''
 
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
 import sys
 import time
 import logging
@@ -33,7 +33,7 @@ def main():
     timer = 0
     start = time.time()
     while True:
-        response = urllib.request.urlopen(request).read()
+        response = urllib.request.urlopen(request).read().decode()
         if 'Fail' in response:
             LOG.info('Tuning failed\n')
             break

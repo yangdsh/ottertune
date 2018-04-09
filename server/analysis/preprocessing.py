@@ -15,9 +15,7 @@ from .util import is_numeric_matrix, is_lexical_matrix
 # ==========================================================
 #  Preprocessing Base Class
 # ==========================================================
-class Preprocess(object):
-
-    __metaclass__ = ABCMeta
+class Preprocess(object, metaclass=ABCMeta):
 
     @abstractmethod
     def fit(self, matrix):
@@ -207,7 +205,7 @@ class PolynomialFeatures(Preprocess):
     def _combinations(n_features, degree, interaction_only, include_bias):
         comb = (combinations if interaction_only else combinations_with_replacement)
         start = int(not include_bias)
-        return chain.from_iterable(comb(range(n_features), i)
+        return chain.from_iterable(comb(list(range(n_features)), i)
                                    for i in range(start, degree + 1))
 
     def fit(self, matrix):
