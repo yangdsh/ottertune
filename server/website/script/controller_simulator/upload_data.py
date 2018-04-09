@@ -32,16 +32,16 @@ def upload(basedir, upload_code, upload_url):
             assert len(samples) == 4
             basename = samples[0].split('__')[0]
             params = {
-                'summary': open(basename + '__summary.json', 'rb'),
-                'knobs': open(basename + '__knobs.json', 'rb'),
-                'metrics_before': open(basename + '__metrics_start.json', 'rb'),
-                'metrics_after': open(basename + '__metrics_end.json', 'rb'),
+                'summary': open(basename + '__summary.json', 'r'),
+                'knobs': open(basename + '__knobs.json', 'r'),
+                'metrics_before': open(basename + '__metrics_start.json', 'r'),
+                'metrics_after': open(basename + '__metrics_end.json', 'r'),
             }
 
             response = requests.post(upload_url + "/new_result/",
                                      files=params,
                                      data={'upload_code': upload_code})
-            LOG.info("Response: %s\n", response.content)
+            LOG.info("Response: %s\n", response.content.decode())
             sample_idx += 1
 
 

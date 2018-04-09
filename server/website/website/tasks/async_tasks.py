@@ -53,7 +53,7 @@ class MapWorkload(UpdateTask):  # pylint: disable=abstract-method
         # Replace result with formatted result
         if not args[0]['bad']:
             new_res = {
-                'scores': sorted(args[0]['scores'].iteritems()),
+                'scores': sorted(args[0]['scores'].items()),
                 'mapped_workload_id': args[0]['mapped_workload'],
             }
             task_meta = TaskMeta.objects.get(task_id=task_id)
@@ -99,7 +99,7 @@ def aggregate_target_results(result_id):
         knobs_ = KnobCatalog.objects.filter(dbms=result[0].dbms, tunable=True)
         knobs_catalog = {k.name: k for k in knobs_}
         knobs = {k: v for k, v in
-                 knobs_catalog.iteritems()}
+                 list(knobs_catalog.items())}
         # generate a config randomly
         random_knob_result = gen_random_data(knobs)
         agg_data = DataUtil.aggregate_data(result)
@@ -125,7 +125,7 @@ def aggregate_target_results(result_id):
 
 def gen_random_data(knobs):
     random_knob_result = {}
-    for name, metadata in knobs.iteritems():
+    for name, metadata in list(knobs.items()):
         if metadata.vartype == VarType.BOOL:
             flag = random.randint(0, 1)
             if flag == 0:
@@ -403,8 +403,8 @@ def map_workload(target_data):
         }
 
     # Stack all X & y matrices for preprocessing
-    Xs = np.vstack([entry['X_matrix'] for entry in workload_data.values()])
-    ys = np.vstack([entry['y_matrix'] for entry in workload_data.values()])
+    Xs = np.vstack([entry['X_matrix'] for entry in list(workload_data.values())])
+    ys = np.vstack([entry['y_matrix'] for entry in list(workload_data.values())])
 
     # Scale the X & y values, then compute the deciles for each column in y
     X_scaler = StandardScaler(copy=False)
@@ -427,7 +427,7 @@ def map_workload(target_data):
     y_target = y_binner.transform(y_target)
 
     scores = {}
-    for workload_id, workload_entry in workload_data.iteritems():
+    for workload_id, workload_entry in list(workload_data.items()):
         predictions = np.empty_like(y_target)
         X_workload = workload_entry['X_matrix']
         X_scaled = X_scaler.transform(X_workload)
@@ -452,7 +452,7 @@ def map_workload(target_data):
     # Find the best (minimum) score
     best_score = np.inf
     best_workload_id = None
-    for workload_id, similarity_score in scores.iteritems():
+    for workload_id, similarity_score in list(scores.items()):
         if similarity_score < best_score:
             best_score = similarity_score
             best_workload_id = workload_id

@@ -48,7 +48,7 @@ class Parser(object):
 
     @staticmethod
     def parse_version_string(dbms_type, version_string):
-        for k, v in Parser.__utils(dbms_type).iteritems():
+        for k, v in list(Parser.__utils(dbms_type).items()):
             dbms = DBMSCatalog.objects.get(pk=k)
             if dbms.type == dbms_type:
                 try:

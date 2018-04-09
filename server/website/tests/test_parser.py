@@ -12,9 +12,7 @@ from website.types import BooleanType, VarType, KnobUnitType
 from website.models import KnobCatalog
 
 
-class BaseParserTests(object):
-
-    __metaclass__ = ABCMeta
+class BaseParserTests(object, metaclass=ABCMeta):
 
     def setUp(self):
         self.test_dbms = None
@@ -101,7 +99,7 @@ class BaseParserTests(object):
         test_scope = 'global'
         test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
 
-        self.assertEqual(len(test_parse.keys()), 1)
+        self.assertEqual(len(list(test_parse.keys())), 1)
         self.assertEqual(test_parse.get('local.FAKE_KNOB'), ['FAKE'])
 
     def test_parse_dbms_variables(self):
@@ -114,18 +112,15 @@ class BaseParserTests(object):
                           'local': {'CustomerTable':
                                     {'LocalView1':
                                      {'LocalObj1':
-                                      {'cpu_tuple_cost': 0.1,
-                                       'random_page_cost': 0.2},
-                                      'LocalObj2':
                                       {'cpu_tuple_cost': 0.5,
                                        'random_page_cost': 0.3}}}},
                           'fakeScope': None}
 
         # NOTE: For local objects, method will not distinguish
-        # local objects or tables, might overwrite the variables?
+        # local objects or tables, might overwrite the variables
         test_parse = self.test_dbms.parse_dbms_variables(test_dbms_vars)
 
-        self.assertEqual(len(test_parse.keys()), 6)
+        self.assertEqual(len(list(test_parse.keys())), 6)
         self.assertEqual(test_parse.get('GlobalView1.cpu_tuple_cost'), [0.01])
         self.assertEqual(test_parse.get('GlobalView1.random_page_cost'), [0.22])
         self.assertEqual(test_parse.get('GlobalView2.cpu_tuple_cost'), [0.05])
@@ -240,7 +235,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
                       'global.FAKE_KNOB': 20}
 
         test_convert_knobs = self.test_dbms.convert_dbms_knobs(test_knobs)
-        self.assertEqual(len(test_convert_knobs.keys()), 3)
+        self.assertEqual(len(list(test_convert_knobs.keys())), 3)
         self.assertEqual(test_convert_knobs['global.random_page_cost'], 0.22)
 
         self.assertEqual(test_convert_knobs['global.wal_sync_method'], 2)
@@ -258,7 +253,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
 
         test_metrics = {}
 
-        for key in self.test_dbms.numeric_metric_catalog_.keys():
+        for key in list(self.test_dbms.numeric_metric_catalog_.keys()):
             test_metrics[key] = 2
         test_metrics['pg_stat_database.xact_commit'] = 10
         test_metrics['pg_FAKE_METRIC'] = 0
@@ -266,7 +261,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_metrics.get('throughput_txn_per_sec'), None)
 
         test_convert_metrics = self.test_dbms.convert_dbms_metrics(test_metrics, 0.1)
-        for key in self.test_dbms.numeric_metric_catalog_.keys():
+        for key in list(self.test_dbms.numeric_metric_catalog_.keys()):
             if (key == self.test_dbms.transactions_counter):
                 self.assertEqual(test_convert_metrics[key], 10 / 0.1)
                 continue
@@ -311,11 +306,11 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
             self.test_dbms.parse_version_string("1.0")
 
     def test_extract_valid_variables(self):
-        num_tunable_knobs = len(self.test_dbms.tunable_knob_catalog_.keys())
+        num_tunable_knobs = len(list(self.test_dbms.tunable_knob_catalog_.keys()))
 
         test_empty, test_empty_diff = self.test_dbms.extract_valid_variables(
             {}, self.test_dbms.tunable_knob_catalog_)
-        self.assertEqual(len(test_empty.keys()), num_tunable_knobs)
+        self.assertEqual(len(list(test_empty.keys())), num_tunable_knobs)
         self.assertEqual(len(test_empty_diff), num_tunable_knobs)
 
         test_vars = {'global.wal_sync_method': 'fsync',
@@ -468,7 +463,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
                        ("cpu_tuple_cost", 0.5),
                        ("FAKE_KNOB", 20)]
 
-        self.assertTrue(len(test_config.keys()), 4)
+        self.assertTrue(len(list(test_config.keys())), 4)
 
         for k, v in actual_keys:
             self.assertEqual(test_config.get(k), v)
@@ -523,30 +518,30 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
     def test_filter_numeric_metrics(self):
         super(Postgres96ParserTests, self).test_filter_numeric_metrics()
 
-        test_metrics = {'pg_stat_bgwriter.checkpoints_req': (2L, 'global'),
-                        'pg_stat_archiver.last_failed_wal': (1L, 'global'),
-                        'pg_stat_database.stats_reset': (6L, 'database'),
-                        'pg_statio_user_indexes.indexrelname': (1L, 'index'),
-                        'pg_stat_bgwriter.maxwritten_clean': (2L, 'global'),
-                        'pg_stat_database.tup_fetched': (2L, 'database'),
-                        'pg_statio_user_tables.heap_blks_read': (2L, 'table'),
-                        'pg_FAKE_METRIC': (2L, 'database')}
+        test_metrics = {'pg_stat_bgwriter.checkpoints_req': (2, 'global'),
+                        'pg_stat_archiver.last_failed_wal': (1, 'global'),
+                        'pg_stat_database.stats_reset': (6, 'database'),
+                        'pg_statio_user_indexes.indexrelname': (1, 'index'),
+                        'pg_stat_bgwriter.maxwritten_clean': (2, 'global'),
+                        'pg_stat_database.tup_fetched': (2, 'database'),
+                        'pg_statio_user_tables.heap_blks_read': (2, 'table'),
+                        'pg_FAKE_METRIC': (2, 'database')}
 
         filtered_metrics = self.test_dbms.filter_numeric_metrics(test_metrics)
 
-        self.assertEqual(len(filtered_metrics.keys()), 4)
+        self.assertEqual(len(list(filtered_metrics.keys())), 4)
         self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.checkpoints_req'),
-                         (2L, 'global'))
+                         (2, 'global'))
         self.assertEqual(filtered_metrics.get('pg_stat_archiver.last_failed_wal'), None)
         self.assertEqual(filtered_metrics.get('pg_stat_database.stats_reset'), None)
         self.assertEqual(filtered_metrics.get('pg_statio_user_indexes.indexrelname'),
                          None)
         self.assertEqual(filtered_metrics.get('pg_stat_bgwriter.maxwritten_clean'),
-                         (2L, 'global'))
+                         (2, 'global'))
         self.assertEqual(filtered_metrics.get('pg_stat_database.tup_fetched'),
-                         (2L, 'database'))
+                         (2, 'database'))
         self.assertEqual(filtered_metrics.get('pg_statio_user_tables.heap_blks_read'),
-                         (2L, 'table'))
+                         (2, 'table'))
         self.assertEqual(filtered_metrics.get('pg_FAKE_KNOB'), None)
 
     def test_filter_tunable_knobs(self):
@@ -564,7 +559,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
 
         filtered_knobs = self.test_dbms.filter_tunable_knobs(test_knobs)
 
-        self.assertEqual(len(filtered_knobs.keys()), 3)
+        self.assertEqual(len(list(filtered_knobs.keys())), 3)
         self.assertEqual(filtered_knobs.get('global.wal_sync_method'), 5)
         self.assertEqual(filtered_knobs.get('global.wal_buffers'), 2)
         self.assertEqual(filtered_knobs.get('global.random_page_cost'), 3)
@@ -580,7 +575,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         test_scope = 'global'
         test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
 
-        self.assertEqual(len(test_parse.keys()), 3)
+        self.assertEqual(len(list(test_parse.keys())), 3)
         self.assertEqual(test_parse.get('global.wal_sync_method'), ['open_sync'])
         self.assertEqual(test_parse.get('global.random_page_cost'), [0.22])
         self.assertEqual(test_parse.get('local.FAKE_KNOB'), ['FAKE'])
@@ -599,10 +594,11 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
 
         (test_parse_dict, test_parse_log) = self.test_dbms.parse_dbms_knobs(test_knobs)
 
-        self.assertEqual(len(test_parse_log), len(self.test_dbms.knob_catalog_.keys()) - 7)
+        self.assertEqual(len(test_parse_log), len(list(self.test_dbms.knob_catalog_.keys())) - 7)
         self.assertTrue(('extra', None, 'global.FAKE_KNOB', 'fake') in test_parse_log)
 
-        self.assertEqual(len(test_parse_dict.keys()), len(self.test_dbms.knob_catalog_.keys()))
+        self.assertEqual(len(list(test_parse_dict.keys())),
+                         len(list(self.test_dbms.knob_catalog_.keys())))
         self.assertEqual(test_parse_dict['global.wal_sync_method'], 'fsync')
         self.assertEqual(test_parse_dict['global.random_page_cost'], 0.22)
 
@@ -629,7 +625,7 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         # Doesn't support table or index scope
         with self.assertRaises(Exception):
             test_parse_dict, test_parse_log = self.test_dbms.parse_dbms_metrics(test_metrics)
-            self.assertEqual(len(test_parse_dict.keys()),
-                             len(self.test_dbms.metric_catalog_.keys()))
+            self.assertEqual(len(list(test_parse_dict.keys())),
+                             len(list(self.test_dbms.metric_catalog_.keys())))
             self.assertEqual(len(test_parse_log),
-                             len(self.test_dbms.metric_catalog_.keys()) - 14)
+                             len(list(self.test_dbms.metric_catalog_.keys())) - 14)

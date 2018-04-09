@@ -33,13 +33,13 @@ class UploadResultsTests(TestCase):
     @staticmethod
     def open_files(file_info):
         files = {}
-        for name, path in file_info.iteritems():
+        for name, path in list(file_info.items()):
             files[name] = open(path)
         return files
 
     @staticmethod
     def close_files(files):
-        for name, fp in files.iteritems():
+        for name, fp in list(files.items()):
             if name != 'upload_code':
                 fp.close()
 
@@ -59,8 +59,8 @@ class UploadResultsTests(TestCase):
         post_data = {'upload_code': upload_code}
         response = self.client.post(form_addr, post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, u"New result form is not valid:")
-        self.assertContains(response, u"This field is required", 4)
+        self.assertContains(response, "New result form is not valid:")
+        self.assertContains(response, "This field is required", 4)
 
     def upload_to_session_invalid_upload_code(self, session_id):
         form_addr = reverse('new_result')
@@ -69,13 +69,13 @@ class UploadResultsTests(TestCase):
         response = self.client.post(form_addr, post_data)
         self.close_files(post_data)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, u"Invalid upload code")
+        self.assertContains(response, "Invalid upload code")
 
     def test_upload_form_not_post(self):
         form_addr = reverse('new_result')
         response = self.client.get(form_addr)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, u"Request type was not POST")
+        self.assertContains(response, "Request type was not POST")
 
     def test_upload_to_basic_session_ok(self):
         self.upload_to_session_ok(TEST_BASIC_SESSION_ID, TEST_BASIC_SESSION_UPLOAD_CODE)

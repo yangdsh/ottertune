@@ -181,14 +181,14 @@ class KMeans(ModelBase):
         if self.sample_distances_ is None:
             raise Exception("No model has been fit yet!")
 
-        return [samples['sample_labels'][0] for samples in self.sample_distances_.values()]
+        return [samples['sample_labels'][0] for samples in list(self.sample_distances_.values())]
 
     def get_memberships(self):
         '''
         Return the memberships in each cluster
         '''
         memberships = OrderedDict()
-        for cluster_label, samples in self.sample_distances_.iteritems():
+        for cluster_label, samples in list(self.sample_distances_.items()):
             memberships[cluster_label] = OrderedDict(
                 [(l, d) for l, d in zip(samples["sample_labels"], samples["distances"])])
         return json.dumps(memberships, indent=4)
@@ -287,7 +287,7 @@ class KMeansClusters(ModelBase):
 
         cluster_map = OrderedDict()
         inertias = []
-        for K, model in sorted(self.cluster_map_.iteritems()):
+        for K, model in sorted(self.cluster_map_.items()):
             cluster_map[K] = {
                 "cluster_inertia": model.cluster_inertia_,
                 "cluster_labels": model.cluster_labels_,
@@ -297,7 +297,7 @@ class KMeansClusters(ModelBase):
 
         # Save sum of squares plot (elbow curve)
         fig = plt.figure()
-        plt.plot(cluster_map.keys(), inertias, '--o')
+        plt.plot(list(cluster_map.keys()), inertias, '--o')
         plt.xlabel("Number of clusters (K)")
         plt.ylabel("Within sum of squares W_k")
         plt.title("Within Sum of Squares vs. Number of Clusters")
@@ -315,7 +315,7 @@ class KMeansClusters(ModelBase):
                 f.write(members)
 
 
-class KSelection(ModelBase):
+class KSelection(ModelBase, metaclass=ABCMeta):
     """KSelection:
 
     Abstract class for techniques that approximate the optimal
@@ -335,8 +335,6 @@ class KSelection(ModelBase):
     """
 
     NAME_ = None
-
-    __metaclass__ = ABCMeta
 
     def __init__(self):
         self.optimal_num_clusters_ = None
@@ -450,7 +448,7 @@ class GapStatistic(KSelection):
         log_wks = np.zeros(n_clusters)
         log_wkbs = np.zeros(n_clusters)
         sk = np.zeros(n_clusters)
-        for indk, (K, model) in enumerate(sorted(cluster_map.iteritems())):
+        for indk, (K, model) in enumerate(sorted(cluster_map.items())):
 
             # Computes Wk: the within-dispersion of each cluster size (k)
             log_wks[indk] = np.log(model.cluster_inertia_ / (2.0 * K))
@@ -632,7 +630,7 @@ class DetK(KSelection):
         alpha = {}
         # K from 1 to maximum_cluster_
         for i, (K, model) \
-                in enumerate(sorted(cluster_map.iteritems())):
+                in enumerate(sorted(cluster_map.items())):
             # Compute alpha(K, nd) (i.e. alpha[K])
             if K == 2:
                 alpha[K] = 1 - 3.0 / (4 * nd)
@@ -738,7 +736,7 @@ class Silhouette(KSelection):
         # scores = np.empty(n_clusters)
         scores = np.zeros(n_clusters)
         for i, (K, model) \
-                in enumerate(sorted(cluster_map.iteritems())):
+                in enumerate(sorted(cluster_map.items())):
             if K <= 1:  # K >= 2
                 continue
             scores[i] = silhouette_score(X, model.cluster_labels_)

@@ -9,7 +9,7 @@ Created on Feb 11, 2018
 @author: taodai
 '''
 
-import urllib2
+import urllib.request
 import sys
 import time
 import logging
@@ -29,11 +29,11 @@ def main():
     base_url = sys.argv[1].strip('/')
     upload_code = sys.argv[2]
     query_interval = int(sys.argv[3])
-    request = urllib2.Request(base_url + '/query_and_get/' + upload_code)
+    request = urllib.request.Request(base_url + '/query_and_get/' + upload_code)
     timer = 0
     start = time.time()
     while True:
-        response = urllib2.urlopen(request).read()
+        response = urllib.request.urlopen(request).read().decode()
         if 'Fail' in response:
             LOG.info('Tuning failed\n')
             break

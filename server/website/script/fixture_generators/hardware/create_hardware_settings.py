@@ -50,12 +50,12 @@ with open('ec2_instance_types.csv', 'r') as f:
 
             entry['storage_type'] = storage_type
             entry['additional_specs'] = json.dumps(OrderedDict(
-                zip(header[4:], row[4:])), encoding='utf-8')
+                list(zip(header[4:], row[4:]))), encoding='utf-8')
             HW[entry['name']] = entry
 
 # For types.HardwareTypes
 HW_CONSTS = [('GENERIC', 1, 'generic')]
-for k, v in HW.iteritems():
+for k, v in list(HW.items()):
     HW_CONSTS.append(('EC2_{}'.format(k.replace('.', '').upper()), v['type'], k))
 HW_STR = ' '.join(['{} = {};'.format(k, v) for k, v, _ in HW_CONSTS])
 TYPE_NAMES = ', '.join(['{}: \'{}\''.format(k, n) for k, _, n in HW_CONSTS])
@@ -64,7 +64,7 @@ with open('hardware_types.txt', 'w') as f:
     f.write('TYPE_NAMES = {' + TYPE_NAMES + '}')
 
 ENTRIES = []
-for k, v in HW.iteritems():
+for k, v in list(HW.items()):
     ENTRIES.append({
         "model": "website.Hardware",
         'fields': v

@@ -37,7 +37,7 @@ class GPRNP(object):
 
     def __repr__(self):
         rep = ""
-        for k, v in sorted(self.__dict__.iteritems()):
+        for k, v in sorted(self.__dict__.items()):
             rep += "{} = {}\n".format(k, v)
         return rep
 
@@ -145,6 +145,6 @@ class GPRNP(object):
                 "K_inv": self.K_inv}
 
     def set_params(self, **parameters):
-        for param, val in parameters.iteritems():
+        for param, val in list(parameters.items()):
             setattr(self, param, val)
         return self
