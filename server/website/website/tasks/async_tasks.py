@@ -313,7 +313,7 @@ def configuration_recommendation(target_data):
     while i < TOP_NUM_CONFIG:
         item = q.get()
         X_samples = np.vstack((X_samples, X_scaled[item[1]]))
-        i++
+        i = i + 1
 
     model = GPRGD(max_iter=MAX_ITER)
     model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
