@@ -32,6 +32,7 @@ before_install:
 
 install:
   - pip install -r ${WEBSITE_ROOT}/requirements.txt
+  - pip install coverage codecov
 
 before_script:
   - cp ${WEBSITE_ROOT}/website/settings/credentials_TEMPLATE.py
