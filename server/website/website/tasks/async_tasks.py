@@ -4,8 +4,8 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 import random
+import queue
 import numpy as np
-import queue as Q
 
 from celery.task import task, Task
 from celery.utils.log import get_task_logger
@@ -19,7 +19,7 @@ from website.models import PipelineData, PipelineRun, Result, Workload, KnobCata
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
-from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, MAX_ITER, TOP_NUM_CONFIG # pylint: disable=no-name-in-module
+from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, MAX_ITER, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
 
 from website.types import VarType
 
@@ -305,10 +305,10 @@ def configuration_recommendation(target_data):
     if not lessisbetter:
         y_scaled = -y_scaled
 
-    q = Q.PriorityQueue()
+    q = queue.PriorityQueue()
 
     for x in range(0, y_scaled.shape[0]):
-        q.put((y[x][0],x))
+        q.put((y_scaled[x][0], x))
     i = 0
     while i < TOP_NUM_CONFIG:
         item = q.get()
