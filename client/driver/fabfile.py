@@ -114,7 +114,7 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json --no-daemon"'
+    cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json" --no-daemon'
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
