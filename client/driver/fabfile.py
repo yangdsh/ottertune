@@ -11,6 +11,7 @@ Created on Mar 23, 2018
 import sys
 import json
 import logging
+import time
 import re
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
@@ -113,10 +114,15 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json -t 300"'
+    cmd = 'sudo gradle run --no-daemon -PappArgs="-c config/sample_postgres_config.json -t 300"'
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
+@task
+def stop_controller():
+    cmd = 'sudo ./stop_experiment.sh'
+    with lcd("../controller"):  # pylint: disable=not-context-manager
+        local(cmd)
 
 @task
 def upload_result():
@@ -152,6 +158,11 @@ def loop():
 
     # run controller
     run_controller()
+
+    time.sleep(3) # delay 60 seconds
+
+    # stop the experiment
+    stop_controller()
 
     # upload result
     upload_result()
