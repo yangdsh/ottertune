@@ -3,18 +3,13 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
+
 import argparse
 import logging
 import os
-import urllib2
-
 import glob
 import numpy as np
-
-from poster.encode import multipart_encode
-from poster.streaminghttp import register_openers
-
-register_openers()
+import requests
 
 # Logging
 LOG = logging.getLogger(__name__)
@@ -34,16 +29,15 @@ class ResultUploader(object):
     REQ_EXTS = [SUMMARY_EXT, PARAMS_EXT, METRICS_EXT, SAMPLES_EXT, EXPCFG_EXT]
 
     def __init__(self, upload_code, upload_url):
-        self.upload_code_ = upload_code
-        self.upload_url_ = upload_url
+        self._upload_code = upload_code
+        self._upload_url = upload_url
 
     def upload_batch(self, directories, max_files=5):
         for d in directories:
             cluster_name = os.path.basename(d)
             fnames = glob.glob(os.path.join(d, '*.summary'))
             if max_files < len(fnames):
-                idxs = np.random.choice(len(fnames), max_files)
-                fnames = [fnames[i] for i in idxs]
+                fnames = list(np.random.choice(fnames, max_files))
             bases = [fn.split('.summary')[0] for fn in fnames]
 
             # Verify required extensions exist
@@ -52,7 +46,7 @@ class ResultUploader(object):
                 for ext in self.REQ_EXTS:
                     next_file = base + ext
                     if not os.path.exists(next_file):
-                        LOG.warn("WARNING: missing file %s, skipping...", next_file)
+                        LOG.warning("WARNING: missing file %s, skipping...", next_file)
                         complete = False
                         break
                 if not complete:
@@ -63,10 +57,8 @@ class ResultUploader(object):
         exts = list(self.REQ_EXTS)
         if os.path.exists(basepath + self.RAW_EXT):
             exts.append(self.RAW_EXT)
-        fhandlers = {ext: open(basepath + ext, 'r') for ext in exts}
+        fhandlers = {ext: open(basepath + ext, 'rb') for ext in exts}
         params = {
-            'upload_code': self.upload_code_,
-            'cluster_name': cluster_name,
             'summary_data': fhandlers[self.SUMMARY_EXT],
             'db_metrics_data': fhandlers[self.METRICS_EXT],
             'db_parameters_data': fhandlers[self.PARAMS_EXT],
@@ -77,11 +69,13 @@ class ResultUploader(object):
         if self.RAW_EXT in fhandlers:
             params['raw_data'] = fhandlers[self.RAW_EXT]
 
-        datagen, headers = multipart_encode(params)
-        request = urllib2.Request(self.upload_url_, datagen, headers)
-        LOG.info(urllib2.urlopen(request).read())
+        response = requests.post(self._upload_url,
+                                 files=params,
+                                 data={'upload_code': self._upload_code,
+                                       'cluster_name': cluster_name})
+        LOG.info(response.content)
 
-        for fh in fhandlers.values():
+        for fh in list(fhandlers.values()):
             fh.close()
 
 

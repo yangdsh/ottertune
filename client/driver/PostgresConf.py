@@ -32,7 +32,7 @@ def main():
         for line in lines:
             postgresqlconf.write(line)
 
-        for (knob_name, knob_value) in conf.iteritems():
+        for (knob_name, knob_value) in list(conf.items()):
             postgresqlconf.write(str(knob_name) + " = " + str(knob_value) + "\n")
 
 

@@ -42,7 +42,7 @@ class JSONUtil(object):
                 config = sorted(config)
 
         return json.dumps(config,
-                          encoding="UTF-8",
+                          ensure_ascii=False,
                           indent=indent)
 
 
@@ -93,8 +93,8 @@ class DataUtil(object):
 
     @staticmethod
     def aggregate_data(results):
-        knob_labels = JSONUtil.loads(results[0].knob_data.data).keys()
-        metric_labels = JSONUtil.loads(results[0].metric_data.data).keys()
+        knob_labels = list(JSONUtil.loads(results[0].knob_data.data).keys())
+        metric_labels = list(JSONUtil.loads(results[0].metric_data.data).keys())
         X_matrix = np.empty((len(results), len(knob_labels)), dtype=float)
         y_matrix = np.empty((len(results), len(metric_labels)), dtype=float)
         rowlabels = np.empty(len(results), dtype=int)
@@ -135,7 +135,7 @@ class DataUtil(object):
             # No duplicate rows
 
             # For consistency, tuple the rowlabels
-            rowlabels = list(map(lambda x: tuple([x]), rowlabels))  # pylint: disable=bad-builtin,deprecated-lambda
+            rowlabels = np.array([tuple([x]) for x in rowlabels])  # pylint: disable=bad-builtin,deprecated-lambda
             return X_matrix, y_matrix, rowlabels
 
         # Combine duplicate rows
@@ -180,7 +180,7 @@ class LabelUtil(object):
     @staticmethod
     def style_labels(label_map, style=LabelStyleType.DEFAULT_STYLE):
         style_labels = {}
-        for name, verbose_name in label_map.iteritems():
+        for name, verbose_name in list(label_map.items()):
             if style == LabelStyleType.TITLE:
                 label = verbose_name.title()
             elif style == LabelStyleType.CAPFIRST:
@@ -192,5 +192,5 @@ class LabelUtil(object):
             if style != LabelStyleType.LOWER and 'dbms' in label.lower():
                 label = label.replace('dbms', 'DBMS')
                 label = label.replace('Dbms', 'DBMS')
-            style_labels[name] = unicode(label)
+            style_labels[name] = str(label)
         return style_labels

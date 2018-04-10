@@ -97,14 +97,14 @@ class MyRocksParser(BaseParser):
 
     def parse_helper(self, scope, view_variables):
         valid_variables = {}
-        for view_name, variables in view_variables.iteritems():
+        for view_name, variables in list(view_variables.items()):
             if scope == 'local':
-                for obj_name, sub_vars in variables.iteritems():
-                    for var_name, var_value in sub_vars.iteritems():  # local
+                for obj_name, sub_vars in list(variables.items()):
+                    for var_name, var_value in list(sub_vars.items()):  # local
                         full_name = '{}.{}.{}'.format(view_name, obj_name, var_name)
                         valid_variables[full_name] = var_value
             elif scope == 'global':
-                for var_name, var_value in variables.iteritems():  # global
+                for var_name, var_value in list(variables.items()):  # global
                     full_name = '{}.{}'.format(view_name, var_name)
                     valid_variables[full_name] = var_value
             else:
@@ -116,15 +116,15 @@ class MyRocksParser(BaseParser):
     # return format: valid_variables = {var_fullname:var_val}
     def parse_dbms_variables(self, variables):
         valid_variables = {}
-        for scope, sub_vars in variables.iteritems():
+        for scope, sub_vars in list(variables.items()):
             if sub_vars is None:
                 continue
             if scope == 'global':
                 valid_variables.update(self.parse_helper('global', sub_vars))
             elif scope == 'local':
-                for _, viewnames in sub_vars.iteritems():
-                    for viewname, objnames in viewnames.iteritems():
-                        for obj_name, view_vars in objnames.iteritems():
+                for _, viewnames in list(sub_vars.items()):
+                    for viewname, objnames in list(viewnames.items()):
+                        for obj_name, view_vars in list(objnames.items()):
                             valid_variables.update(self.parse_helper(
                                 'local', {viewname: {obj_name: view_vars}}))
             else:
@@ -150,14 +150,14 @@ class MyRocksParser(BaseParser):
     def extract_valid_variables(variables, catalog, default_value=None):
         valid_variables = {}
         diff_log = []
-        valid_lc_variables = {k.lower(): v for k, v in catalog.iteritems()}
+        valid_lc_variables = {k.lower(): v for k, v in list(catalog.items())}
 
         # First check that the names of all variables are valid (i.e., listed
         # in the official catalog). Invalid variables are logged as 'extras'.
         # Variable names that are valid but differ in capitalization are still
         # added to valid_variables but with the proper capitalization. They
         # are also logged as 'miscapitalized'.
-        for var_name, var_value in variables.iteritems():
+        for var_name, var_value in list(variables.items()):
             lc_var_name = var_name.lower()
             prt_name = MyRocksParser.partial_name(lc_var_name)
             if prt_name in valid_lc_variables:
@@ -174,8 +174,8 @@ class MyRocksParser(BaseParser):
         # if not) and logged as 'missing'. For now missing local variables are
         # not added to valid_variables
         lc_variables = {MyRocksParser.partial_name(k.lower()): v
-                        for k, v in variables.iteritems()}
-        for valid_lc_name, metadata in valid_lc_variables.iteritems():
+                        for k, v in list(variables.items())}
+        for valid_lc_name, metadata in list(valid_lc_variables.items()):
             if valid_lc_name not in lc_variables:
                 diff_log.append(('missing', metadata.name, None, None))
                 if metadata.scope == 'global':
@@ -185,7 +185,7 @@ class MyRocksParser(BaseParser):
 
     def calculate_change_in_metrics(self, metrics_start, metrics_end):
         adjusted_metrics = {}
-        for met_name, start_val in metrics_start.iteritems():
+        for met_name, start_val in list(metrics_start.items()):
             end_val = metrics_end[met_name]
             met_info = self.metric_catalog_[MyRocksParser.partial_name(met_name)]
             if met_info.vartype == VarType.INTEGER or \
@@ -219,7 +219,7 @@ class MyRocksParser(BaseParser):
 
     def convert_dbms_metrics(self, metrics, observation_time, target_objective=None):
         metric_data = {}
-        for name, value in metrics.iteritems():
+        for name, value in list(metrics.items()):
             prt_name = MyRocksParser.partial_name(name)
             if prt_name in self.numeric_metric_catalog_:
                 metadata = self.numeric_metric_catalog_[prt_name]
@@ -243,7 +243,7 @@ class MyRocksParser(BaseParser):
 
     def convert_dbms_knobs(self, knobs):
         knob_data = {}
-        for name, value in knobs.iteritems():
+        for name, value in list(knobs.items()):
             prt_name = MyRocksParser.partial_name(name)
             if prt_name in self.tunable_knob_catalog_:
                 metadata = self.tunable_knob_catalog_[prt_name]
@@ -272,11 +272,11 @@ class MyRocksParser(BaseParser):
         return knob_data
 
     def filter_numeric_metrics(self, metrics):
-        return OrderedDict([(k, v) for k, v in metrics.iteritems() if
+        return OrderedDict([(k, v) for k, v in list(metrics.items()) if
                             MyRocksParser.partial_name(k) in self.numeric_metric_catalog_])
 
     def filter_tunable_knobs(self, knobs):
-        return OrderedDict([(k, v) for k, v in knobs.iteritems() if
+        return OrderedDict([(k, v) for k, v in list(knobs.items()) if
                             MyRocksParser.partial_name(k) in self.tunable_knob_catalog_])
 
 

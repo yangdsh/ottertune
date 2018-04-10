@@ -129,7 +129,7 @@ class MetricManager(models.Manager):
             numeric_metrics[metname] = MetricMeta(
                 metname, metname, 'events / second', 'events/sec', 1, '')
         sorted_metrics = [(mname, mmeta) for mname, mmeta in
-                          sorted(numeric_metrics.iteritems())]
+                          sorted(numeric_metrics.items())]
         if target_objective is not None:
             mname = target_objective
         else:
@@ -358,7 +358,7 @@ class Result(BaseModel):
     next_configuration = models.TextField(null=True)
 
     def __unicode__(self):
-        return unicode(self.pk)
+        return str(self.pk)
 
 
 class PipelineRunManager(models.Manager):
