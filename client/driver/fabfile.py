@@ -13,8 +13,9 @@ import json
 import logging
 import time
 import re
-from fabric.api import (env, local, task, lcd)
+from fabric.api import (env, local, task, lcd, run)
 from fabric.state import output as fabric_output
+from multiprocessing import Process
 
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
@@ -116,7 +117,7 @@ def run_oltpbench_bg():
 def run_controller():
     cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json" --no-daemon'
     with lcd("../controller"):  # pylint: disable=not-context-manager
-        local(cmd)
+        local(cmd, shell=True)
 
 @task
 def stop_controller():
@@ -158,11 +159,16 @@ def loop():
 
     # run controller
     run_controller()
-
+    p1 = Process(target=run_controller, args=())
+    # p2 = Process(target=stop_controller, args=())
+    p1.start()
     time.sleep(3) # delay 60 seconds
-
+    p1.join()
     # stop the experiment
     stop_controller()
+    # p2.start()
+    # p2.join()
+    
 
     # upload result
     upload_result()
