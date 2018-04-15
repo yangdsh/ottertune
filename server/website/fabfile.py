@@ -33,6 +33,7 @@ STATUS = Status(0, 1)
 # Setup and base commands
 RABBITMQ_CMD = 'sudo rabbitmqctl {action}'.format
 
+
 @task
 def start_rabbitmq(detached=True):
     detached = parse_bool(detached)
@@ -61,7 +62,7 @@ def status_rabbitmq():
 
 
 @task
-def start_celery(detached=True):
+def start_celery():
     if status_rabbitmq() == STATUS.STOPPED:
         start_rabbitmq()
     local('python manage.py celery worker --detach --loglevel=info --pool=threads')
