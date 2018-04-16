@@ -20,8 +20,7 @@ class GPRNP(object):
     MAX_TRAIN_SIZE = 7000
     BATCH_SIZE = 3000
 
-    def __init__(self, length_scale=1.0, magnitude=1.0, check_numerics=True,
-                 debug=False):
+    def __init__(self, length_scale=1.0, magnitude=1.0, check_numerics=True, debug=False):
         assert np.isscalar(length_scale)
         assert np.isscalar(magnitude)
         assert length_scale > 0 and magnitude > 0
@@ -79,7 +78,7 @@ class GPRNP(object):
             raise Exception("Input contains non-finite values: {}"
                             .format(X[~finite_els]))
 
-    def fit(self, X_train, y_train, ridge=1.0):
+    def fit(self, X_train, y_train, ridge=0.01):
         self._reset()
         X_train, y_train = GPRNP.check_X_y(X_train, y_train)
         if X_train.ndim != 2 or y_train.ndim != 2:

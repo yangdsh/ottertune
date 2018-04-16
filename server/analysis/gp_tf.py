@@ -308,27 +308,19 @@ class GPR(object):
 
 class GPRGD(GPR):
 
-    DEFAULT_LENGTH_SCALE = 1.0
-    DEFAULT_MAGNITUDE = 1.0
-    DEFAULT_RIDGE = 1.0
-    DEFAULT_LEARNING_RATE = 0.01
-    DEFAULT_EPSILON = 1e-6
-    DEFAULT_MAX_ITER = 100
-    DEFAULT_RIDGE = 1.0
-    DEFAULT_SIGMA_MULTIPLIER = 3.0
-    DEFAULT_MU_MULTIPLIER = 1.0
-
     GP_BETA_UCB = "UCB"
     GP_BETA_CONST = "CONST"
 
-    def __init__(self, length_scale=DEFAULT_LENGTH_SCALE,
-                 magnitude=DEFAULT_MAGNITUDE,
-                 learning_rate=DEFAULT_LEARNING_RATE,
-                 epsilon=DEFAULT_EPSILON,
-                 max_iter=DEFAULT_MAX_ITER,
-                 sigma_multiplier=DEFAULT_SIGMA_MULTIPLIER,
-                 mu_multiplier=DEFAULT_MU_MULTIPLIER):
-        super(GPRGD, self).__init__(length_scale, magnitude)
+    def __init__(self,
+                 length_scale=1.0,
+                 magnitude=1.0,
+                 learning_rate=0.01,
+                 epsilon=1e-6,
+                 max_iter=100,
+                 sigma_multiplier=3.0,
+                 mu_multiplier=1.0):
+        super(GPRGD, self).__init__(length_scale=length_scale,
+                                    magnitude=magnitude)
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.max_iter = max_iter
@@ -337,7 +329,7 @@ class GPRGD(GPR):
         self.X_min = None
         self.X_max = None
 
-    def fit(self, X_train, y_train, X_min, X_max, ridge=DEFAULT_RIDGE):  # pylint: disable=arguments-differ
+    def fit(self, X_train, y_train, X_min, X_max, ridge):  # pylint: disable=arguments-differ
         super(GPRGD, self).fit(X_train, y_train, ridge)
         self.X_min = X_min
         self.X_max = X_max
