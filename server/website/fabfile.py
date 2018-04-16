@@ -29,22 +29,9 @@ fabric_output.update({
 Status = namedtuple('Status', ['RUNNING', 'STOPPED'])
 STATUS = Status(0, 1)
 
-if local('hostname', capture=True).strip() == 'ottertune':
-    PREFIX = 'sudo -u celery '
-    SUPERVISOR_CONFIG = '-c config/prod_supervisord.conf'
-else:
-    PREFIX = ''
-    SUPERVISOR_CONFIG = '-c config/supervisord.conf'
-
 
 # Setup and base commands
-SUPERVISOR_CMD = (PREFIX + 'supervisorctl ' + SUPERVISOR_CONFIG +
-                  ' {action} celeryd').format
 RABBITMQ_CMD = 'sudo rabbitmqctl {action}'.format
-
-# Make sure supervisor is initialized
-with settings(warn_only=True), quiet():
-    local(PREFIX + 'supervisord ' + SUPERVISOR_CONFIG)
 
 
 @task
@@ -75,42 +62,22 @@ def status_rabbitmq():
 
 
 @task
-def start_celery(detached=True):
+def start_celery():
     if status_rabbitmq() == STATUS.STOPPED:
         start_rabbitmq()
-    detached = parse_bool(detached)
-    if detached:
-        local(SUPERVISOR_CMD(action='start'))
-    else:
-        local(PREFIX + 'python manage.py celery worker --loglevel=info --pool=threads')
+    local('python manage.py celery worker --detach --loglevel=info --pool=threads')
 
 
 @task
 def stop_celery():
-    local(SUPERVISOR_CMD(action='stop'))
-
-
-@task
-def status_celery():
-    res = local(SUPERVISOR_CMD(action='status') +
-                ' | tr -s \' \' | cut -d \' \' -f2', capture=True)
-    try:
-        status = STATUS._asdict()[res.stdout]
-    except KeyError as e:
-        if res.stdout == 'STARTING':
-            status = STATUS.RUNNING
-        elif res.stdout == 'FATAL':
-            status = STATUS.STOPPED
-        else:
-            raise e
-    log_status(status, 'celery')
-    return status
+    with settings(warn_only=True), quiet():
+        local('kill -9 `ps auxww | grep \'celery worker\' | awk \'{print $2}\'`')
 
 
 @task
 def start_debug_server(host="0.0.0.0", port=8000):
-    if status_celery() == STATUS.STOPPED:
-        start_celery()
+    stop_celery()
+    start_celery()
     local('python manage.py runserver {}:{}'.format(host, port))
 
 
