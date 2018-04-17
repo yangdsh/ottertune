@@ -16,11 +16,10 @@ SETTINGSPATH=$REPOPATH/server/website/website/settings
 # Install Ubuntu packages
 echo -e "\n--- Installing Ubuntu packages ---\n"
 apt-get -qq update
-apt-get -y install python-pip python-dev python-mysqldb rabbitmq-server gradle default-jdk libmysqlclient-dev python-tk >> $LOG 2>&1
+apt-get -y install python3-pip python-dev python-mysqldb rabbitmq-server gradle default-jdk libmysqlclient-dev python3-tk >> $LOG 2>&1
 
-# Install Python packages
 echo -e "\n--- Installing Python packages ---\n"
-pip install --upgrade pip >> $LOG 2>&1
+pip3 install --upgrade pip >> $LOG 2>&1
 pip install -r ${REPOPATH}/server/website/requirements.txt >> $LOG 2>&1
 
 # Install MySQL
@@ -45,3 +44,5 @@ if [ ! -f "$SETTINGSPATH/credentials.py" ]; then
         -e "s/'PASSWORD': 'ADD ME\!\!'/'PASSWORD': '$DBPASSWD'/" \
         $SETTINGSPATH/credentials.py >> $LOG 2>&1
 fi
+rm /usr/bin/python
+ln -s /usr/bin/python3.5 /usr/bin/python
