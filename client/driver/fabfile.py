@@ -12,11 +12,11 @@ import sys
 import json
 import logging
 import time
+import os.path
 import re
+from multiprocessing import Process
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
-from multiprocessing import Process
-import os.path
 
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
@@ -108,7 +108,8 @@ def run_oltpbench():
 
 @task
 def run_oltpbench_bg():
-    cmd = "./oltpbenchmark -b {} -c {} --execute=true -s 5 -o outputfile > /home/shulij/ottertune/client/driver/oltp.log 2>&1 &".\
+    cmd = "./oltpbenchmark -b {} -c {} --execute=true -s 5 -o outputfile > "\
+          "/home/shulij/ottertune/client/driver/oltp.log 2>&1 &".\
           format(CONF['oltpbench_workload'], CONF['oltpbench_config'])
     with lcd(CONF['oltpbench_home']):  # pylint: disable=not-context-manager
         local(cmd)
@@ -116,15 +117,18 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json -d output/postgres/" --no-daemon'
+    cmd = 'sudo gradle run -PappArgs="-c ' \
+          'config/sample_postgres_config.json -d output/postgres/" --no-daemon'
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
+
 
 @task
 def stop_controller():
     cmd = 'sudo ./stop_experiment.sh'
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
+
 
 @task
 def upload_result():
@@ -139,6 +143,7 @@ def get_result():
           format(CONF['upload_code'])
     local(cmd)
 
+
 def _ready_to_start_controller():
     file_path = '/home/shulij/ottertune/client/driver/oltp.log'
     if not os.path.exists(file_path):
@@ -146,6 +151,7 @@ def _ready_to_start_controller():
     else:
         lines = open(file_path).readlines()
         return len(lines) >= 15 and len(lines[14].split(' ')) > 2
+
 
 def _ready_to_shut_down_controller():
     pid_file_path = '/home/shulij/ottertune/client/controller/pid.txt'
@@ -155,6 +161,7 @@ def _ready_to_shut_down_controller():
     else:
         lines = open(file_path).readlines()
         return len(lines) >= 21 and len(lines[20].split(' ')) > 2
+
 
 @task
 def loop():
@@ -185,16 +192,16 @@ def loop():
     stop_controller()
 
     # to prevent the race condition, wait for the controller to wrap up
-    time.sleep(20) # delay 10 seconds
+    time.sleep(20)
 
     # upload result
-    # upload_result()
+    upload_result()
 
     # get result
-    # get_result()
+    get_result()
 
     # change config
-    # change_conf()
+    change_conf()
 
 
 @task
