@@ -20,8 +20,9 @@ from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
 from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
-from website.settings import (DEFAULT_LENGTH_SCALE,
-                              DEFAULT_MAGNITUDE, DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
+from website.settings import (DEFAULT_LENGTH_SCALE, DEFAULT_MAGNITUDE,
+                              MAX_TRAIN_SIZE, BATCH_SIZE, NUM_THREADS,
+                              DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
                               DEFAULT_EPSILON, MAX_ITER,
                               DEFAULT_SIGMA_MULTIPLIER, DEFAULT_MU_MULTIPLIER)
 from website.types import VarType
@@ -320,6 +321,9 @@ def configuration_recommendation(target_data):
 
     model = GPRGD(length_scale=DEFAULT_LENGTH_SCALE,
                   magnitude=DEFAULT_MAGNITUDE,
+                  max_train_size=MAX_TRAIN_SIZE,
+                  batch_size=BATCH_SIZE,
+                  num_threads=NUM_THREADS,
                   learning_rate=DEFAULT_LEARNING_RATE,
                   epsilon=DEFAULT_EPSILON,
                   max_iter=MAX_ITER,
@@ -458,7 +462,10 @@ def map_workload(target_data):
             # and then predict the performance of each metric for each of
             # the knob configurations attempted so far by the target.
             y_col = y_col.reshape(-1, 1)
-            model = GPRNP()
+            model = GPRNP(length_scale=DEFAULT_LENGTH_SCALE,
+                          magnitude=DEFAULT_MAGNITUDE,
+                          max_train_size=MAX_TRAIN_SIZE,
+                          batch_size=BATCH_SIZE)
             model.fit(X_scaled, y_col, ridge=DEFAULT_RIDGE)
             predictions[:, j] = model.predict(X_target).ypreds.ravel()
         # Bin each of the predicted metric columns by deciles and then

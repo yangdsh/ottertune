@@ -28,13 +28,14 @@ FLIP_PROB_DECAY = 0.5
 
 # ---GPR CONSTANTS---
 
-#  Max training size in GPR model, NP version
-#  server/analysis/gp.py
+#  Max training size in GPR model
 MAX_TRAIN_SIZE = 7000
 
-#  Batch size in GPR model, NP version
-#  server/analysis/gp.py
+#  Batch size in GPR model
 BATCH_SIZE = 3000
+
+# Threads for TensorFlow config
+NUM_THREADS = 4
 
 DEFAULT_LENGTH_SCALE = 1.0
 DEFAULT_MAGNITUDE = 1.0
