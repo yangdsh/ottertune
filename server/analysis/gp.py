@@ -17,16 +17,15 @@ from analysis.gp_tf import GPRResult
 # numpy version of Gaussian Process Regression, not using Tensorflow
 class GPRNP(object):
 
-    MAX_TRAIN_SIZE = 7000
-    BATCH_SIZE = 3000
-
-    def __init__(self, length_scale=1.0, magnitude=1.0, check_numerics=True,
-                 debug=False):
+    def __init__(self, length_scale=1.0, magnitude=1.0, max_train_size=7000,
+                 batch_size=3000, check_numerics=True, debug=False):
         assert np.isscalar(length_scale)
         assert np.isscalar(magnitude)
         assert length_scale > 0 and magnitude > 0
         self.length_scale = length_scale
         self.magnitude = magnitude
+        self.max_train_size_ = max_train_size
+        self.batch_size_ = batch_size
         self.check_numerics = check_numerics
         self.debug = debug
         self.X_train = None
@@ -51,13 +50,12 @@ class GPRNP(object):
         self.K_inv = None
         self.y_best = None
 
-    @staticmethod
-    def check_X_y(X, y):
+    def check_X_y(self, X, y):
         from sklearn.utils.validation import check_X_y
 
-        if X.shape[0] > GPRNP.MAX_TRAIN_SIZE:
+        if X.shape[0] > self.max_train_size_:
             raise Exception("X_train size cannot exceed {} ({})"
-                            .format(GPRNP.MAX_TRAIN_SIZE, X.shape[0]))
+                            .format(self.max_train_size_, X.shape[0]))
         return check_X_y(X, y, multi_output=True,
                          allow_nd=True, y_numeric=True,
                          estimator="GPRNP")
@@ -79,9 +77,9 @@ class GPRNP(object):
             raise Exception("Input contains non-finite values: {}"
                             .format(X[~finite_els]))
 
-    def fit(self, X_train, y_train, ridge=1.0):
+    def fit(self, X_train, y_train, ridge=0.01):
         self._reset()
-        X_train, y_train = GPRNP.check_X_y(X_train, y_train)
+        X_train, y_train = self.check_X_y(X_train, y_train)
         if X_train.ndim != 2 or y_train.ndim != 2:
             raise Exception("X_train or y_train should have 2 dimensions! X_dim:{}, y_dim:{}"
                             .format(X_train.ndim, y_train.ndim))
@@ -113,10 +111,10 @@ class GPRNP(object):
         sigmas = np.zeros([test_size, 1])
         eips = np.zeros([test_size, 1])
         while arr_offset < test_size:
-            if arr_offset + GPRNP.BATCH_SIZE > test_size:
+            if arr_offset + self.batch_size_ > test_size:
                 end_offset = test_size
             else:
-                end_offset = arr_offset + GPRNP.BATCH_SIZE
+                end_offset = arr_offset + self.batch_size_
             xt_ = X_test[arr_offset:end_offset]
             K2 = self.magnitude * np.exp(-ed(self.X_train, xt_) / length_scale)
             K3 = self.magnitude * np.exp(-ed(xt_, xt_) / length_scale)

@@ -19,8 +19,12 @@ from website.models import PipelineData, PipelineRun, Result, Workload, KnobCata
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
-from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, MAX_ITER, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
-
+from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
+from website.settings import (DEFAULT_LENGTH_SCALE, DEFAULT_MAGNITUDE,
+                              MAX_TRAIN_SIZE, BATCH_SIZE, NUM_THREADS,
+                              DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
+                              DEFAULT_EPSILON, MAX_ITER,
+                              DEFAULT_SIGMA_MULTIPLIER, DEFAULT_MU_MULTIPLIER)
 from website.types import VarType
 
 LOG = get_task_logger(__name__)
@@ -276,9 +280,9 @@ def configuration_recommendation(target_data):
             y_scaled = y_workload_scaler.fit_transform(y_target)
 
     # FIXME (dva): check if these are good values for the ridge
-    ridge = np.empty(X_scaled.shape[0])
-    ridge[:X_target.shape[0]] = 0.01
-    ridge[X_target.shape[0]:] = 0.1
+    # ridge = np.empty(X_scaled.shape[0])
+    # ridge[:X_target.shape[0]] = 0.01
+    # ridge[X_target.shape[0]:] = 0.1
 
     # FIXME: we should generate more samples and use a smarter sampling
     # technique
@@ -315,8 +319,17 @@ def configuration_recommendation(target_data):
         X_samples = np.vstack((X_samples, X_scaled[item[1]]))
         i = i + 1
 
-    model = GPRGD(max_iter=MAX_ITER)
-    model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
+    model = GPRGD(length_scale=DEFAULT_LENGTH_SCALE,
+                  magnitude=DEFAULT_MAGNITUDE,
+                  max_train_size=MAX_TRAIN_SIZE,
+                  batch_size=BATCH_SIZE,
+                  num_threads=NUM_THREADS,
+                  learning_rate=DEFAULT_LEARNING_RATE,
+                  epsilon=DEFAULT_EPSILON,
+                  max_iter=MAX_ITER,
+                  sigma_multiplier=DEFAULT_SIGMA_MULTIPLIER,
+                  mu_multiplier=DEFAULT_MU_MULTIPLIER)
+    model.fit(X_scaled, y_scaled, X_min, X_max, ridge=DEFAULT_RIDGE)
     res = model.predict(X_samples)
 
     best_config_idx = np.argmin(res.minl.ravel())
@@ -449,8 +462,11 @@ def map_workload(target_data):
             # and then predict the performance of each metric for each of
             # the knob configurations attempted so far by the target.
             y_col = y_col.reshape(-1, 1)
-            model = GPRNP()
-            model.fit(X_scaled, y_col, ridge=0.01)
+            model = GPRNP(length_scale=DEFAULT_LENGTH_SCALE,
+                          magnitude=DEFAULT_MAGNITUDE,
+                          max_train_size=MAX_TRAIN_SIZE,
+                          batch_size=BATCH_SIZE)
+            model.fit(X_scaled, y_col, ridge=DEFAULT_RIDGE)
             predictions[:, j] = model.predict(X_target).ypreds.ravel()
         # Bin each of the predicted metric columns by deciles and then
         # compute the score (i.e., distance) between the target workload
