@@ -294,11 +294,14 @@ def configuration_recommendation(target_data):
         dbms=newest_result.session.dbms, tunable=True, resource=1)
     knobs_mem_catalog = {k.name: k for k in knobs_mem}
     mem_max = newest_result.workload.hardware.memory
+    X_mem = np.zeros([1,X_scaled.shape[1]])
+
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
         if X_columnlabels[i] in knobs_mem_catalog:
-            col_max = mem_max
+            X_mem[0][i] = mem_max * 1024 * 1024 * 1024 # mem_max GB
+            col_max =  X_scaler.transform(X_mem)[0][i]
         X_min[i] = col_min
         X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
