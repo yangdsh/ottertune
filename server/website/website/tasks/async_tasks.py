@@ -294,14 +294,14 @@ def configuration_recommendation(target_data):
         dbms=newest_result.session.dbms, tunable=True, resource=1)
     knobs_mem_catalog = {k.name: k for k in knobs_mem}
     mem_max = newest_result.workload.hardware.memory
-    X_mem = np.zeros([1,X_scaled.shape[1]])
+    X_mem = np.zeros([1, X_scaled.shape[1]])
 
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
         if X_columnlabels[i] in knobs_mem_catalog:
-            X_mem[0][i] = mem_max * 1024 * 1024 * 1024 # mem_max GB
-            col_max =  X_scaler.transform(X_mem)[0][i]
+            X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
+            col_max = X_scaler.transform(X_mem)[0][i]
         X_min[i] = col_min
         X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
@@ -315,13 +315,13 @@ def configuration_recommendation(target_data):
     q = queue.PriorityQueue()
     for x in range(0, y_scaled.shape[0]):
         q.put((y_scaled[x][0], x))
-    
+
     i = 0
     while i < TOP_NUM_CONFIG:
         try:
             item = q.get()
-            # Tensorflow get broken if we use the training data points as 
-            # starting points for GPRGD. We add a small bias for the 
+            # Tensorflow get broken if we use the training data points as
+            # starting points for GPRGD. We add a small bias for the
             # starting points. GPR_EPS default value is 0.001
             X_samples = np.vstack((X_samples, X_scaled[item[1]] + GPR_EPS))
             i = i + 1
