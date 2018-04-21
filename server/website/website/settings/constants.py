@@ -9,10 +9,10 @@
 NUM_SAMPLES = 30
 
 #  the number of selected tuning knobs
-IMPORTANT_KNOB_NUMBER = 5
+IMPORTANT_KNOB_NUMBER = 10
 
 #  top K config with best performance put into prediction
-TOP_NUM_CONFIG = 20
+TOP_NUM_CONFIG = 10
 
 # ---CONSTRAINTS CONSTANTS---
 
@@ -41,6 +41,9 @@ NUM_THREADS = 4
 # ---GRADIENT DESCENT CONSTANTS---
 #  the maximum iterations of gradient descent
 MAX_ITER = 500
+
+#  a small bias when using training data points as starting points.
+GPR_EPS = 0.001
 
 DEFAULT_RIDGE = 0.01
 

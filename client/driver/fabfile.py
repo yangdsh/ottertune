@@ -11,6 +11,7 @@ Created on Mar 23, 2018
 import sys
 import json
 import logging
+import time
 import re
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
@@ -119,6 +120,23 @@ def run_controller():
 
 
 @task
+def save_dbms_result():
+    t = int(time.time())
+    files = ['knobs.json', 'metrics_after.json', 'metrics_before.json', 'summary.json']
+    for f_ in files:
+        f_prefix = f_.split('.')[0]
+        cmd = 'cp ../controller/output/postgres/{} {}/{}__{}.json'.\
+              format(f, CONF['save_path'], t, f_prefix)
+        local(cmd)
+
+
+@task
+def free_cache():
+    cmd = 'sync; echo 1 > /proc/sys/vm/drop_caches'
+    local(cmd)
+
+
+@task
 def upload_result():
     cmd = 'python ../../server/website/script/upload/upload.py \
            ../controller/output/postgres/ {} {}'.format(CONF['upload_code'], CONF['upload_url'])
@@ -136,12 +154,15 @@ def get_result():
 def loop():
     max_disk_usage = 80
 
+    # free cache
+    free_cache()
+
     # restart database
     restart_database()
 
     # check disk usage
     if check_disk_usage() > max_disk_usage:
-        LOG.info('Exceeds max disk usage %s, reload database'.max_disk_usage)
+        LOG.info('Exceeds max disk usage %s, reload database', max_disk_usage)
         drop_database()
         create_database()
         load_oltpbench()
