@@ -23,7 +23,7 @@ from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, TOP_NUM_CONFIG 
 from website.settings import (DEFAULT_LENGTH_SCALE, DEFAULT_MAGNITUDE,
                               MAX_TRAIN_SIZE, BATCH_SIZE, NUM_THREADS,
                               DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
-                              DEFAULT_EPSILON, MAX_ITER,
+                              DEFAULT_EPSILON, MAX_ITER, GPR_EPS,
                               DEFAULT_SIGMA_MULTIPLIER, DEFAULT_MU_MULTIPLIER)
 from website.types import VarType
 
@@ -310,14 +310,20 @@ def configuration_recommendation(target_data):
         y_scaled = -y_scaled
 
     q = queue.PriorityQueue()
-
     for x in range(0, y_scaled.shape[0]):
         q.put((y_scaled[x][0], x))
+    
     i = 0
     while i < TOP_NUM_CONFIG:
-        item = q.get()
-        X_samples = np.vstack((X_samples, X_scaled[item[1]]))
-        i = i + 1
+        try:
+            item = q.get()
+            # Tensorflow get broken if we use the training data points as 
+            # starting points for GPRGD. We add a small bias for the 
+            # starting points. GPR_EPS default value is 0.001
+            X_samples = np.vstack((X_samples, X_scaled[item[1]] + GPR_EPS))
+            i = i + 1
+        except queue.Empty:
+            break
 
     model = GPRGD(length_scale=DEFAULT_LENGTH_SCALE,
                   magnitude=DEFAULT_MAGNITUDE,
