@@ -118,15 +118,17 @@ def run_controller():
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
+
 @task
 def save_dbms_result():
     t = int(time.time())
     files = ['knobs.json', 'metrics_after.json', 'metrics_before.json', 'summary.json']
-    for f in files:
-        f_prefix = f.split('.')[0]
+    for f_ in files:
+        f_prefix = f_.split('.')[0]
         cmd = 'cp ../controller/output/postgres/{} {}/{}__{}.json'.\
               format(f, CONF['save_path'], t, f_prefix)
         local(cmd)
+
 
 @task
 def upload_result():
@@ -151,7 +153,7 @@ def loop():
 
     # check disk usage
     if check_disk_usage() > max_disk_usage:
-        LOG.info('Exceeds max disk usage %s, reload database'.format(max_disk_usage))
+        LOG.info('Exceeds max disk usage %s, reload database', max_disk_usage)
         drop_database()
         create_database()
         load_oltpbench()
