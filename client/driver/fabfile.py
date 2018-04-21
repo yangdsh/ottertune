@@ -131,6 +131,12 @@ def save_dbms_result():
 
 
 @task
+def free_cache():
+    cmd = 'sync; echo 1 > /proc/sys/vm/drop_caches'
+    local(cmd)
+
+
+@task
 def upload_result():
     cmd = 'python ../../server/website/script/upload/upload.py \
            ../controller/output/postgres/ {} {}'.format(CONF['upload_code'], CONF['upload_url'])
@@ -147,6 +153,9 @@ def get_result():
 @task
 def loop():
     max_disk_usage = 80
+
+    # free cache
+    free_cache()
 
     # restart database
     restart_database()
