@@ -345,14 +345,15 @@ def configuration_recommendation(target_data):
     best_config = res.minl_conf[best_config_idx, :]
     best_config = X_scaler.inverse_transform(best_config)
 
-    # Although we have max/min limits in the GPRGD training session, when
-    # we transform the scaled data inversely and get original data, it may
-    # lose some precisions. Here we check the range on the original data
+    # Although we have max/min limits in the GPRGD training session, it may
+    # lose some precisions. e.g. 0.99..99 >= 1.0 may be True on the scaled data,
+    # when we inversely transform the scaled data, the different becomes much larger
+    # and cannot be ignored. Here we check the range on the original data
     # directly, and make sure the recommended config lies within the range
     X_min_inv = X_scaler.inverse_transform(X_min)
     X_max_inv = X_scaler.inverse_transform(X_max)
-    best_config = np.minimum(best_config, self.X_max_inv)
-    best_config = np.maximum(best_config, self.X_min_inv)
+    best_config = np.minimum(best_config, X_max_inv)
+    best_config = np.maximum(best_config, X_min_inv)
 
     conf_map = {k: best_config[i] for i, k in enumerate(X_columnlabels)}
     conf_map_res = {}
