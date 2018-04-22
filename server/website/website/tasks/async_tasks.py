@@ -295,13 +295,25 @@ def configuration_recommendation(target_data):
     knobs_mem_catalog = {k.name: k for k in knobs_mem}
     mem_max = newest_result.workload.hardware.memory
     X_mem = np.zeros([1, X_scaled.shape[1]])
+    X_default = np.empty(X_scaled.shape[1])
 
+    # Get default knob values
+    for i, k_name in enumerate(X_columnlabels):
+        k = KnobCatalog.objects.filter(dbms=newest_result.session.dbms, name=k_name)[0]
+        X_default[i] = k.default
+
+    X_default_scaled = X_scaler.transform(X_default.reshape(1, X_default.shape[0]))[0]
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
         if X_columnlabels[i] in knobs_mem_catalog:
             X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
             col_max = X_scaler.transform(X_mem)[0][i]
+
+        # Set min value to the default value
+        # FIXME: support multiple methods can be selected by users
+        col_min = X_default_scaled[i]
+
         X_min[i] = col_min
         X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
@@ -319,7 +331,7 @@ def configuration_recommendation(target_data):
     i = 0
     while i < TOP_NUM_CONFIG:
         try:
-            item = q.get()
+            item = q.get_nowait()
             # Tensorflow get broken if we use the training data points as
             # starting points for GPRGD. We add a small bias for the
             # starting points. GPR_EPS default value is 0.001
@@ -344,6 +356,16 @@ def configuration_recommendation(target_data):
     best_config_idx = np.argmin(res.minl.ravel())
     best_config = res.minl_conf[best_config_idx, :]
     best_config = X_scaler.inverse_transform(best_config)
+
+    # Although we have max/min limits in the GPRGD training session, it may
+    # lose some precisions. e.g. 0.99..99 >= 1.0 may be True on the scaled data,
+    # when we inversely transform the scaled data, the different becomes much larger
+    # and cannot be ignored. Here we check the range on the original data
+    # directly, and make sure the recommended config lies within the range
+    X_min_inv = X_scaler.inverse_transform(X_min)
+    X_max_inv = X_scaler.inverse_transform(X_max)
+    best_config = np.minimum(best_config, X_max_inv)
+    best_config = np.maximum(best_config, X_min_inv)
 
     conf_map = {k: best_config[i] for i, k in enumerate(X_columnlabels)}
     conf_map_res = {}
