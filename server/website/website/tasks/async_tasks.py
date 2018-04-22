@@ -319,7 +319,7 @@ def configuration_recommendation(target_data):
     i = 0
     while i < TOP_NUM_CONFIG:
         try:
-            item = q.get()
+            item = q.get_nowait()
             # Tensorflow get broken if we use the training data points as
             # starting points for GPRGD. We add a small bias for the
             # starting points. GPR_EPS default value is 0.001
