@@ -9,10 +9,10 @@
 NUM_SAMPLES = 30
 
 #  the number of selected tuning knobs
-IMPORTANT_KNOB_NUMBER = 5
+IMPORTANT_KNOB_NUMBER = 10
 
 #  top K config with best performance put into prediction
-TOP_NUM_CONFIG = 20
+TOP_NUM_CONFIG = 10
 
 # ---CONSTRAINTS CONSTANTS---
 
