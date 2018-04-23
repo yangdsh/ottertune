@@ -45,7 +45,9 @@
   width: 150px;
 }
 </style>
-{% block extra_head %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ STATIC_URL }}css/style.css">
+{% endblock %}
 </head>
 
 <body>
@@ -75,7 +77,7 @@
 </div>
 </div>
 </nav>
-	
+
 	{% if form.errors %}
 	{% for field in form %}
 	{% for error in field.errors %}
