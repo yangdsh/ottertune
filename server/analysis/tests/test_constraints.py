@@ -17,7 +17,10 @@ class ConstraintHelperTestCase(unittest.TestCase):
     def test_scale_rescale(self):
         X = datasets.load_boston()['data']
         X_scaler = StandardScaler()
-        constraint_helper = ParamConstraintHelper(X_scaler, None)
+        # params hard-coded for test (messy to import constant from website module)
+        constraint_helper = ParamConstraintHelper(X_scaler, None,
+                                                  init_flip_prob=0.3,
+                                                  flip_prob_decay=0.5)
         X_scaled = X_scaler.fit_transform(X)
         # there may be some floating point imprecision between scaling and rescaling
         row_unscaled = np.round(constraint_helper._handle_scaling(X_scaled[0], True), 10)  # pylint: disable=protected-access
@@ -31,7 +34,9 @@ class ConstraintHelperTestCase(unittest.TestCase):
         encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
         encoder.fit([[0, 17]])
         X_scaler = StandardScaler()
-        constraint_helper = ParamConstraintHelper(X_scaler, encoder)
+        constraint_helper = ParamConstraintHelper(X_scaler, encoder,
+                                                  init_flip_prob=0.3,
+                                                  flip_prob_decay=0.5)
 
         X = [0.1, 0.2, 0.3, 17]
         X_expected = [0, 0, 1, 17]
@@ -44,7 +49,9 @@ class ConstraintHelperTestCase(unittest.TestCase):
         encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
         encoder.fit([[0, 17]])
         X_scaler = StandardScaler()
-        constraint_helper = ParamConstraintHelper(X_scaler, encoder)
+        constraint_helper = ParamConstraintHelper(X_scaler, encoder,
+                                                  init_flip_prob=0.3,
+                                                  flip_prob_decay=0.5)
 
         X = np.array([[0, 0, 1, 17], [1, 0, 0, 17]], dtype=float)
         X_scaled = X_scaler.fit_transform(X)
@@ -60,7 +67,9 @@ class ConstraintHelperTestCase(unittest.TestCase):
         encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
         encoder.fit([[0, 17]])
         X_scaler = StandardScaler()
-        constraint_helper = ParamConstraintHelper(X_scaler, encoder)
+        constraint_helper = ParamConstraintHelper(X_scaler, encoder,
+                                                  init_flip_prob=0.3,
+                                                  flip_prob_decay=0.5)
 
         row = np.array([0, 0, 1, 17], dtype=float)
         counts = [0, 0, 0]
@@ -76,3 +85,7 @@ class ConstraintHelperTestCase(unittest.TestCase):
         # is a sign that this approach is not sufficiently random
         for ct in counts:
             self.assertTrue(ct > 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
