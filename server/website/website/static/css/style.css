@@ -114,3 +114,12 @@ Fonts: Montserrat Varela Round
 .breadcrumb>li+li:before {
     color: #868F9B;
 }
+
+/* Footer Copyright */
+
+.footer-copyright p {
+    text-align: center;
+    font-size: 14px;
+    text-transform: uppercase;
+    margin: 0;
+}
