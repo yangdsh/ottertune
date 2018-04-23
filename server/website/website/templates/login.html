@@ -1,18 +1,33 @@
 {% extends "base.html" %}
 
 {% block body %}
-<div class="jumbotron">
+<header id="home">
+  <div class="bg-img" style="background-image: url('{{ STATIC_URL }}img/otter.jpg')">
+    <div class="overlay"></div>
+  </div>
+
+  <div class="home-wrapper">
     <div class="container">
-        <h1>What's this?</h1>
-        <ul>
-            <li>A repository for all your OLTP experiment results.</li>
-            <li>A tool eliminates the tedious burden of visualizing your experiments.</li>
-            <li>A smart adviser unveils potential improvements for your database.</li>
-        </ul>
-        <p><a class="btn btn-primary btn-lg" role="button" href="{% url 'signup' %}">Sign up now!</a>
-        <a class="btn btn-primary btn-lg" role="button">Learn more &raquo;</a></p>
+      <div class="row">
+
+        <div class="col-md-10 col-md-offset-1">
+          <div class="home-content">
+            <h1 class="white-text">What's This?</h1>
+            <ul class="white-text">
+                <li>A repository for all your OLTP experiment results.</li>
+                <li>A tool eliminates the tedious burden of visualizing your experiments.</li>
+                <li>A smart adviser unveils potential improvements for your database.</li>
+            </ul>
+            <p><a class="btn btn-primary btn-lg" role="button" href="{% url 'signup' %}">Sign up now!</a>
+            <a class="btn btn-primary btn-lg" role="button">Learn more &raquo;</a></p>
+          </div>
+        </div>
+
+      </div>
     </div>
-</div>
+  </div>
+</header>
+
 {% endblock body %}
 
 
