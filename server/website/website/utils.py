@@ -159,6 +159,7 @@ class DataUtil(object):
         cat_knob_indices = []
         cat_knob_names = []
         noncat_knob_names = []
+        binary_knob_indices = []
 
         for i, knob_name in enumerate(featured_knobs):
             # TODO/FIX: what if different DBMS have knobs with same name?
@@ -167,17 +168,22 @@ class DataUtil(object):
                 raise Exception(
                     "KnobCatalog found {} occurences of knob {}".format(len(knobs), knob_name))
             knob = knobs[0]
-            # check if knob is categorical, with more than 2 levels
+            # check if knob is ENUM
             if knob.vartype == VarType.ENUM:
                 # enumvals is a comma delimited list
                 enumvals = knob.enumvals.split(",")
                 if len(enumvals) > 2:
+                    # more than 2 values requires dummy encoding
                     n_values.append(len(enumvals))
                     cat_knob_indices.append(i)
                     cat_knob_names.append(knob_name)
                 else:
+                    # knob is binary
                     noncat_knob_names.append(knob_name)
+                    binary_knob_indices.append(i)
             else:
+                if knob.vartype == VarType.BOOL:
+                    binary_knob_indices.append(i)
                 noncat_knob_names.append(knob_name)
 
         n_values = np.array(n_values)
@@ -185,7 +191,8 @@ class DataUtil(object):
         categorical_info = {'n_values': n_values,
                             'categorical_features': cat_knob_indices,
                             'cat_columnlabels': cat_knob_names,
-                            'noncat_columnlabels': noncat_knob_names}
+                            'noncat_columnlabels': noncat_knob_names,
+                            'binary_vars': binary_knob_indices}
         return categorical_info
 
 
