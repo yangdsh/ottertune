@@ -19,8 +19,8 @@ def upload(datadir, upload_code, url):
     params = {
         'summary': open(os.path.join(datadir, 'summary.json'), 'rb'),
         'knobs': open(os.path.join(datadir, 'knobs.json'), 'rb'),
-        'metrics_start': open(os.path.join(datadir, 'metrics_before.json'), 'rb'),
-        'metrics_end': open(os.path.join(datadir, 'metrics_after.json'), 'rb'),
+        'metrics_before': open(os.path.join(datadir, 'metrics_before.json'), 'rb'),
+        'metrics_after': open(os.path.join(datadir, 'metrics_after.json'), 'rb'),
     }
 
     response = requests.post(url,

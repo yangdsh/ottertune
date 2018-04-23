@@ -1,0 +1,1 @@
+{"status": "good", "recommendation": {"bgwriter_lru_maxpages": 1000, "checkpoint_segments": 448, "checkpoint_timeout": "23min", "commit_delay": 194, "commit_siblings": 37, "deadlock_timeout": "1s", "default_statistics_target": 100, "effective_cache_size": "9GB", "effective_io_concurrency": 3, "shared_buffers": "15GB"}, "info": "INFO: training data size is 1181"}

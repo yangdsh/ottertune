@@ -36,17 +36,16 @@ class GPRGDResult(GPRResult):
 
 class GPR(object):
 
-    MAX_TRAIN_SIZE = 7000
-    BATCH_SIZE = 3000
-    NUM_THREADS = 4
-
-    def __init__(self, length_scale=1.0, magnitude=1.0, check_numerics=True,
-                 debug=False):
+    def __init__(self, length_scale=1.0, magnitude=1.0, max_train_size=7000,
+                 batch_size=3000, num_threads=4, check_numerics=True, debug=False):
         assert np.isscalar(length_scale)
         assert np.isscalar(magnitude)
         assert length_scale > 0 and magnitude > 0
         self.length_scale = length_scale
         self.magnitude = magnitude
+        self.max_train_size_ = max_train_size
+        self.batch_size_ = batch_size
+        self.num_threads_ = num_threads
         self.check_numerics = check_numerics
         self.debug = debug
         self.X_train = None
@@ -154,13 +153,12 @@ class GPR(object):
     def __str__(self):
         return self.__repr__()
 
-    @staticmethod
-    def check_X_y(X, y):
+    def check_X_y(self, X, y):
         from sklearn.utils.validation import check_X_y
 
-        if X.shape[0] > GPR.MAX_TRAIN_SIZE:
+        if X.shape[0] > self.max_train_size_:
             raise Exception("X_train size cannot exceed {} ({})"
-                            .format(GPR.MAX_TRAIN_SIZE, X.shape[0]))
+                            .format(self.max_train_size_, X.shape[0]))
         return check_X_y(X, y, multi_output=True,
                          allow_nd=True, y_numeric=True,
                          estimator="GPR")
@@ -184,7 +182,7 @@ class GPR(object):
 
     def fit(self, X_train, y_train, ridge=1.0):
         self._reset()
-        X_train, y_train = GPR.check_X_y(X_train, y_train)
+        X_train, y_train = self.check_X_y(X_train, y_train)
         self.X_train = np.float32(X_train)
         self.y_train = np.float32(y_train)
         sample_size = self.X_train.shape[0]
@@ -197,7 +195,7 @@ class GPR(object):
         X_dists = np.zeros((sample_size, sample_size), dtype=np.float32)
         with tf.Session(graph=self.graph,
                         config=tf.ConfigProto(
-                            intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
+                            intra_op_parallelism_threads=self.num_threads_)) as sess:
             dist_op = self.ops['dist_op']
             v1, v2 = self.vars['v1_h'], self.vars['v2_h']
             for i in range(sample_size):
@@ -232,7 +230,7 @@ class GPR(object):
         sigmas = np.zeros([test_size, 1])
         with tf.Session(graph=self.graph,
                         config=tf.ConfigProto(
-                            intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
+                            intra_op_parallelism_threads=self.num_threads_)) as sess:
             # Nodes for distance operation
             dist_op = self.ops['dist_op']
             v1 = self.vars['v1_h']
@@ -250,10 +248,10 @@ class GPR(object):
             xy_ph = self.vars['xy_h']
 
             while arr_offset < test_size:
-                if arr_offset + GPR.BATCH_SIZE > test_size:
+                if arr_offset + self.batch_size_ > test_size:
                     end_offset = test_size
                 else:
-                    end_offset = arr_offset + GPR.BATCH_SIZE
+                    end_offset = arr_offset + self.batch_size_
 
                 X_test_batch = X_test[arr_offset:end_offset]
                 batch_len = end_offset - arr_offset
@@ -308,27 +306,25 @@ class GPR(object):
 
 class GPRGD(GPR):
 
-    DEFAULT_LENGTH_SCALE = 1.0
-    DEFAULT_MAGNITUDE = 1.0
-    DEFAULT_RIDGE = 1.0
-    DEFAULT_LEARNING_RATE = 0.01
-    DEFAULT_EPSILON = 1e-6
-    DEFAULT_MAX_ITER = 100
-    DEFAULT_RIDGE = 1.0
-    DEFAULT_SIGMA_MULTIPLIER = 3.0
-    DEFAULT_MU_MULTIPLIER = 1.0
-
     GP_BETA_UCB = "UCB"
     GP_BETA_CONST = "CONST"
 
-    def __init__(self, length_scale=DEFAULT_LENGTH_SCALE,
-                 magnitude=DEFAULT_MAGNITUDE,
-                 learning_rate=DEFAULT_LEARNING_RATE,
-                 epsilon=DEFAULT_EPSILON,
-                 max_iter=DEFAULT_MAX_ITER,
-                 sigma_multiplier=DEFAULT_SIGMA_MULTIPLIER,
-                 mu_multiplier=DEFAULT_MU_MULTIPLIER):
-        super(GPRGD, self).__init__(length_scale, magnitude)
+    def __init__(self,
+                 length_scale=1.0,
+                 magnitude=1.0,
+                 max_train_size=7000,
+                 batch_size=3000,
+                 num_threads=4,
+                 learning_rate=0.01,
+                 epsilon=1e-6,
+                 max_iter=100,
+                 sigma_multiplier=3.0,
+                 mu_multiplier=1.0):
+        super(GPRGD, self).__init__(length_scale=length_scale,
+                                    magnitude=magnitude,
+                                    max_train_size=max_train_size,
+                                    batch_size=batch_size,
+                                    num_threads=num_threads)
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.max_iter = max_iter
@@ -337,14 +333,14 @@ class GPRGD(GPR):
         self.X_min = None
         self.X_max = None
 
-    def fit(self, X_train, y_train, X_min, X_max, ridge=DEFAULT_RIDGE):  # pylint: disable=arguments-differ
+    def fit(self, X_train, y_train, X_min, X_max, ridge):  # pylint: disable=arguments-differ
         super(GPRGD, self).fit(X_train, y_train, ridge)
         self.X_min = X_min
         self.X_max = X_max
 
         with tf.Session(graph=self.graph,
                         config=tf.ConfigProto(
-                            intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
+                            intra_op_parallelism_threads=self.num_threads_)) as sess:
             xt_ = tf.Variable(self.X_train[0], tf.float32)
             xt_ph = tf.placeholder(tf.float32)
             xt_assign_op = xt_.assign(xt_ph)
@@ -401,12 +397,12 @@ class GPRGD(GPR):
 
         with tf.Session(graph=self.graph,
                         config=tf.ConfigProto(
-                            intra_op_parallelism_threads=self.NUM_THREADS)) as sess:
+                            intra_op_parallelism_threads=self.num_threads_)) as sess:
             while arr_offset < test_size:
-                if arr_offset + GPR.BATCH_SIZE > test_size:
+                if arr_offset + self.batch_size_ > test_size:
                     end_offset = test_size
                 else:
-                    end_offset = arr_offset + GPR.BATCH_SIZE
+                    end_offset = arr_offset + self.batch_size_
 
                 X_test_batch = X_test[arr_offset:end_offset]
                 batch_len = end_offset - arr_offset

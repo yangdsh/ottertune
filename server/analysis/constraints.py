@@ -19,7 +19,7 @@ class ParamConstraintHelper(object):
     def num_categorical_params(self):
         return self.cat_param_indices_.shape[0]
 
-    def __init__(self, params, scaler, encoder):
+    def __init__(self, params, scaler, encoder, init_flip_prob, flip_prob_decay):
         if 'inverse_transform' not in dir(scaler):
             raise Exception("Scaler object must provide function inverse_transform(X)")
         if 'transform' not in dir(scaler):
@@ -27,6 +27,8 @@ class ParamConstraintHelper(object):
         self.params_ = params
         self.scaler_ = scaler
         self.encoder_ = encoder
+        self.init_flip_prob_ = init_flip_prob
+        self.flip_prob_decay_ = flip_prob_decay
         cat_param_indices_ = []
         for i, param in enumerate(self.params_):
             if param.iscategorical:
@@ -122,11 +124,11 @@ class ParamConstraintHelper(object):
         flips[0] = True
 
         # Flip the rest with decreasing probability
-        p = 0.3
+        p = self.init_flip_prob_
         for i in range(1, n_cat_feats):
             if np.random.rand() <= p:
                 flips[i] = True
-            p *= 0.5
+            p *= self.flip_prob_decay_
 
         flip_shuffle_indices = np.random.choice(np.arange(n_cat_feats),
                                                 n_cat_feats,

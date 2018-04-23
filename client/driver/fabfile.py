@@ -142,6 +142,12 @@ def save_dbms_result():
 
 
 @task
+def free_cache():
+    cmd = 'sync; echo 1 > /proc/sys/vm/drop_caches'
+    local(cmd)
+
+
+@task
 def upload_result():
     cmd = 'python ../../server/website/script/upload/upload.py \
            ../controller/output/postgres/ {} {}'.format(CONF['upload_code'],
@@ -172,12 +178,15 @@ def _ready_to_shut_down_controller():
 def loop():
     max_disk_usage = 80
 
+    # free cache
+    free_cache()
+
     # restart database
     restart_database()
 
     # check disk usage
     if check_disk_usage() > max_disk_usage:
-        LOG.info('Exceeds max disk usage %s, reload database'.max_disk_usage)
+        LOG.info('Exceeds max disk usage %s, reload database', max_disk_usage)
         drop_database()
         create_database()
         load_oltpbench()

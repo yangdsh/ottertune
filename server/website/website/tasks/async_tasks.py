@@ -19,8 +19,12 @@ from website.models import PipelineData, PipelineRun, Result, Workload, KnobCata
 from website.parser import Parser
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
-from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, MAX_ITER, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
-
+from website.settings import IMPORTANT_KNOB_NUMBER, NUM_SAMPLES, TOP_NUM_CONFIG  # pylint: disable=no-name-in-module
+from website.settings import (DEFAULT_LENGTH_SCALE, DEFAULT_MAGNITUDE,
+                              MAX_TRAIN_SIZE, BATCH_SIZE, NUM_THREADS,
+                              DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
+                              DEFAULT_EPSILON, MAX_ITER, GPR_EPS,
+                              DEFAULT_SIGMA_MULTIPLIER, DEFAULT_MU_MULTIPLIER)
 from website.types import VarType
 
 LOG = get_task_logger(__name__)
@@ -276,9 +280,9 @@ def configuration_recommendation(target_data):
             y_scaled = y_workload_scaler.fit_transform(y_target)
 
     # FIXME (dva): check if these are good values for the ridge
-    ridge = np.empty(X_scaled.shape[0])
-    ridge[:X_target.shape[0]] = 0.01
-    ridge[X_target.shape[0]:] = 0.1
+    # ridge = np.empty(X_scaled.shape[0])
+    # ridge[:X_target.shape[0]] = 0.01
+    # ridge[X_target.shape[0]:] = 0.1
 
     # FIXME: we should generate more samples and use a smarter sampling
     # technique
@@ -290,11 +294,26 @@ def configuration_recommendation(target_data):
         dbms=newest_result.session.dbms, tunable=True, resource=1)
     knobs_mem_catalog = {k.name: k for k in knobs_mem}
     mem_max = newest_result.workload.hardware.memory
+    X_mem = np.zeros([1, X_scaled.shape[1]])
+    X_default = np.empty(X_scaled.shape[1])
+
+    # Get default knob values
+    for i, k_name in enumerate(X_columnlabels):
+        k = KnobCatalog.objects.filter(dbms=newest_result.session.dbms, name=k_name)[0]
+        X_default[i] = k.default
+
+    X_default_scaled = X_scaler.transform(X_default.reshape(1, X_default.shape[0]))[0]
     for i in range(X_scaled.shape[1]):
         col_min = X_scaled[:, i].min()
         col_max = X_scaled[:, i].max()
         if X_columnlabels[i] in knobs_mem_catalog:
-            col_max = mem_max
+            X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
+            col_max = X_scaler.transform(X_mem)[0][i]
+
+        # Set min value to the default value
+        # FIXME: support multiple methods can be selected by users
+        col_min = X_default_scaled[i]
+
         X_min[i] = col_min
         X_max[i] = col_max
         X_samples[:, i] = np.random.rand(
@@ -306,22 +325,47 @@ def configuration_recommendation(target_data):
         y_scaled = -y_scaled
 
     q = queue.PriorityQueue()
-
     for x in range(0, y_scaled.shape[0]):
         q.put((y_scaled[x][0], x))
+
     i = 0
     while i < TOP_NUM_CONFIG:
-        item = q.get()
-        X_samples = np.vstack((X_samples, X_scaled[item[1]]))
-        i = i + 1
+        try:
+            item = q.get_nowait()
+            # Tensorflow get broken if we use the training data points as
+            # starting points for GPRGD. We add a small bias for the
+            # starting points. GPR_EPS default value is 0.001
+            X_samples = np.vstack((X_samples, X_scaled[item[1]] + GPR_EPS))
+            i = i + 1
+        except queue.Empty:
+            break
 
-    model = GPRGD(max_iter=MAX_ITER)
-    model.fit(X_scaled, y_scaled, X_min, X_max, ridge)
+    model = GPRGD(length_scale=DEFAULT_LENGTH_SCALE,
+                  magnitude=DEFAULT_MAGNITUDE,
+                  max_train_size=MAX_TRAIN_SIZE,
+                  batch_size=BATCH_SIZE,
+                  num_threads=NUM_THREADS,
+                  learning_rate=DEFAULT_LEARNING_RATE,
+                  epsilon=DEFAULT_EPSILON,
+                  max_iter=MAX_ITER,
+                  sigma_multiplier=DEFAULT_SIGMA_MULTIPLIER,
+                  mu_multiplier=DEFAULT_MU_MULTIPLIER)
+    model.fit(X_scaled, y_scaled, X_min, X_max, ridge=DEFAULT_RIDGE)
     res = model.predict(X_samples)
 
     best_config_idx = np.argmin(res.minl.ravel())
     best_config = res.minl_conf[best_config_idx, :]
     best_config = X_scaler.inverse_transform(best_config)
+
+    # Although we have max/min limits in the GPRGD training session, it may
+    # lose some precisions. e.g. 0.99..99 >= 1.0 may be True on the scaled data,
+    # when we inversely transform the scaled data, the different becomes much larger
+    # and cannot be ignored. Here we check the range on the original data
+    # directly, and make sure the recommended config lies within the range
+    X_min_inv = X_scaler.inverse_transform(X_min)
+    X_max_inv = X_scaler.inverse_transform(X_max)
+    best_config = np.minimum(best_config, X_max_inv)
+    best_config = np.maximum(best_config, X_min_inv)
 
     conf_map = {k: best_config[i] for i, k in enumerate(X_columnlabels)}
     conf_map_res = {}
@@ -449,8 +493,11 @@ def map_workload(target_data):
             # and then predict the performance of each metric for each of
             # the knob configurations attempted so far by the target.
             y_col = y_col.reshape(-1, 1)
-            model = GPRNP()
-            model.fit(X_scaled, y_col, ridge=0.01)
+            model = GPRNP(length_scale=DEFAULT_LENGTH_SCALE,
+                          magnitude=DEFAULT_MAGNITUDE,
+                          max_train_size=MAX_TRAIN_SIZE,
+                          batch_size=BATCH_SIZE)
+            model.fit(X_scaled, y_col, ridge=DEFAULT_RIDGE)
             predictions[:, j] = model.predict(X_target).ypreds.ravel()
         # Bin each of the predicted metric columns by deciles and then
         # compute the score (i.e., distance) between the target workload
