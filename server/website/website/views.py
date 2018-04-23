@@ -241,7 +241,7 @@ def session_view(request, project_id, session_id):
         'project': project,
         'dbmss': dbmss,
         'workloads': workloads,
-        'results_per_page': [10, 50, 100],
+        'results_per_page': [10, 50, 100, 500, 1000],
         'default_dbms': session.dbms.key,
         'default_results_per_page': 10,
         'default_equidistant': "on",
