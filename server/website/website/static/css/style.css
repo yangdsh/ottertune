@@ -69,7 +69,9 @@ Fonts: Montserrat Varela Round
 .white-text {
     color: #FFF;
     list-style: none;
+    font-size: 20pt;
 }
+
 
 /* Home Content */
 
