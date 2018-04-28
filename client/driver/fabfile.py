@@ -137,7 +137,7 @@ def save_dbms_result():
     for f_ in files:
         f_prefix = f_.split('.')[0]
         cmd = 'cp ../controller/output/postgres/{} {}/{}__{}.json'.\
-              format(f_, CONF['save_path'], f_prefix, t)
+              format(f_, CONF['save_path'], t, f_prefix)
         local(cmd)
 
 
