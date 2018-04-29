@@ -95,8 +95,7 @@ class MyRocksParser(BaseParser):
         dbms_version = version_string.split(',')[0]
         return re.search(r'\d+\.\d+(?=\.\d+)', dbms_version).group(0)
 
-    def parse_helper(self, scope, view_variables):
-        valid_variables = {}
+    def parse_helper(self, scope, valid_variables, view_variables):
         for view_name, variables in list(view_variables.items()):
             if scope == 'local':
                 for obj_name, sub_vars in list(variables.items()):
@@ -120,13 +119,13 @@ class MyRocksParser(BaseParser):
             if sub_vars is None:
                 continue
             if scope == 'global':
-                valid_variables.update(self.parse_helper('global', sub_vars))
+                valid_variables.update(self.parse_helper('global', valid_variables, sub_vars))
             elif scope == 'local':
                 for _, viewnames in list(sub_vars.items()):
                     for viewname, objnames in list(viewnames.items()):
                         for obj_name, view_vars in list(objnames.items()):
                             valid_variables.update(self.parse_helper(
-                                'local', {viewname: {obj_name: view_vars}}))
+                                'local', valid_variables, {viewname: {obj_name: view_vars}}))
             else:
                 raise Exception('Unsupported variable scope: {}'.format(scope))
         return valid_variables
