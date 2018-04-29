@@ -33,6 +33,7 @@ from .tasks import (aggregate_target_results, map_workload,
 from .types import (DBMSType, HardwareType, KnobUnitType, MetricType,
                     TaskType, VarType)
 from .utils import JSONUtil, LabelUtil, MediaUtil, TaskUtil
+from .settings import TIME_ZONE
 
 LOG = logging.getLogger(__name__)
 
@@ -395,11 +396,11 @@ def handle_result_files(session, files):
     start_time = datetime.fromtimestamp(
         # int(summary['start_time']), # unit: seconds
         int(summary['start_time']) / 1000,  # unit: ms
-        timezone("UTC"))
+        timezone(TIME_ZONE))
     end_time = datetime.fromtimestamp(
         # int(summary['end_time']), # unit: seconds
         int(summary['end_time']) / 1000,  # unit: ms
-        timezone("UTC"))
+        timezone(TIME_ZONE))
     try:
         # Check that we support this DBMS and version
         dbms = DBMSCatalog.objects.get(
@@ -803,7 +804,7 @@ def get_timeline_data(request):
     for res in results:
         entry = [
             res.pk,
-            res.observation_end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            res.observation_end_time.astimezone(timezone(TIME_ZONE)).strftime("%Y-%m-%d %H:%M:%S"),
             res.knob_data.name,
             res.metric_data.name,
             res.workload.name]
@@ -843,7 +844,8 @@ def get_timeline_data(request):
                 for res in d_r:
                     metric_data = JSONUtil.loads(res.metric_data.data)
                     out.append([
-                        res.observation_end_time.strftime("%m-%d-%y %H:%M"),
+                        res.observation_end_time.astimezone(timezone(TIME_ZONE)).
+                        strftime("%m-%d-%y %H:%M"),
                         metric_data[metric] * met_info.scale,
                         "",
                         str(res.pk)
