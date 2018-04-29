@@ -143,7 +143,7 @@ def save_dbms_result():
 
 @task
 def free_cache():
-    cmd = 'sync; echo 1 > /proc/sys/vm/drop_caches'
+    cmd = 'sync; sudo bash -c "echo 1 > /proc/sys/vm/drop_caches"'
     local(cmd)
 
 
