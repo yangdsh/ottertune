@@ -15,15 +15,24 @@ import com.controller.util.FileUtil;
 import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;
 import com.controller.util.json.JSONObject;
-import org.apache.commons.cli.*;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
-import sun.misc.Signal;
-
-import java.io.*;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import sun.misc.Signal;
 
 /**
  * Controller main.
