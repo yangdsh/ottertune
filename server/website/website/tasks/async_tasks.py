@@ -26,6 +26,7 @@ from website.settings import (DEFAULT_LENGTH_SCALE, DEFAULT_MAGNITUDE,
                               DEFAULT_RIDGE, DEFAULT_LEARNING_RATE,
                               DEFAULT_EPSILON, MAX_ITER, GPR_EPS,
                               DEFAULT_SIGMA_MULTIPLIER, DEFAULT_MU_MULTIPLIER)
+from website.settings import INIT_FLIP_PROB, FLIP_PROB_DECAY
 from website.types import VarType
 
 LOG = get_task_logger(__name__)
