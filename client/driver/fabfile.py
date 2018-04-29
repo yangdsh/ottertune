@@ -12,17 +12,19 @@ import sys
 import json
 import logging
 import time
+import os.path
 import re
+from multiprocessing import Process
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
 
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
-Format = logging.Formatter("%(asctime)s [%(levelname)s]  %(message)s")  # pylint: disable=invalid-name
+Formatter = logging.Formatter("%(asctime)s [%(levelname)s]  %(message)s")  # pylint: disable=invalid-name
 
 # print the log
 ConsoleHandler = logging.StreamHandler(sys.stdout)  # pylint: disable=invalid-name
-ConsoleHandler.setFormatter(Format)
+ConsoleHandler.setFormatter(Formatter)
 LOG.addHandler(ConsoleHandler)
 
 # Fabric environment settings
@@ -106,15 +108,24 @@ def run_oltpbench():
 
 @task
 def run_oltpbench_bg():
-    cmd = "./oltpbenchmark -b {} -c {} --execute=true -s 5 -o outputfile &".\
-          format(CONF['oltpbench_workload'], CONF['oltpbench_config'])
+    cmd = "./oltpbenchmark -b {} -c {} --execute=true -s 5 -o outputfile > {} 2>&1 &".\
+          format(CONF['oltpbench_workload'], CONF['oltpbench_config'], CONF['oltpbench_log'])
     with lcd(CONF['oltpbench_home']):  # pylint: disable=not-context-manager
         local(cmd)
 
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c config/sample_postgres_config.json -t 300"'
+    cmd = 'sudo gradle run -PappArgs="-c ' \
+          'config/sample_postgres_config.json -d output/postgres/" --no-daemon'
+    with lcd("../controller"):  # pylint: disable=not-context-manager
+        local(cmd)
+
+
+@task
+def stop_controller():
+    pid = int(open('../controller/pid.txt').read())
+    cmd = 'sudo kill -2 {}'.format(pid)
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
@@ -126,7 +137,7 @@ def save_dbms_result():
     for f_ in files:
         f_prefix = f_.split('.')[0]
         cmd = 'cp ../controller/output/postgres/{} {}/{}__{}.json'.\
-              format(f, CONF['save_path'], t, f_prefix)
+              format(f_, CONF['save_path'], t, f_prefix)
         local(cmd)
 
 
@@ -139,7 +150,8 @@ def free_cache():
 @task
 def upload_result():
     cmd = 'python ../../server/website/script/upload/upload.py \
-           ../controller/output/postgres/ {} {}'.format(CONF['upload_code'], CONF['upload_url'])
+           ../controller/output/postgres/ {} {}'.format(CONF['upload_code'],
+                                                        CONF['upload_url'])
     local(cmd)
 
 
@@ -148,6 +160,18 @@ def get_result():
     cmd = 'python ../../script/query_and_get.py https://ottertune.cs.cmu.edu {} 5'.\
           format(CONF['upload_code'])
     local(cmd)
+
+
+def _ready_to_start_controller():
+    return (os.path.exists(CONF['oltpbench_log']) and
+            'Warmup complete, starting measurements'
+            in open(CONF['oltpbench_log']).read())
+
+
+def _ready_to_shut_down_controller():
+    pid_file_path = '../controller/pid.txt'
+    return (os.path.exists(pid_file_path) and os.path.exists(CONF['oltpbench_log']) and
+            'Output into file' in open(CONF['oltpbench_log']).read())
 
 
 @task
@@ -171,8 +195,18 @@ def loop():
     # run oltpbench as a background job
     run_oltpbench_bg()
 
-    # run controller
-    run_controller()
+    # run controller from another process
+    p = Process(target=run_controller, args=())
+    while not _ready_to_start_controller():
+        pass
+    p.start()
+    while not _ready_to_shut_down_controller():
+        pass
+
+    # stop the experiment
+    stop_controller()
+
+    p.join()
 
     # upload result
     upload_result()
@@ -185,7 +219,7 @@ def loop():
 
 
 @task
-def run_loops(max_iter=5):
+def run_loops(max_iter=1):
     for i in range(int(max_iter)):
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
