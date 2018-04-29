@@ -97,7 +97,8 @@ class BaseParserTests(object, metaclass=ABCMeta):
     def test_parse_helper(self):
         test_view_vars = {'local': {'FAKE_KNOB': 'FAKE'}}
         test_scope = 'global'
-        test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
+        valid_vars = {}
+        test_parse = self.test_dbms.parse_helper(test_scope, valid_vars, test_view_vars)
 
         self.assertEqual(len(list(test_parse.keys())), 1)
         self.assertEqual(test_parse.get('local.FAKE_KNOB'), ['FAKE'])
