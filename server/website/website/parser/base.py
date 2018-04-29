@@ -218,8 +218,7 @@ class BaseParser(object, metaclass=ABCMeta):
         assert len(valid_variables) == len(catalog)
         return valid_variables, diff_log
 
-    def parse_helper(self, scope, view_variables):
-        valid_variables = {}
+    def parse_helper(self, scope, valid_variables, view_variables):
         for view_name, variables in list(view_variables.items()):
             for var_name, var_value in list(variables.items()):
                 full_name = '{}.{}'.format(view_name, var_name)
@@ -234,13 +233,13 @@ class BaseParser(object, metaclass=ABCMeta):
             if sub_vars is None:
                 continue
             if scope == 'global':
-                valid_variables.update(self.parse_helper(scope, sub_vars))
+                valid_variables.update(self.parse_helper(scope, valid_variables, sub_vars))
             elif scope == 'local':
                 for _, viewnames in list(sub_vars.items()):
                     for viewname, objnames in list(viewnames.items()):
                         for _, view_vars in list(objnames.items()):
                             valid_variables.update(self.parse_helper(
-                                scope, {viewname: view_vars}))
+                                scope, valid_variables, {viewname: view_vars}))
             else:
                 raise Exception('Unsupported variable scope: {}'.format(scope))
         return valid_variables
