@@ -573,8 +573,9 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         test_view_vars = {'global': {'wal_sync_method': 'open_sync',
                                      'random_page_cost': 0.22},
                           'local': {'FAKE_KNOB': 'FAKE'}}
+        valid_vars = {}
         test_scope = 'global'
-        test_parse = self.test_dbms.parse_helper(test_scope, test_view_vars)
+        test_parse = self.test_dbms.parse_helper(test_scope, valid_vars, test_view_vars)
 
         self.assertEqual(len(list(test_parse.keys())), 3)
         self.assertEqual(test_parse.get('global.wal_sync_method'), ['open_sync'])
