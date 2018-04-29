@@ -15,24 +15,15 @@ import com.controller.util.FileUtil;
 import com.controller.util.JSONUtil;
 import com.controller.util.json.JSONException;
 import com.controller.util.json.JSONObject;
-import com.github.fge.jsonschema.core.exceptions.ProcessingException;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.lang.management.ManagementFactory;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.*;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import sun.misc.Signal;
+
+import java.io.*;
+import java.lang.management.ManagementFactory;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Controller main.
@@ -236,8 +227,12 @@ public class Main {
       outfiles.put("metrics_before", FileUtil.joinPath(outputDirectory, "metrics_before.json"));
       outfiles.put("metrics_after", FileUtil.joinPath(outputDirectory, "metrics_after.json"));
       outfiles.put("summary", FileUtil.joinPath(outputDirectory, "summary.json"));
-      ResultUploader.upload(
-          config.getUploadURL(), config.getUploadCode(), outfiles);
+      try {
+        ResultUploader.upload(
+                config.getUploadURL(), config.getUploadCode(), outfiles);
+      } catch (IOException ioe) {
+        LOG.warn("Failed to upload results from the controller");
+      }
     } else {
       LOG.warn("Empty upload URL. Skipping upload...");
     }

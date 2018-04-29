@@ -6,11 +6,6 @@
 
 package com.controller;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -20,13 +15,20 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Uploading the result.
  *
  * @author Shuli
  */
 public class ResultUploader {
-  public static void upload(String uploadURL, String uploadCode, Map<String, String> files) {
+  public static void upload(String uploadURL, String uploadCode,
+                            Map<String, String> files) throws IOException {
 
     try {
       List<String> filesToSendNames = new ArrayList<>();
@@ -37,10 +39,8 @@ public class ResultUploader {
         File f = new File(path);
         filesToSend.add(f);
       }
-
       CloseableHttpClient httpclient = HttpClients.createDefault();
       HttpPost httppost = new HttpPost(uploadURL);
-
       MultipartEntityBuilder mb =
               MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
       for (int i = 0; i < filesToSendNames.size(); i++) {
@@ -57,7 +57,7 @@ public class ResultUploader {
         response.close();
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new IOException();
     }
   }
 }
