@@ -19,6 +19,14 @@
 
 .FixedHeader_Cloned th { background-color: white; }
 
+
+/* SIDEBAR */
+
+#sidebar {
+    font-size: x-small;
+}
+
+
 /* .container { */
 /*   padding-left: 10px; */
 /* } */
