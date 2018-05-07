@@ -392,6 +392,10 @@ def handle_result_files(session, files):
     dbms_type = DBMSType.type(summary['database_type'])
     dbms_version = summary['database_version']  # TODO: fix parse_version_string
     workload_name = summary['workload_name']
+    # TODO: there might be other invalid characters
+    if '.' in workload_name:
+        workload_name = workload_name.replace('.', '_')
+        LOG.warn('Replaced invalid character . in workload name with _')
     observation_time = summary['observation_time']
     start_time = datetime.fromtimestamp(
         # int(summary['start_time']), # unit: seconds
