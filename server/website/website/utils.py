@@ -20,7 +20,7 @@ from django.utils.text import capfirst
 from djcelery.models import TaskMeta
 
 from .types import LabelStyleType, VarType
-from .models import KnobCatalog
+from .models import KnobCatalog, DBMSCatalog
 
 LOG = logging.getLogger(__name__)
 
@@ -154,19 +154,26 @@ class DataUtil(object):
         return X_unique, y_unique, rowlabels_unique
 
     @staticmethod
-    def dummy_encoder_helper(featured_knobs):
+    def dummy_encoder_helper(featured_knobs, dbms):
         n_values = []
         cat_knob_indices = []
         cat_knob_names = []
         noncat_knob_names = []
         binary_knob_indices = []
+        dbms_info = DBMSCatalog.objects.filter(pk=dbms.pk)
+
+        if len(dbms_info) == 0:
+            raise Exception("DBMSCatalog cannot find dbms {}".format(dbms.full_name()))
+        full_dbms_name = dbms_info[0]
 
         for i, knob_name in enumerate(featured_knobs):
-            # TODO/FIX: what if different DBMS have knobs with same name?
-            knobs = KnobCatalog.objects.filter(name=knob_name)
+            # knob can be uniquely identified by (dbms, knob_name)
+            knobs = KnobCatalog.objects.filter(name=knob_name,
+                                               dbms=dbms)
             if len(knobs) == 0:
                 raise Exception(
-                    "KnobCatalog found {} occurences of knob {}".format(len(knobs), knob_name))
+                    "KnobCatalog cannot find knob of name {} in {}".format(
+                        knob_name, full_dbms_name))
             knob = knobs[0]
             # check if knob is ENUM
             if knob.vartype == VarType.ENUM:

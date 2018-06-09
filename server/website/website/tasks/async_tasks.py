@@ -259,12 +259,17 @@ def configuration_recommendation(target_data):
     X_matrix = np.vstack([X_target, X_workload])
 
     # Dummy encode categorial variables
-    categorical_info = DataUtil.dummy_encoder_helper(X_columnlabels)
+    categorical_info = DataUtil.dummy_encoder_helper(X_columnlabels,
+                                                     mapped_workload.dbms)
     dummy_encoder = DummyEncoder(categorical_info['n_values'],
                                  categorical_info['categorical_features'],
                                  categorical_info['cat_columnlabels'],
                                  categorical_info['noncat_columnlabels'])
     X_matrix = dummy_encoder.fit_transform(X_matrix)
+
+    # below two variables are needed for correctly determing max/min on dummies
+    binary_index_set = set(categorical_info['binary_vars'])
+    total_dummies = dummy_encoder.total_dummies()
 
     # Scale to N(0, 1)
     X_scaler = StandardScaler()
@@ -322,21 +327,27 @@ def configuration_recommendation(target_data):
         X_default[i] = k.default
 
     X_default_scaled = X_scaler.transform(X_default.reshape(1, X_default.shape[0]))[0]
+
+    # Determine min/max for knob values
     for i in range(X_scaled.shape[1]):
-        col_min = X_scaled[:, i].min()
-        col_max = X_scaled[:, i].max()
-        if X_columnlabels[i] in knobs_mem_catalog:
-            X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
-            col_max = X_scaler.transform(X_mem)[0][i]
+        if i < total_dummies or i in binary_index_set:
+            col_min = 0
+            col_max = 1
+        else:
+            col_min = X_scaled[:, i].min()
+            col_max = X_scaled[:, i].max()
+            if X_columnlabels[i] in knobs_mem_catalog:
+                X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
+                col_max = X_scaler.transform(X_mem)[0][i]
 
-        # Set min value to the default value
-        # FIXME: support multiple methods can be selected by users
-        col_min = X_default_scaled[i]
+            # Set min value to the default value
+            # FIXME: support multiple methods can be selected by users
+            col_min = X_default_scaled[i]
 
-        X_min[i] = col_min
-        X_max[i] = col_max
-        X_samples[:, i] = np.random.rand(
-            num_samples) * (col_max - col_min) + col_min
+            X_min[i] = col_min
+            X_max[i] = col_max
+            X_samples[:, i] = np.random.rand(
+                num_samples) * (col_max - col_min) + col_min
 
     # Maximize the throughput, moreisbetter
     # Use gradient descent to minimize -throughput

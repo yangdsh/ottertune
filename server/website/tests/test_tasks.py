@@ -115,7 +115,8 @@ class RankedKnobTestCase(TestCase):
             'columnlabels': [metric_data['columnlabels'][i] for i in pruned_metric_idxs]
         }
 
-        # run knob_identificastion using knob_data and fake pruned metrics
-        ranked_knobs = run_knob_identification(knob_data, pruned_metric_data)
+        # run knob_identification using knob_data and fake pruned metrics
+        ranked_knobs = run_knob_identification(knob_data, pruned_metric_data,
+                                               workloads[0].dbms)
         for k in ranked_knobs:
             self.assertIn(k, knob_data['columnlabels'])

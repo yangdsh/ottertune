@@ -349,6 +349,9 @@ class DummyEncoder(Preprocess):
             inverted_matrix[:, i] = new_col
         return inverted_matrix
 
+    def total_dummies(self):
+        return sum(self.encoder.n_values_)
+
 
 def consolidate_columnlabels(columnlabels):
     import re

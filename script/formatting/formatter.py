@@ -169,8 +169,10 @@ def main():
         sys.exit(EXIT_FAILURE)
     elif args.staged_files:
         targets = [os.path.abspath(os.path.join(OTTERTUNE_DIR, f))
-                   for f in subprocess.check_output(["git", "diff", "--name-only", "HEAD",
-                                                     "--cached", "--diff-filter=d"]).split()]
+                   for f in subprocess.check_output(["git", "diff",
+                                                     "--name-only", "HEAD",
+                                                     "--cached",
+                                                     "--diff-filter=d"]).split()]
         if not targets:
             LOG.error("No staged files or not calling from a repository. Exiting...")
             sys.exit(EXIT_FAILURE)

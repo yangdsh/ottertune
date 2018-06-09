@@ -49,12 +49,12 @@ class ConstraintHelperTestCase(unittest.TestCase):
         encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
         encoder.fit([[0, 17]])
         X_scaler = StandardScaler()
+        X = np.array([[0, 0, 1, 17], [1, 0, 0, 17]], dtype=float)
+        X_scaled = X_scaler.fit_transform(X)
         constraint_helper = ParamConstraintHelper(X_scaler, encoder,
                                                   init_flip_prob=0.3,
                                                   flip_prob_decay=0.5)
 
-        X = np.array([[0, 0, 1, 17], [1, 0, 0, 17]], dtype=float)
-        X_scaled = X_scaler.fit_transform(X)
         row = X_scaled[0]
         new_row = np.copy(row)
         new_row[0: 3] += 0.1  # should still represent [0, 0, 1] encoding
@@ -62,28 +62,50 @@ class ConstraintHelperTestCase(unittest.TestCase):
         self.assertTrue(np.all(row == row_corrected))
 
     def test_randomize_categorical_features(self):
-        n_values = [3]
-        categorical_features = [0]
+        # variable 0 is categorical, 3 values
+        # variable 1 is not categorical
+        # variable 2 is categorical, 2 values
+        cat_var_0_levels = 3
+        cat_var_2_levels = 2
+        cat_var_0_idx = 0
+        cat_var_2_idx = 2
+        n_values = [cat_var_0_levels, cat_var_2_levels]
+        categorical_features = [cat_var_0_idx, cat_var_2_idx]
         encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
-        encoder.fit([[0, 17]])
+        encoder.fit([[0, 17, 0]])
         X_scaler = StandardScaler()
         constraint_helper = ParamConstraintHelper(X_scaler, encoder,
                                                   init_flip_prob=0.3,
                                                   flip_prob_decay=0.5)
 
-        row = np.array([0, 0, 1, 17], dtype=float)
-        counts = [0, 0, 0]
+        # row is a sample encoded set of features,
+        # note that the non-categorical variable is on the right
+        row = np.array([0, 0, 1, 1, 0, 17], dtype=float)
         trials = 20
         for _ in range(trials):
+            # possibly flip the categorical features
             row = constraint_helper.randomize_categorical_features(row, scaled=False, rescale=False)
-            dummies = row[0: 3]
-            self.assertTrue(np.all(np.logical_or(dummies == 0, dummies == 1)))
-            self.assertEqual(np.sum(dummies), 1)
-            counts[np.argmax(dummies)] += 1
 
-        # this part of the test is non-deterministic, but I think failure
-        # is a sign that this approach is not sufficiently random
-        for ct in counts:
+            # check that result is valid
+            cat_var_0_counts = np.zeros(cat_var_0_levels)
+            cat_var_0_dummies = row[0: cat_var_0_levels]
+            self.assertTrue(np.all(np.logical_or(cat_var_0_dummies == 0, cat_var_0_dummies == 1)))
+            self.assertEqual(np.sum(cat_var_0_dummies), 1)
+            cat_var_0_counts[np.argmax(cat_var_0_dummies)] += 1
+
+            # check that result is valid
+            cat_var_2_counts = np.zeros(cat_var_2_levels)
+            cat_var_2_dummies = row[cat_var_0_levels: cat_var_0_levels + cat_var_2_levels]
+            self.assertTrue(np.all(np.logical_or(cat_var_2_dummies == 0, cat_var_2_dummies == 1)))
+            self.assertEqual(np.sum(cat_var_2_dummies), 1)
+            cat_var_2_counts[np.argmax(cat_var_2_dummies)] += 1
+
+            self.assertEqual(row[-1], 17)
+
+        for ct in cat_var_0_counts:
+            self.assertTrue(ct > 0)
+
+        for ct in cat_var_2_counts:
             self.assertTrue(ct > 0)
 
 

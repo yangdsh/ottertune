@@ -10,7 +10,7 @@ from django.test import TestCase
 from website.utils import JSONUtil, MediaUtil, DataUtil, ConversionUtil, LabelUtil, TaskUtil
 from website.parser.postgres import PostgresParser
 from website.types import LabelStyleType, VarType
-from website.models import Result
+from website.models import Result, DBMSCatalog
 
 
 class JSONUtilTest(TestCase):
@@ -225,7 +225,9 @@ class DataUtilTest(TestCase):
                           'global.bgwriter_delay',
                           'global.wal_writer_delay',
                           'global.work_mem']
-        categorical_info = DataUtil.dummy_encoder_helper(featured_knobs)
+        postgres96 = DBMSCatalog.objects.get(pk=1)
+        categorical_info = DataUtil.dummy_encoder_helper(featured_knobs,
+                                                         dbms=postgres96)
         self.assertEqual(len(categorical_info['n_values']), 0)
         self.assertEqual(len(categorical_info['categorical_features']), 0)
         self.assertEqual(categorical_info['cat_columnlabels'], [])
@@ -237,7 +239,9 @@ class DataUtilTest(TestCase):
                           'global.wal_writer_delay',
                           'global.work_mem',
                           'global.wal_sync_method']  # last knob categorical
-        categorical_info = DataUtil.dummy_encoder_helper(featured_knobs)
+        postgres96 = DBMSCatalog.objects.get(pk=1)
+        categorical_info = DataUtil.dummy_encoder_helper(featured_knobs,
+                                                         dbms=postgres96)
         self.assertEqual(len(categorical_info['n_values']), 1)
         self.assertEqual(categorical_info['n_values'][0], 4)
         self.assertEqual(len(categorical_info['categorical_features']), 1)

@@ -91,7 +91,8 @@ def run_background_tasks():
         # ranked by their impact on the DBMS's performance. Save them in a new
         # PipelineData object.
         ranked_knobs = run_knob_identification(knob_data=knob_data,
-                                               metric_data=pruned_metric_data)
+                                               metric_data=pruned_metric_data,
+                                               dbms=workload.dbms)
         ranked_knobs_entry = PipelineData(pipeline_run=pipeline_run_obj,
                                           task_type=PipelineTaskType.RANKED_KNOBS,
                                           workload=workload,
@@ -210,7 +211,7 @@ def run_workload_characterization(metric_data):
     return pruned_metrics
 
 
-def run_knob_identification(knob_data, metric_data):
+def run_knob_identification(knob_data, metric_data, dbms):
     # Performs knob identification on the knob & metric data and returns
     # a set of ranked knobs.
     #
@@ -220,6 +221,7 @@ def run_knob_identification(knob_data, metric_data):
     #     - 'rowlabels': a list of identifiers for the rows in the matrix
     #     - 'columnlabels': a list of the knob/metric names corresponding
     #           to the columns in the data matrix
+    #   dbms is the foreign key pointing to target dbms in DBMSCatalog
     #
     # When running the lasso algorithm, the knob_data matrix is set of
     # independent variables (X) and the metric_data is the set of
@@ -253,7 +255,8 @@ def run_knob_identification(knob_data, metric_data):
 
     # determine which knobs need encoding (enums with >2 possible values)
 
-    categorical_info = DataUtil.dummy_encoder_helper(nonconst_knob_columnlabels)
+    categorical_info = DataUtil.dummy_encoder_helper(nonconst_knob_columnlabels,
+                                                     dbms)
     # encode categorical variable first (at least, before standardize)
     dummy_encoder = DummyEncoder(categorical_info['n_values'],
                                  categorical_info['categorical_features'],
