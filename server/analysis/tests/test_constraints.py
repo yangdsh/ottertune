@@ -61,17 +61,20 @@ class ConstraintHelperTestCase(unittest.TestCase):
         row_corrected = constraint_helper.apply_constraints(new_row)
         self.assertTrue(np.all(row == row_corrected))
 
+    # tests that repeatedly applying randomize_categorical_features
+    # always results in valid configurations of categorical dumny encodings
+    # and will lead to all possible values of categorical variables being tried
     def test_randomize_categorical_features(self):
         # variable 0 is categorical, 3 values
         # variable 1 is not categorical
-        # variable 2 is categorical, 2 values
+        # variable 2 is categorical, 4 values
         cat_var_0_levels = 3
-        cat_var_2_levels = 2
+        cat_var_2_levels = 4
         cat_var_0_idx = 0
         cat_var_2_idx = 2
         n_values = [cat_var_0_levels, cat_var_2_levels]
         categorical_features = [cat_var_0_idx, cat_var_2_idx]
-        encoder = DummyEncoder(n_values, categorical_features, ['a'], [])
+        encoder = DummyEncoder(n_values, categorical_features, ['a', 'b'], [])
         encoder.fit([[0, 17, 0]])
         X_scaler = StandardScaler()
         constraint_helper = ParamConstraintHelper(X_scaler, encoder,
@@ -80,21 +83,21 @@ class ConstraintHelperTestCase(unittest.TestCase):
 
         # row is a sample encoded set of features,
         # note that the non-categorical variable is on the right
-        row = np.array([0, 0, 1, 1, 0, 17], dtype=float)
+        row = np.array([0, 0, 1, 1, 0, 0, 0, 17], dtype=float)
         trials = 20
+        cat_var_0_counts = np.zeros(cat_var_0_levels)
+        cat_var_2_counts = np.zeros(cat_var_2_levels)
         for _ in range(trials):
             # possibly flip the categorical features
             row = constraint_helper.randomize_categorical_features(row, scaled=False, rescale=False)
 
-            # check that result is valid
-            cat_var_0_counts = np.zeros(cat_var_0_levels)
+            # check that result is valid for cat_var_0
             cat_var_0_dummies = row[0: cat_var_0_levels]
             self.assertTrue(np.all(np.logical_or(cat_var_0_dummies == 0, cat_var_0_dummies == 1)))
             self.assertEqual(np.sum(cat_var_0_dummies), 1)
             cat_var_0_counts[np.argmax(cat_var_0_dummies)] += 1
 
-            # check that result is valid
-            cat_var_2_counts = np.zeros(cat_var_2_levels)
+            # check that result is valid for cat_var_2
             cat_var_2_dummies = row[cat_var_0_levels: cat_var_0_levels + cat_var_2_levels]
             self.assertTrue(np.all(np.logical_or(cat_var_2_dummies == 0, cat_var_2_dummies == 1)))
             self.assertEqual(np.sum(cat_var_2_dummies), 1)
