@@ -344,10 +344,9 @@ def configuration_recommendation(target_data):
             # FIXME: support multiple methods can be selected by users
             col_min = X_default_scaled[i]
 
-            X_min[i] = col_min
-            X_max[i] = col_max
-            X_samples[:, i] = np.random.rand(
-                num_samples) * (col_max - col_min) + col_min
+        X_min[i] = col_min
+        X_max[i] = col_max
+        X_samples[:, i] = np.random.rand(num_samples) * (col_max - col_min) + col_min
 
     # Maximize the throughput, moreisbetter
     # Use gradient descent to minimize -throughput
