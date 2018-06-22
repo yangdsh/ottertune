@@ -19,7 +19,8 @@ import numpy as np
 from django.utils.text import capfirst
 from djcelery.models import TaskMeta
 
-from .types import LabelStyleType
+from .types import LabelStyleType, VarType
+from .models import KnobCatalog, DBMSCatalog
 
 LOG = logging.getLogger(__name__)
 
@@ -151,6 +152,55 @@ class DataUtil(object):
                 y_unique[i, :] = np.median(y_matrix[dup_idxs, :], axis=0)
                 rowlabels_unique[i] = tuple(rowlabels[dup_idxs])
         return X_unique, y_unique, rowlabels_unique
+
+    @staticmethod
+    def dummy_encoder_helper(featured_knobs, dbms):
+        n_values = []
+        cat_knob_indices = []
+        cat_knob_names = []
+        noncat_knob_names = []
+        binary_knob_indices = []
+        dbms_info = DBMSCatalog.objects.filter(pk=dbms.pk)
+
+        if len(dbms_info) == 0:
+            raise Exception("DBMSCatalog cannot find dbms {}".format(dbms.full_name()))
+        full_dbms_name = dbms_info[0]
+
+        for i, knob_name in enumerate(featured_knobs):
+            # knob can be uniquely identified by (dbms, knob_name)
+            knobs = KnobCatalog.objects.filter(name=knob_name,
+                                               dbms=dbms)
+            if len(knobs) == 0:
+                raise Exception(
+                    "KnobCatalog cannot find knob of name {} in {}".format(
+                        knob_name, full_dbms_name))
+            knob = knobs[0]
+            # check if knob is ENUM
+            if knob.vartype == VarType.ENUM:
+                # enumvals is a comma delimited list
+                enumvals = knob.enumvals.split(",")
+                if len(enumvals) > 2:
+                    # more than 2 values requires dummy encoding
+                    n_values.append(len(enumvals))
+                    cat_knob_indices.append(i)
+                    cat_knob_names.append(knob_name)
+                else:
+                    # knob is binary
+                    noncat_knob_names.append(knob_name)
+                    binary_knob_indices.append(i)
+            else:
+                if knob.vartype == VarType.BOOL:
+                    binary_knob_indices.append(i)
+                noncat_knob_names.append(knob_name)
+
+        n_values = np.array(n_values)
+        cat_knob_indices = np.array(cat_knob_indices)
+        categorical_info = {'n_values': n_values,
+                            'categorical_features': cat_knob_indices,
+                            'cat_columnlabels': cat_knob_names,
+                            'noncat_columnlabels': noncat_knob_names,
+                            'binary_vars': binary_knob_indices}
+        return categorical_info
 
 
 class ConversionUtil(object):

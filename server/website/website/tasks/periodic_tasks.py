@@ -14,7 +14,9 @@ from sklearn.preprocessing import StandardScaler
 from analysis.cluster import KMeansClusters, create_kselection_model
 from analysis.factor_analysis import FactorAnalysis
 from analysis.lasso import LassoPath
-from analysis.preprocessing import Bin, get_shuffle_indices
+from analysis.preprocessing import (Bin, get_shuffle_indices,
+                                    DummyEncoder,
+                                    consolidate_columnlabels)
 from website.models import PipelineData, PipelineRun, Result, Workload
 from website.types import PipelineTaskType
 from website.utils import DataUtil, JSONUtil
@@ -89,7 +91,8 @@ def run_background_tasks():
         # ranked by their impact on the DBMS's performance. Save them in a new
         # PipelineData object.
         ranked_knobs = run_knob_identification(knob_data=knob_data,
-                                               metric_data=pruned_metric_data)
+                                               metric_data=pruned_metric_data,
+                                               dbms=workload.dbms)
         ranked_knobs_entry = PipelineData(pipeline_run=pipeline_run_obj,
                                           task_type=PipelineTaskType.RANKED_KNOBS,
                                           workload=workload,
@@ -208,7 +211,7 @@ def run_workload_characterization(metric_data):
     return pruned_metrics
 
 
-def run_knob_identification(knob_data, metric_data):
+def run_knob_identification(knob_data, metric_data, dbms):
     # Performs knob identification on the knob & metric data and returns
     # a set of ranked knobs.
     #
@@ -218,6 +221,7 @@ def run_knob_identification(knob_data, metric_data):
     #     - 'rowlabels': a list of identifiers for the rows in the matrix
     #     - 'columnlabels': a list of the knob/metric names corresponding
     #           to the columns in the data matrix
+    #   dbms is the foreign key pointing to target dbms in DBMSCatalog
     #
     # When running the lasso algorithm, the knob_data matrix is set of
     # independent variables (X) and the metric_data is the set of
@@ -249,9 +253,22 @@ def run_knob_identification(knob_data, metric_data):
             nonconst_metric_columnlabels.append(cl)
     nonconst_metric_matrix = np.hstack(nonconst_metric_matrix)
 
+    # determine which knobs need encoding (enums with >2 possible values)
+
+    categorical_info = DataUtil.dummy_encoder_helper(nonconst_knob_columnlabels,
+                                                     dbms)
+    # encode categorical variable first (at least, before standardize)
+    dummy_encoder = DummyEncoder(categorical_info['n_values'],
+                                 categorical_info['categorical_features'],
+                                 categorical_info['cat_columnlabels'],
+                                 categorical_info['noncat_columnlabels'])
+    encoded_knob_matrix = dummy_encoder.fit_transform(
+        nonconst_knob_matrix)
+    encoded_knob_columnlabels = dummy_encoder.new_labels
+
     # standardize values in each column to N(0, 1)
     standardizer = StandardScaler()
-    standardized_knob_matrix = standardizer.fit_transform(nonconst_knob_matrix)
+    standardized_knob_matrix = standardizer.fit_transform(encoded_knob_matrix)
     standardized_metric_matrix = standardizer.fit_transform(nonconst_metric_matrix)
 
     # shuffle rows (note: same shuffle applied to both knob and metric matrices)
@@ -261,5 +278,10 @@ def run_knob_identification(knob_data, metric_data):
 
     # run lasso algorithm
     lasso_model = LassoPath()
-    lasso_model.fit(shuffled_knob_matrix, shuffled_metric_matrix, nonconst_knob_columnlabels)
-    return lasso_model.get_ranked_features()
+    lasso_model.fit(shuffled_knob_matrix, shuffled_metric_matrix, encoded_knob_columnlabels)
+
+    # consolidate categorical feature columns, and reset to original names
+    encoded_knobs = lasso_model.get_ranked_features()
+    consolidated_knobs = consolidate_columnlabels(encoded_knobs)
+
+    return consolidated_knobs

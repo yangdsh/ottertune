@@ -76,7 +76,7 @@ import de.undercouch.gradle.tasks.download.Download
 task downloadJars(type: Download) {
     src ([
         'https://github.com/google/google-java-format/releases/download/google-java-format-1.5/google-java-format-1.5-all-deps.jar',
-        'https://sourceforge.net/projects/checkstyle/files/checkstyle/8.8/checkstyle-8.8-all.jar'
+        'https://github.com/checkstyle/checkstyle/releases/download/checkstyle-8.8/checkstyle-8.8-all.jar'
     ])
     dest libsDir
     overwrite false
