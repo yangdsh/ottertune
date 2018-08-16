@@ -26,7 +26,8 @@ import org.apache.http.util.EntityUtils;
  * @author Shuli
  */
 public class ResultUploader {
-  public static void upload(String uploadURL, String uploadCode, Map<String, String> files) {
+  public static void upload(String uploadURL, String uploadCode,
+                            Map<String, String> files) throws IOException {
 
     try {
       List<String> filesToSendNames = new ArrayList<>();
@@ -37,10 +38,8 @@ public class ResultUploader {
         File f = new File(path);
         filesToSend.add(f);
       }
-
       CloseableHttpClient httpclient = HttpClients.createDefault();
       HttpPost httppost = new HttpPost(uploadURL);
-
       MultipartEntityBuilder mb =
               MultipartEntityBuilder.create().addTextBody("upload_code", uploadCode);
       for (int i = 0; i < filesToSendNames.size(); i++) {
@@ -57,7 +56,7 @@ public class ResultUploader {
         response.close();
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new IOException();
     }
   }
 }
