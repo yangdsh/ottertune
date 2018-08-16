@@ -292,6 +292,7 @@ class DummyEncoder(Preprocess):
             if nv <= 2:
                 raise Exception("Categorical features must have 3+ labels")
 
+        self.n_values = n_values
         self.cat_columnlabels = cat_columnlabels
         self.noncat_columnlabels = noncat_columnlabels
         self.encoder = OneHotEncoder(
@@ -350,7 +351,7 @@ class DummyEncoder(Preprocess):
         return inverted_matrix
 
     def total_dummies(self):
-        return sum(self.encoder.n_values_)
+        return sum(self.n_values)
 
 
 def consolidate_columnlabels(columnlabels):
