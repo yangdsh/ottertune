@@ -84,7 +84,7 @@ def create_database():
 def change_conf():
     next_conf = 'next_config'
     if CONF['database_type'] == 'postgres':
-        cmd = 'sudo python PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
+        cmd = 'sudo python3 PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -149,7 +149,7 @@ def free_cache():
 
 @task
 def upload_result():
-    cmd = 'python ../../server/website/script/upload/upload.py \
+    cmd = 'python3 ../../server/website/script/upload/upload.py \
            ../controller/output/postgres/ {} {}'.format(CONF['upload_code'],
                                                         CONF['upload_url'])
     local(cmd)
@@ -157,7 +157,7 @@ def upload_result():
 
 @task
 def get_result():
-    cmd = 'python ../../script/query_and_get.py https://ottertune.cs.cmu.edu {} 5'.\
+    cmd = 'python3 ../../script/query_and_get.py https://ottertune.cs.cmu.edu {} 5'.\
           format(CONF['upload_code'])
     local(cmd)
 
