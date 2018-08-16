@@ -9,7 +9,6 @@ Created on Feb 11, 2018
 @author: taodai
 '''
 
-import urllib
 import sys
 import time
 import logging
