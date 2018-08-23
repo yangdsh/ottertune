@@ -14,10 +14,6 @@ import numpy as np
 
 class ParamConstraintHelper(object):
 
-    @property
-    def num_categorical_params(self):
-        return len(self.encoder_.n_values)
-
     def __init__(self, scaler, encoder=None, binary_vars=None,
                  init_flip_prob=0.3, flip_prob_decay=0.5):
         if 'inverse_transform' not in dir(scaler):
@@ -25,8 +21,11 @@ class ParamConstraintHelper(object):
         if 'transform' not in dir(scaler):
             raise Exception("Scaler object must provide function transform(X)")
         self.scaler_ = scaler
-        if encoder is not None:
+        if encoder is not None and len(encoder.n_values) > 0:
+            self.is_dummy_encoded_ = True
             self.encoder_ = encoder.encoder
+        else:
+            self.is_dummy_encoded_ = False
         self.binary_vars_ = binary_vars
         self.init_flip_prob_ = init_flip_prob
         self.flip_prob_decay_ = flip_prob_decay
@@ -34,15 +33,16 @@ class ParamConstraintHelper(object):
     def apply_constraints(self, sample, scaled=True, rescale=True):
         conv_sample = self._handle_scaling(sample, scaled)
 
-        # apply categorical (ie enum var, >=3 values) constraints
-        n_values = self.encoder_.n_values_
-        cat_start_indices = self.encoder_.feature_indices_
-        for i, nvals in enumerate(n_values):
-            start_idx = cat_start_indices[i]
-            cvals = conv_sample[start_idx: start_idx + nvals]
-            cvals = np.array(np.arange(nvals) == np.argmax(cvals), dtype=float)
-            assert np.sum(cvals) == 1
-            conv_sample[start_idx: start_idx + nvals] = cvals
+        if self.is_dummy_encoded_:
+            # apply categorical (ie enum var, >=3 values) constraints
+            n_values = self.encoder_.n_values_
+            cat_start_indices = self.encoder_.feature_indices_
+            for i, nvals in enumerate(n_values):
+                start_idx = cat_start_indices[i]
+                cvals = conv_sample[start_idx: start_idx + nvals]
+                cvals = np.array(np.arange(nvals) == np.argmax(cvals), dtype=float)
+                assert np.sum(cvals) == 1
+                conv_sample[start_idx: start_idx + nvals] = cvals
 
         # apply binary (0-1) constraints
         if self.binary_vars_ is not None:
@@ -73,12 +73,12 @@ class ParamConstraintHelper(object):
         return sample
 
     def randomize_categorical_features(self, sample, scaled=True, rescale=True):
+        # If there are no categorical features, this function is a no-op.
+        if not self.is_dummy_encoded_:
+            return sample
         n_values = self.encoder_.n_values_
         cat_start_indices = self.encoder_.feature_indices_
         n_cat_feats = len(n_values)
-
-        if n_cat_feats == 0:
-            return sample
 
         conv_sample = self._handle_scaling(sample, scaled)
         flips = np.zeros((n_cat_feats,), dtype=bool)
