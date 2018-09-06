@@ -116,7 +116,8 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon'.format(CONF['controller_config'])
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon'.\
+          format(CONF['controller_config'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
@@ -150,7 +151,7 @@ def free_cache():
 def upload_result():
     cmd = 'python3 ../../server/website/script/upload/upload.py \
            ../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
-                                                                    CONF['upload_url'])
+                                                           CONF['upload_url'])
     local(cmd)
 
 
