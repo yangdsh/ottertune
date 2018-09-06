@@ -150,15 +150,15 @@ def free_cache():
 @task
 def upload_result():
     cmd = 'python3 ../../server/website/script/upload/upload.py \
-           ../controller/output/postgres/ {} {}'.format(CONF['upload_code'],
-                                                        CONF['upload_url'])
+           ../controller/output/postgres/ {} {}/new_result/'.format(CONF['upload_code'],
+                                                                    CONF['upload_url'])
     local(cmd)
 
 
 @task
 def get_result():
-    cmd = 'python3 ../../script/query_and_get.py https://ottertune.cs.cmu.edu {} 5'.\
-          format(CONF['upload_code'])
+    cmd = 'python3 ../../script/query_and_get.py {} {} 5'.\
+          format(CONF['upload_url'], CONF['upload_code'])
     local(cmd)
 
 
