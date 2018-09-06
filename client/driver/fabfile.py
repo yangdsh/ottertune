@@ -116,8 +116,7 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c ' \
-          'config/sample_postgres_config.json -d output/postgres/" --no-daemon'
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon'.format(CONF['controller_config'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
@@ -136,7 +135,7 @@ def save_dbms_result():
     files = ['knobs.json', 'metrics_after.json', 'metrics_before.json', 'summary.json']
     for f_ in files:
         f_prefix = f_.split('.')[0]
-        cmd = 'cp ../controller/output/postgres/{} {}/{}__{}.json'.\
+        cmd = 'cp ../controller/output/{} {}/{}__{}.json'.\
               format(f_, CONF['save_path'], t, f_prefix)
         local(cmd)
 
@@ -150,7 +149,7 @@ def free_cache():
 @task
 def upload_result():
     cmd = 'python3 ../../server/website/script/upload/upload.py \
-           ../controller/output/postgres/ {} {}/new_result/'.format(CONF['upload_code'],
+           ../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
                                                                     CONF['upload_url'])
     local(cmd)
 
