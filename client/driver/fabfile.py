@@ -150,8 +150,10 @@ def free_cache():
 @task
 def upload_result():
     cmd = 'python3 ../../server/website/script/upload/upload.py \
-           ../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
+           ../controller/sample_output/postgres/ {} {}/new_result/'.format(CONF['upload_code'],
                                                            CONF['upload_url'])
+    #../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
+
     local(cmd)
 
 

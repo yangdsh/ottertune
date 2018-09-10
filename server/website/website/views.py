@@ -5,6 +5,7 @@
 #
 import logging
 import datetime
+import re
 from collections import OrderedDict
 
 from django.contrib.auth import login, logout
@@ -401,6 +402,13 @@ def handle_result_files(session, files):
         # int(summary['end_time']), # unit: seconds
         int(summary['end_time']) / 1000,  # unit: ms
         timezone(TIME_ZONE))
+
+    # Check if workload name is alpha-numeric and possibly contains an underscore
+    if not re.match('^[a-zA-Z0-9_]+$', workload_name):
+        return HttpResponse('Your workload name ' + workload_name + ' contains '
+                            'invalid characters! It should only contain '
+                            'alpha-numeric or underscore.')
+
     try:
         # Check that we support this DBMS and version
         dbms = DBMSCatalog.objects.get(

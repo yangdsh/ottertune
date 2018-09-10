@@ -11,6 +11,6 @@
   "oltpbench_log" : "/home/bohan/ottertune/client/driver/oltp.log",
   "controller_config": "/home/bohan/ottertune/client/controller/config/sample_postgres_config.json",
   "save_path": "/home/bohan/results",
-  "upload_url" : "https://ottertune.cs.cmu.edu",
-  "upload_code" : "KP3JOPSL4VBE3RVFQPVP",
+  "upload_url" : "http://127.0.0.1:8000",
+  "upload_code" : "Z05EBXY5BLY3S0LY575B"
 }
