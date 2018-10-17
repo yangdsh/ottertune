@@ -162,6 +162,12 @@ def get_result():
     local(cmd)
 
 
+@task
+def add_udf():
+    cmd = 'sudo python3 ./LatencyUDF.py ../controller/output/'
+    local(cmd)
+
+
 def _ready_to_start_controller():
     return (os.path.exists(CONF['oltpbench_log']) and
             'Warmup complete, starting measurements'
@@ -207,6 +213,9 @@ def loop():
     stop_controller()
 
     p.join()
+
+    # add user defined target objective
+    # add_udf()
 
     # upload result
     upload_result()
