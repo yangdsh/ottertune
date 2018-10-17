@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 import mock
 from django.test import TestCase
 from website.parser.postgres import PostgresParser, Postgres96Parser
-from website.types import BooleanType, VarType, KnobUnitType
+from website.types import BooleanType, VarType, KnobUnitType, MetricType
 from website.models import KnobCatalog
 
 
@@ -262,11 +262,14 @@ class Postgres96ParserTests(BaseParserTests, TestCase):
         self.assertEqual(test_metrics.get('throughput_txn_per_sec'), None)
 
         test_convert_metrics = self.test_dbms.convert_dbms_metrics(test_metrics, 0.1)
-        for key in list(self.test_dbms.numeric_metric_catalog_.keys()):
+        for key, metadata in list(self.test_dbms.numeric_metric_catalog_.items()):
             if (key == self.test_dbms.transactions_counter):
                 self.assertEqual(test_convert_metrics[key], 10 / 0.1)
                 continue
-            self.assertEqual(test_convert_metrics[key], 2 / 0.1)
+            if metadata.metric_type == MetricType.COUNTER:
+                self.assertEqual(test_convert_metrics[key], 2 / 0.1)
+            else:  # MetricType.STATISTICS
+                self.assertEqual(test_convert_metrics[key], 2)
 
         self.assertEqual(test_convert_metrics['throughput_txn_per_sec'], 100)
         self.assertEqual(test_convert_metrics.get('pg_FAKE_METRIC'), None)
