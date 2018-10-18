@@ -168,6 +168,14 @@ def add_udf():
     local(cmd)
 
 
+@task
+def upload_batch():
+    cmd = 'python3 ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
+                                                                  CONF['upload_code'],
+                                                                  CONF['upload_url'])
+    local(cmd)
+
+
 def _ready_to_start_controller():
     return (os.path.exists(CONF['oltpbench_log']) and
             'Warmup complete, starting measurements'
