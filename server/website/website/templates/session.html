@@ -42,12 +42,10 @@
         <td><div class="text-right">{{ labels.tuning_session }}</div></td>
         <td>{{ session.tuning_session }}</td>
     </tr>
-    {% if session.tuning_session %}
     <tr>
         <td><div class="text-right">{{ labels.target_objective }}</div></td>
         <td>{{ metric_meta|get_item:session.target_objective|get_attr:"pprint" }}</td>
     </tr>
-    {% endif %}
     </tbody>
 </table>
 </div>

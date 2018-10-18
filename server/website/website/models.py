@@ -201,11 +201,8 @@ class Session(BaseModel):
     nondefault_settings = models.TextField(null=True)
 
     def clean(self):
-        if self.tuning_session:
-            if self.target_objective is None:
-                self.target_objective = MetricManager.get_default_objective_function()
-        else:
-            self.target_objective = None
+        if self.target_objective is None:
+            self.target_objective = MetricManager.get_default_objective_function()
 
     def delete(self, using=DEFAULT_DB_ALIAS, keep_parents=False):
         targets = KnobData.objects.filter(session=self)
