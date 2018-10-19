@@ -47,6 +47,7 @@ class SessionForm(forms.ModelForm):
         super(SessionForm, self).__init__(*args, **kwargs)
         self.fields['description'].required = False
         self.fields['target_objective'].required = False
+        self.fields['tuning_session'].required = True
 
     class Meta:  # pylint: disable=old-style-class,no-init
         model = Session
@@ -57,7 +58,6 @@ class SessionForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'required': True}),
             'description': forms.Textarea(attrs={'maxlength': 500,
                                                  'rows': 5}),
-            'tuning_session': forms.CheckboxInput(attrs={'onclick': 'show_content();'}),
         }
         labels = {
             'dbms': 'DBMS',
