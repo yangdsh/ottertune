@@ -157,7 +157,7 @@ class SessionViewsTests(TestCase):
         post_data = {
             'name': 'test_create_basic_session',
             'description': 'testing create basic session...',
-            'tuning_session': False,
+            'tuning_session': 'no_tuning_session',
             'hardware': 16,
             'dbms': 1
         }
@@ -173,7 +173,7 @@ class SessionViewsTests(TestCase):
         post_data = {
             'name': 'test_create_basic_session',
             'description': 'testing create basic session...',
-            'tuning_session': True,
+            'tuning_session': 'tuning_session',
             'hardware': 16,
             'dbms': 1,
             'target_objective': 'throughput_txn_per_sec'
@@ -197,7 +197,7 @@ class SessionViewsTests(TestCase):
                                                     'session_id': TEST_BASIC_SESSION_ID})
         post_data = {
             'name': 'new_session_name',
-            'tuning_session': True,
+            'tuning_session': 'tuning_session',
             'hardware': 18,
             'dbms': 1,
             'target_objective': 'throughput_txn_per_sec'
@@ -231,7 +231,7 @@ class SessionViewsTests(TestCase):
             post_data = {
                 'name': 'session_{}'.format(i),
                 'description': "",
-                'tuning_session': False,
+                'tuning_session': 'no_tuning_session',
                 'hardware': 16,
                 'dbms': 1,
                 'target_objective': 'throughput_txn_per_sec'
