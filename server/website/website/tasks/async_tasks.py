@@ -100,8 +100,8 @@ def aggregate_target_results(result_id):
     # this data in order to make a configuration recommendation (until we
     # implement a sampling technique to generate new training data).
     latest_pipeline_run = PipelineRun.objects.get_latest()
-
-    if latest_pipeline_run is None:
+    newest_result = Result.objects.get(pk=result_id)
+    if latest_pipeline_run is None or newest_result.session.tuning_session == 'randomly_generate':
         result = Result.objects.filter(pk=result_id)
         knobs_ = KnobCatalog.objects.filter(dbms=result[0].dbms, tunable=True)
         knobs_catalog = {k.name: k for k in knobs_}
@@ -117,7 +117,6 @@ def aggregate_target_results(result_id):
 
     # Aggregate all knob config results tried by the target so far in this
     # tuning session and this tuning workload.
-    newest_result = Result.objects.get(pk=result_id)
     target_results = Result.objects.filter(session=newest_result.session,
                                            dbms=newest_result.dbms,
                                            workload=newest_result.workload)

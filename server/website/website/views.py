@@ -475,7 +475,7 @@ def handle_result_files(session, files):
     session.project.save()
     session.save()
 
-    if session.tuning_session is False:
+    if session.tuning_session == 'no_tuning_session':
         return HttpResponse("Result stored successfully!")
 
     result_id = result.pk

@@ -191,7 +191,13 @@ class Session(BaseModel):
     last_update = models.DateTimeField()
 
     upload_code = models.CharField(max_length=30, unique=True)
-    tuning_session = models.BooleanField()
+    TUNING_OPTIONS = [
+        ("tuning_session", "Tuning Session"),
+        ("no_tuning_session", "No Tuning"),
+        ("randomly_generate", "Randomly Generate")
+    ]
+    tuning_session = models.CharField(choices=TUNING_OPTIONS,
+                                      max_length=64, default='tuning_sesion')
 
     TARGET_OBJECTIVES = [
         ('throughput_txn_per_sec', 'Throughput'),
