@@ -228,7 +228,7 @@ def configuration_recommendation(target_data):
 
     metric_meta = MetricCatalog.objects.get_metric_meta(newest_result.session.dbms,
                                                         newest_result.session.target_objective)
-    if metric_meta[target_objective] == '(less is better)':
+    if metric_meta[target_objective].improvement == '(less is better)':
         lessisbetter = True
     else:
         lessisbetter = False
