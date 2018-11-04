@@ -303,6 +303,18 @@ class Workload(BaseModel):
     hardware = models.ForeignKey(Hardware)
     name = models.CharField(max_length=128, verbose_name='workload name')
 
+    def delete(self, using=DEFAULT_DB_ALIAS, keep_parents=False):
+        # The results should not have corresponding workloads.
+        # results = Result.objects.filter(workload=self)
+        # if results.exists():
+        #     raise Exception("Cannot delete {} workload since results exist. ".format(self.name))
+
+        # Delete PipelineData with corresponding workloads
+        pipelinedatas = PipelineData.objects.filter(workload=self)
+        for x in pipelinedatas:
+            x.delete()
+        super(Workload, self).delete(using, keep_parents)
+
     class Meta:  # pylint: disable=old-style-class,no-init
         unique_together = ("dbms", "hardware", "name")
 

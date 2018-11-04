@@ -446,6 +446,14 @@ def map_workload(target_data):
     assert len(unique_workloads) > 0
     workload_data = {}
     for unique_workload in unique_workloads:
+
+        workload_obj = Workload.objects.get(pk=unique_workload)
+        wkld_results = Result.objects.filter(workload=workload_obj)
+        if wkld_results.exists() is False:
+            # delete the workload
+            workload_obj.delete()
+            continue
+
         # Load knob & metric data for this workload
         knob_data = load_data_helper(pipeline_data, unique_workload, PipelineTaskType.KNOB_DATA)
 
@@ -486,6 +494,8 @@ def map_workload(target_data):
             'y_matrix': y_matrix,
             'rowlabels': rowlabels,
         }
+
+    assert len(workload_data) > 0
 
     # Stack all X & y matrices for preprocessing
     Xs = np.vstack([entry['X_matrix'] for entry in list(workload_data.values())])
@@ -540,10 +550,15 @@ def map_workload(target_data):
     # Find the best (minimum) score
     best_score = np.inf
     best_workload_id = None
+    # scores_info = {workload_id: (workload_name, score)}
+    scores_info = {}
     for workload_id, similarity_score in list(scores.items()):
+        workload_name = Workload.objects.get(pk=workload_id).name
         if similarity_score < best_score:
             best_score = similarity_score
             best_workload_id = workload_id
-    target_data['mapped_workload'] = (best_workload_id, best_score)
-    target_data['scores'] = scores
+            best_workload_name = workload_name
+        scores_info[workload_id] = (workload_name, similarity_score)
+    target_data['mapped_workload'] = (best_workload_id, best_workload_name, best_score)
+    target_data['scores'] = scores_info
     return target_data

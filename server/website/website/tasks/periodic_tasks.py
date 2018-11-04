@@ -41,8 +41,15 @@ def run_background_tasks():
     pipeline_run_obj.save()
 
     for workload in unique_workloads:
+
+        wkld_results = Result.objects.filter(workload=workload)
+        if wkld_results.exists() is False:
+            # delete the workload
+            workload.delete()
+            continue
+
         # Aggregate the knob & metric data for this workload
-        knob_data, metric_data = aggregate_data(workload)
+        knob_data, metric_data = aggregate_data(wkld_results)
 
         # Knob_data and metric_data are 2D numpy arrays. Convert them into a
         # JSON-friendly (nested) lists and then save them as new PipelineData
@@ -106,17 +113,14 @@ def run_background_tasks():
     pipeline_run_obj.save()
 
 
-def aggregate_data(workload):
+def aggregate_data(wkld_results):
     # Aggregates both the knob & metric data for the given workload.
     #
     # Parameters:
-    #   workload: aggregate data belonging to this specific workload
+    #   wkld_results: result data belonging to this specific workload
     #
     # Returns: two dictionaries containing the knob & metric data as
     # a tuple
-
-    # Find the results for this workload
-    wkld_results = Result.objects.filter(workload=workload)
 
     # Now call the aggregate_data helper function to combine all knob &
     # metric data into matrices and also create row/column labels
