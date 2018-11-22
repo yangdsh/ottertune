@@ -337,7 +337,7 @@ def configuration_recommendation(target_data):
             col_max = X_scaled[:, i].max()
             if X_columnlabels[i] in knobs_mem_catalog:
                 X_mem[0][i] = mem_max * 1024 * 1024 * 1024  # mem_max GB
-                col_max = X_scaler.transform(X_mem)[0][i]
+                col_max = min(col_max, X_scaler.transform(X_mem)[0][i])
 
             # Set min value to the default value
             # FIXME: support multiple methods can be selected by users
