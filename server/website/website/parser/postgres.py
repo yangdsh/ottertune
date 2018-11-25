@@ -94,6 +94,7 @@ class PostgresParser(BaseParser):
         return converted
 
     def format_integer(self, int_value, metadata):
+        int_value = int(round(int_value))
         if metadata.unit != KnobUnitType.OTHER and int_value > 0:
             if metadata.unit == KnobUnitType.BYTES:
                 int_value = ConversionUtil.get_human_readable(
