@@ -363,7 +363,13 @@ def configuration_recommendation(target_data):
             # Tensorflow get broken if we use the training data points as
             # starting points for GPRGD. We add a small bias for the
             # starting points. GPR_EPS default value is 0.001
-            X_samples = np.vstack((X_samples, X_scaled[item[1]] + GPR_EPS))
+            # if the starting point is X_max, we minus a small bias to
+            # make sure it is within the range.
+            dist = sum(np.square(X_max - X_scaled[item[1]]))
+            if dist < 0.001:
+                X_samples = np.vstack((X_samples, X_scaled[item[1]] - abs(GPR_EPS)))
+            else:
+                X_samples = np.vstack((X_samples, X_scaled[item[1]] + abs(GPR_EPS)))
             i = i + 1
         except queue.Empty:
             break
