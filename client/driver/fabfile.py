@@ -14,6 +14,7 @@ import logging
 import time
 import os.path
 import re
+import glob
 from multiprocessing import Process
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
@@ -233,6 +234,50 @@ def loop():
 
     # change config
     change_conf()
+
+
+@task
+def run_lhs():
+
+
+    datadir = './configs'
+    samples = glob.glob(os.path.join(datadir, 'config_*'))
+
+    for sample in samples:
+        cmd = 'cp {} next_config'.format(sample)
+        local(cmd)
+        
+        # free cache
+        free_cache()
+       
+        # change config
+        change_conf()
+
+        # restart database
+        restart_database()
+
+        # run oltpbench as a background job
+        run_oltpbench_bg()
+
+        # run controller from another process
+        p = Process(target=run_controller, args=())
+        while not _ready_to_start_controller():
+            pass
+        p.start()
+        while not _ready_to_shut_down_controller():
+            pass
+
+        # stop the experiment
+        stop_controller()
+
+        p.join()
+
+        # save result
+        save_dbms_result()
+
+        # upload result
+        upload_result()
+
 
 
 @task
