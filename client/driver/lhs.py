@@ -1,10 +1,16 @@
+#
+# OtterTune - lhs.py
+#
+# Copyright (c) 2017-18, Carnegie Mellon University Database Group
+#
+
 import sys
-import numpy as np
 import json
-from pyDOE import *
+import os
+import numpy as np
+from pyDOE import lhs
 from scipy.stats import uniform
 from hurry.filesize import size
-from collections import OrderedDict
 
 
 BYTES_SYSTEM = [
@@ -38,6 +44,7 @@ def get_raw_size(value, system):
             return amount * factor
     return None
 
+
 def get_knob_raw(value, knob_type):
     if knob_type == 'integer':
         return int(value)
@@ -49,6 +56,7 @@ def get_knob_raw(value, knob_type):
         return get_raw_size(value, TIME_SYSTEM)
     else:
         raise Exception('Knob Type does not support')
+
 
 def get_knob_readable(value, knob_type):
     if knob_type == 'integer':
@@ -64,23 +72,24 @@ def get_knob_readable(value, knob_type):
     else:
         raise Exception('Knob Type does not support')
 
+
 def get_knobs_readable(values, types):
     result = []
-    for i in range(len(values)):
-        result.append(get_knob_readable(values[i], types[i]))
+    for i, value in enumerate(values):
+        result.append(get_knob_readable(value, types[i]))
     return result
 
 
-
 def main(args):
-    knob_path = './knobs/postgres-96.json'
-    save_path = './configs/'
 
+    if (len(sys.argv) != 4):
+        raise Exception("Usage: python3 lhs.py [Samples Count] [Knob Path] [Save Path]")
+
+    knob_path = args[2]
+    save_path = args[3]
     with open(knob_path, "r") as f:
         tuning_knobs = json.load(f)
 
-    print(tuning_knobs)
-    
     names = []
     maxvals = []
     minvals = []
@@ -92,10 +101,8 @@ def main(args):
         minvals.append(get_knob_raw(knob['tuning_range']['minval'], knob['type']))
         types.append(knob['type'])
 
-    #print(names, maxvals, minvals, types)
-
+    nsamples = int(args[1])
     nfeats = len(tuning_knobs)
-    nsamples = 10
     samples = lhs(nfeats, samples=nsamples, criterion='maximin')
     maxvals = np.array(maxvals)
     minvals = np.array(minvals)
@@ -107,15 +114,13 @@ def main(args):
     for sample in samples:
         samples_readable.append(get_knobs_readable(sample, types))
 
-    print(samples_readable)
-
     config = {'recommendation': {}}
     for sidx in range(nsamples):
         for fidx in range(nfeats):
             config["recommendation"][names[fidx]] = samples_readable[sidx][fidx]
-        with open(save_path + 'config_' + str(sidx), 'w+') as f:
+        with open(os.path.join(save_path, 'config_' + str(sidx)), 'w+') as f:
             f.write(json.dumps(config))
 
-    
+
 if __name__ == '__main__':
     main(sys.argv)

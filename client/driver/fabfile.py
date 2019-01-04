@@ -190,6 +190,12 @@ def _ready_to_shut_down_controller():
 
 
 @task
+def lhs_samples(count=10):
+    cmd = 'python3 lhs.py {} {} {}'.format(count, CONF['lhs_knob_path'], CONF['lhs_save_path'])
+    local(cmd)
+
+
+@task
 def loop():
     max_disk_usage = 80
 
@@ -238,18 +244,16 @@ def loop():
 
 @task
 def run_lhs():
-
-
-    datadir = './configs'
+    datadir = CONF['lhs_save_path']
     samples = glob.glob(os.path.join(datadir, 'config_*'))
 
     for sample in samples:
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
-        
+
         # free cache
         free_cache()
-       
+
         # change config
         change_conf()
 
@@ -277,7 +281,6 @@ def run_lhs():
 
         # upload result
         upload_result()
-
 
 
 @task
