@@ -156,7 +156,7 @@ public class Main {
       LOG.info("Output the process pid to pid.txt");
 
       while (!firstCollecting) {
-          Thread.sleep(1);
+        Thread.sleep(1);
       }
 
       // first collection (before queries)
