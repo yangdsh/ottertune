@@ -117,14 +117,14 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon'.\
-          format(CONF['controller_config'])
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
+          format(CONF['controller_config'], CONF['controller_log'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
 
 @task
-def stop_controller():
+def signal_controller():
     pid = int(open('../controller/pid.txt').read())
     cmd = 'sudo kill -2 {}'.format(pid)
     with lcd("../controller"):  # pylint: disable=not-context-manager
@@ -177,6 +177,12 @@ def upload_batch():
     local(cmd)
 
 
+def _ready_to_start_oltpbench():
+    return (os.path.exists(CONF['controller_log']) and
+            'Output the process pid to'
+            in open(CONF['controller_log']).read())
+
+
 def _ready_to_start_controller():
     return (os.path.exists(CONF['oltpbench_log']) and
             'Warmup complete, starting measurements'
@@ -187,6 +193,16 @@ def _ready_to_shut_down_controller():
     pid_file_path = '../controller/pid.txt'
     return (os.path.exists(pid_file_path) and os.path.exists(CONF['oltpbench_log']) and
             'Output into file' in open(CONF['oltpbench_log']).read())
+
+
+def clean_logs():
+    # remove oltpbench log
+    cmd = 'rm -f {}'.format(CONF['oltpbench_log'])
+    local(cmd)
+
+    # remove controller log
+    cmd = 'rm -f {}'.format(CONF['controller_log'])
+    local(cmd)
 
 
 @task
@@ -202,6 +218,9 @@ def loop():
     # free cache
     free_cache()
 
+    # remove oltpbench log and controller log
+    clean_logs()
+
     # restart database
     restart_database()
 
@@ -213,19 +232,28 @@ def loop():
         load_oltpbench()
         LOG.info('Reload database Done !')
 
-    # run oltpbench as a background job
-    run_oltpbench_bg()
-
     # run controller from another process
     p = Process(target=run_controller, args=())
+    p.start()
+    LOG.info('Run the controller')
+
+    # run oltpbench as a background job
+    while not _ready_to_start_oltpbench():
+        pass
+    run_oltpbench_bg()
+    LOG.info('Run OLTP-Bench')
+
+    # the controller starts the first collection
     while not _ready_to_start_controller():
         pass
-    p.start()
-    while not _ready_to_shut_down_controller():
-        pass
+    signal_controller()
+    LOG.info('Start the first collection')
 
     # stop the experiment
-    stop_controller()
+    while not _ready_to_shut_down_controller():
+        pass
+    signal_controller()
+    LOG.info('Start the second collection, shut down the controller')
 
     p.join()
 
@@ -251,6 +279,9 @@ def run_lhs():
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
 
+        # remove oltpbench log and controller log
+        clean_logs()
+
         # free cache
         free_cache()
 
@@ -260,19 +291,26 @@ def run_lhs():
         # restart database
         restart_database()
 
-        # run oltpbench as a background job
-        run_oltpbench_bg()
-
         # run controller from another process
         p = Process(target=run_controller, args=())
+        p.start()
+
+        # run oltpbench as a background job
+        while not _ready_to_start_oltpbench():
+            pass
+        run_oltpbench_bg()
+        LOG.info('Run OLTP-Bench')
+
         while not _ready_to_start_controller():
             pass
-        p.start()
+        signal_controller()
+        LOG.info('Start the first collection')
+
         while not _ready_to_shut_down_controller():
             pass
-
         # stop the experiment
-        stop_controller()
+        signal_controller()
+        LOG.info('Start the second collection, shut down the controller')
 
         p.join()
 
