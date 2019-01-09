@@ -35,6 +35,9 @@ fabric_output.update({
     'stdout': True,
 })
 
+# intervals of restoring the databse
+RELOAD_INTERVAL = 5
+
 with open('driver_config.json', 'r') as f:
     CONF = json.load(f)
 
@@ -177,6 +180,32 @@ def upload_batch():
     local(cmd)
 
 
+@task
+def dump_database():
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
+    if os.path.exists(db_file_path):
+        LOG.info('%s already exists ! ', db_file_path)
+    else:
+        LOG.info('Dump database %s to %s', CONF['database_name'], db_file_path)
+        cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
+                                                                   CONF['username'],
+                                                                   CONF['database_name'],
+                                                                   db_file_path)
+        local(cmd)
+
+
+@task
+def restore_database():
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
+    drop_database()
+    create_database()
+    cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.format(CONF['password'],
+                                                                     CONF['username'],
+                                                                     CONF['database_name'],
+                                                                     db_file_path)
+    local(cmd)
+
+
 def _ready_to_start_oltpbench():
     return (os.path.exists(CONF['controller_log']) and
             'Output the process pid to'
@@ -213,7 +242,7 @@ def lhs_samples(count=10):
 
 @task
 def loop():
-    max_disk_usage = 80
+    max_disk_usage = 90
 
     # free cache
     free_cache()
@@ -226,11 +255,7 @@ def loop():
 
     # check disk usage
     if check_disk_usage() > max_disk_usage:
-        LOG.info('Exceeds max disk usage %s, reload database', max_disk_usage)
-        drop_database()
-        create_database()
-        load_oltpbench()
-        LOG.info('Reload database Done !')
+        LOG.WARN('Exceeds max disk usage %s', max_disk_usage)
 
     # run controller from another process
     p = Process(target=run_controller, args=())
@@ -275,7 +300,10 @@ def run_lhs():
     datadir = CONF['lhs_save_path']
     samples = glob.glob(os.path.join(datadir, 'config_*'))
 
-    for sample in samples:
+    # dump database if it's not done before.
+    dump_database()
+
+    for i, sample in enumerate(samples):
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
 
@@ -320,10 +348,24 @@ def run_lhs():
         # upload result
         upload_result()
 
+        if RELOAD_INTERVAL > 0:
+            if (i + 1) % RELOAD_INTERVAL == 0:
+                restore_database()
+            elif (i + 1) == len(samples):
+                restore_database()
+
 
 @task
 def run_loops(max_iter=1):
+    # dump database if it's not done before.
+    dump_database()
+
     for i in range(int(max_iter)):
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
         LOG.info('The %s-th Loop Ends / Total Loops %s', i + 1, max_iter)
+        if RELOAD_INTERVAL > 0:
+            if (i + 1) % RELOAD_INTERVAL == 0:
+                restore_database()
+            elif (i + 1) == int(max_iter):
+                restore_database()
