@@ -185,6 +185,7 @@ def dump_database():
     db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
     if os.path.exists(db_file_path):
         LOG.info('%s already exists ! ', db_file_path)
+        return False
     else:
         LOG.info('Dump database %s to %s', CONF['database_name'], db_file_path)
         cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
@@ -192,6 +193,7 @@ def dump_database():
                                                                    CONF['database_name'],
                                                                    db_file_path)
         local(cmd)
+        return True
 
 
 @task
@@ -301,9 +303,14 @@ def run_lhs():
     samples = glob.glob(os.path.join(datadir, 'config_*'))
 
     # dump database if it's not done before.
-    dump_database()
+    dump = dump_database()
 
     for i, sample in enumerate(samples):
+
+        if RELOAD_INTERVAL > 0:
+            if i % RELOAD_INTERVAL == 0 and dump is False:
+                restore_database()
+
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
 
@@ -348,24 +355,16 @@ def run_lhs():
         # upload result
         upload_result()
 
-        if RELOAD_INTERVAL > 0:
-            if (i + 1) % RELOAD_INTERVAL == 0:
-                restore_database()
-            elif (i + 1) == len(samples):
-                restore_database()
-
 
 @task
 def run_loops(max_iter=1):
     # dump database if it's not done before.
-    dump_database()
+    dump = dump_database()
 
     for i in range(int(max_iter)):
+        if RELOAD_INTERVAL > 0:
+            if i % RELOAD_INTERVAL == 0 and dump is False:
+                restore_database()
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
         LOG.info('The %s-th Loop Ends / Total Loops %s', i + 1, max_iter)
-        if RELOAD_INTERVAL > 0:
-            if (i + 1) % RELOAD_INTERVAL == 0:
-                restore_database()
-            elif (i + 1) == int(max_iter):
-                restore_database()
