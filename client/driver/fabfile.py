@@ -37,6 +37,8 @@ fabric_output.update({
 
 # intervals of restoring the databse
 RELOAD_INTERVAL = 5
+# maximum disk usage
+MAX_DISK_USAGE = 90
 
 with open('driver_config.json', 'r') as f:
     CONF = json.load(f)
@@ -53,6 +55,12 @@ def check_disk_usage():
         disk_use = int(m.group(0))
     LOG.info("Current Disk Usage: %s%s", disk_use, '%')
     return disk_use
+
+
+@task
+def check_memory_usage():
+    cmd = 'free -m -h'
+    local(cmd)
 
 
 @task
@@ -205,7 +213,9 @@ def restore_database():
                                                                      CONF['username'],
                                                                      CONF['database_name'],
                                                                      db_file_path)
+    LOG.info('Start restoring database')
     local(cmd)
+    LOG.info('Finish restoring database')
 
 
 def _ready_to_start_oltpbench():
@@ -244,7 +254,6 @@ def lhs_samples(count=10):
 
 @task
 def loop():
-    max_disk_usage = 90
 
     # free cache
     free_cache()
@@ -256,8 +265,8 @@ def loop():
     restart_database()
 
     # check disk usage
-    if check_disk_usage() > max_disk_usage:
-        LOG.WARN('Exceeds max disk usage %s', max_disk_usage)
+    if check_disk_usage() > MAX_DISK_USAGE:
+        LOG.WARN('Exceeds max disk usage %s', MAX_DISK_USAGE)
 
     # run controller from another process
     p = Process(target=run_controller, args=())
@@ -306,19 +315,27 @@ def run_lhs():
     dump = dump_database()
 
     for i, sample in enumerate(samples):
+        LOG.info('\n\n Start %s-th sample %s \n\n', i, sample)
+
+        # free cache
+        free_cache()
 
         if RELOAD_INTERVAL > 0:
             if i % RELOAD_INTERVAL == 0 and dump is False:
                 restore_database()
+
+        # check memory usage
+        # check_memory_usage()
+
+        # check disk usage
+        if check_disk_usage() > MAX_DISK_USAGE:
+            LOG.WARN('Exceeds max disk usage %s', MAX_DISK_USAGE)
 
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
 
         # remove oltpbench log and controller log
         clean_logs()
-
-        # free cache
-        free_cache()
 
         # change config
         change_conf()
