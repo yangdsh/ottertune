@@ -676,7 +676,7 @@
             "name": "pg_stat_user_tables.n_mod_since_analyze", 
             "summary": "Estimated number of rows modified since this table was last analyzed", 
             "vartype": 2, 
-            "metric_type": 1, 
+            "metric_type": 3, 
             "scope": "table"
         }, 
         "model": "website.MetricCatalog"

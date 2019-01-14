@@ -36,7 +36,7 @@ fabric_output.update({
 })
 
 # intervals of restoring the databse
-RELOAD_INTERVAL = 5
+RELOAD_INTERVAL = 10
 # maximum disk usage
 MAX_DISK_USAGE = 90
 
@@ -321,8 +321,11 @@ def run_lhs():
         free_cache()
 
         if RELOAD_INTERVAL > 0:
-            if i % RELOAD_INTERVAL == 0 and dump is False:
-                restore_database()
+            if i % RELOAD_INTERVAL == 0:
+                if i == 0 and dump is False:
+                    restore_database()
+                elif i > 0:
+                    restore_database()
 
         # check memory usage
         # check_memory_usage()
@@ -380,8 +383,12 @@ def run_loops(max_iter=1):
 
     for i in range(int(max_iter)):
         if RELOAD_INTERVAL > 0:
-            if i % RELOAD_INTERVAL == 0 and dump is False:
-                restore_database()
+            if i % RELOAD_INTERVAL == 0:
+                if i == 0 and dump is False:
+                    restore_database()
+                elif i > 0:
+                    restore_database()
+
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
         LOG.info('The %s-th Loop Ends / Total Loops %s', i + 1, max_iter)
