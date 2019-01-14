@@ -299,7 +299,7 @@ class BaseParser(object, metaclass=ABCMeta):
                     adj_val = end_val - start_val
                 else:  # MetricType.STATISTICS or MetricType.INFO
                     adj_val = end_val
-                assert adj_val >= 0
+                assert adj_val >= 0, '{} wrong metric type '.format(met_name)
                 adjusted_metrics[met_name] = adj_val
             else:
                 # This metric is either a bool, enum, string, or timestamp

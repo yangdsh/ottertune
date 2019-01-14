@@ -14,6 +14,7 @@ import logging
 import time
 import os.path
 import re
+import glob
 from multiprocessing import Process
 from fabric.api import (env, local, task, lcd)
 from fabric.state import output as fabric_output
@@ -34,6 +35,11 @@ fabric_output.update({
     'stdout': True,
 })
 
+# intervals of restoring the databse
+RELOAD_INTERVAL = 5
+# maximum disk usage
+MAX_DISK_USAGE = 90
+
 with open('driver_config.json', 'r') as f:
     CONF = json.load(f)
 
@@ -49,6 +55,12 @@ def check_disk_usage():
         disk_use = int(m.group(0))
     LOG.info("Current Disk Usage: %s%s", disk_use, '%')
     return disk_use
+
+
+@task
+def check_memory_usage():
+    cmd = 'free -m -h'
+    local(cmd)
 
 
 @task
@@ -116,14 +128,14 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon'.\
-          format(CONF['controller_config'])
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
+          format(CONF['controller_config'], CONF['controller_log'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
 
 
 @task
-def stop_controller():
+def signal_controller():
     pid = int(open('../controller/pid.txt').read())
     cmd = 'sudo kill -2 {}'.format(pid)
     with lcd("../controller"):  # pylint: disable=not-context-manager
@@ -176,6 +188,42 @@ def upload_batch():
     local(cmd)
 
 
+@task
+def dump_database():
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
+    if os.path.exists(db_file_path):
+        LOG.info('%s already exists ! ', db_file_path)
+        return False
+    else:
+        LOG.info('Dump database %s to %s', CONF['database_name'], db_file_path)
+        cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
+                                                                   CONF['username'],
+                                                                   CONF['database_name'],
+                                                                   db_file_path)
+        local(cmd)
+        return True
+
+
+@task
+def restore_database():
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
+    drop_database()
+    create_database()
+    cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.format(CONF['password'],
+                                                                     CONF['username'],
+                                                                     CONF['database_name'],
+                                                                     db_file_path)
+    LOG.info('Start restoring database')
+    local(cmd)
+    LOG.info('Finish restoring database')
+
+
+def _ready_to_start_oltpbench():
+    return (os.path.exists(CONF['controller_log']) and
+            'Output the process pid to'
+            in open(CONF['controller_log']).read())
+
+
 def _ready_to_start_controller():
     return (os.path.exists(CONF['oltpbench_log']) and
             'Warmup complete, starting measurements'
@@ -188,37 +236,60 @@ def _ready_to_shut_down_controller():
             'Output into file' in open(CONF['oltpbench_log']).read())
 
 
+def clean_logs():
+    # remove oltpbench log
+    cmd = 'rm -f {}'.format(CONF['oltpbench_log'])
+    local(cmd)
+
+    # remove controller log
+    cmd = 'rm -f {}'.format(CONF['controller_log'])
+    local(cmd)
+
+
+@task
+def lhs_samples(count=10):
+    cmd = 'python3 lhs.py {} {} {}'.format(count, CONF['lhs_knob_path'], CONF['lhs_save_path'])
+    local(cmd)
+
+
 @task
 def loop():
-    max_disk_usage = 80
 
     # free cache
     free_cache()
+
+    # remove oltpbench log and controller log
+    clean_logs()
 
     # restart database
     restart_database()
 
     # check disk usage
-    if check_disk_usage() > max_disk_usage:
-        LOG.info('Exceeds max disk usage %s, reload database', max_disk_usage)
-        drop_database()
-        create_database()
-        load_oltpbench()
-        LOG.info('Reload database Done !')
-
-    # run oltpbench as a background job
-    run_oltpbench_bg()
+    if check_disk_usage() > MAX_DISK_USAGE:
+        LOG.WARN('Exceeds max disk usage %s', MAX_DISK_USAGE)
 
     # run controller from another process
     p = Process(target=run_controller, args=())
+    p.start()
+    LOG.info('Run the controller')
+
+    # run oltpbench as a background job
+    while not _ready_to_start_oltpbench():
+        pass
+    run_oltpbench_bg()
+    LOG.info('Run OLTP-Bench')
+
+    # the controller starts the first collection
     while not _ready_to_start_controller():
         pass
-    p.start()
-    while not _ready_to_shut_down_controller():
-        pass
+    signal_controller()
+    LOG.info('Start the first collection')
 
     # stop the experiment
-    stop_controller()
+    while not _ready_to_shut_down_controller():
+        pass
+    signal_controller()
+    LOG.info('Start the second collection, shut down the controller')
 
     p.join()
 
@@ -236,8 +307,81 @@ def loop():
 
 
 @task
+def run_lhs():
+    datadir = CONF['lhs_save_path']
+    samples = glob.glob(os.path.join(datadir, 'config_*'))
+
+    # dump database if it's not done before.
+    dump = dump_database()
+
+    for i, sample in enumerate(samples):
+        LOG.info('\n\n Start %s-th sample %s \n\n', i, sample)
+
+        # free cache
+        free_cache()
+
+        if RELOAD_INTERVAL > 0:
+            if i % RELOAD_INTERVAL == 0 and dump is False:
+                restore_database()
+
+        # check memory usage
+        # check_memory_usage()
+
+        # check disk usage
+        if check_disk_usage() > MAX_DISK_USAGE:
+            LOG.WARN('Exceeds max disk usage %s', MAX_DISK_USAGE)
+
+        cmd = 'cp {} next_config'.format(sample)
+        local(cmd)
+
+        # remove oltpbench log and controller log
+        clean_logs()
+
+        # change config
+        change_conf()
+
+        # restart database
+        restart_database()
+
+        # run controller from another process
+        p = Process(target=run_controller, args=())
+        p.start()
+
+        # run oltpbench as a background job
+        while not _ready_to_start_oltpbench():
+            pass
+        run_oltpbench_bg()
+        LOG.info('Run OLTP-Bench')
+
+        while not _ready_to_start_controller():
+            pass
+        signal_controller()
+        LOG.info('Start the first collection')
+
+        while not _ready_to_shut_down_controller():
+            pass
+        # stop the experiment
+        signal_controller()
+        LOG.info('Start the second collection, shut down the controller')
+
+        p.join()
+
+        # save result
+        save_dbms_result()
+
+        # upload result
+        upload_result()
+
+
+@task
 def run_loops(max_iter=1):
+    # dump database if it's not done before.
+    dump = dump_database()
+
     for i in range(int(max_iter)):
+        if RELOAD_INTERVAL > 0:
+            if i % RELOAD_INTERVAL == 0 and dump is False:
+                restore_database()
         LOG.info('The %s-th Loop Starts / Total Loops %s', i + 1, max_iter)
         loop()
         LOG.info('The %s-th Loop Ends / Total Loops %s', i + 1, max_iter)
