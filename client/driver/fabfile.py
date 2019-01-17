@@ -296,6 +296,9 @@ def loop():
     # add user defined target objective
     # add_udf()
 
+    # save result
+    save_dbms_result()
+
     # upload result
     upload_result()
 
