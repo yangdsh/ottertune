@@ -22,7 +22,7 @@ from fabric.state import output as fabric_output
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
 Formatter = logging.Formatter(  # pylint: disable=invalid-name
-    "%(asctime)s [%(levelname)s]  %(message)s")  # pylint: disable=invalid-name
+    "%(asctime)s [%(levelname)s]  %(message)s")
 
 # print the log
 ConsoleHandler = logging.StreamHandler(sys.stdout)  # pylint: disable=invalid-name
@@ -67,7 +67,7 @@ def check_memory_usage():
 @task
 def restart_database():
     if CONF['database_type'] == 'postgres':
-        cmd = 'service postgresql-9.6.service restart'
+        cmd = 'sudo service postgresql restart'
     if CONF['database_type'] == 'oracle':
         cmd = 'sh shutdownOracle.sh'
         local(cmd)
@@ -135,7 +135,7 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
           format(CONF['controller_config'], CONF['controller_log'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
