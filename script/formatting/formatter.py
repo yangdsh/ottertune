@@ -45,7 +45,7 @@ OTTERTUNE_DIR = os.path.abspath(functools.reduce(os.path.join,
                                                   os.path.pardir]))
 
 JAVA_JAR_PATH = os.path.join(
-    OTTERTUNE_DIR, 'controller/build/libs/google-java-format-1.5-all-deps.jar')
+    OTTERTUNE_DIR, 'client/controller/build/libs/google-java-format-1.5-all-deps.jar')
 
 # ==============================================
 # FILE HEADER FORMATS
@@ -113,7 +113,7 @@ def format_java_file(file_path, update_header, format_code):
 
     if format_code:
         if not os.path.exists(JAVA_JAR_PATH):
-            controller_dir = os.path.join(OTTERTUNE_DIR, 'controller')
+            controller_dir = os.path.join(OTTERTUNE_DIR, 'client/controller')
             subprocess.check_output(["gradle", "downloadJars"], cwd=controller_dir)
         subprocess.check_output(["java", "-jar", JAVA_JAR_PATH, "-r", file_path])
 
