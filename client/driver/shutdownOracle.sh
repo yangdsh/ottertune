@@ -1,5 +1,5 @@
 #!/bin/sh
-su - oracle <<EON
+su - $oracle_sys <<EON
 sqlplus / as sysdba <<EOF
 shutdown immediate
 exit

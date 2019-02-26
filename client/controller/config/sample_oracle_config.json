@@ -1,9 +1,9 @@
 {
   "database_type" : "oracle",
   "database_url" : "jdbc:oracle:thin:@localhost:1521:orcldb",
-  "username" : "sys as sysdba",
-  "password" : "oracle",
+  "username" : "MY_DATABASE_USERNAME",
+  "password" : "MY_DATABASE_PASSWORD",
   "upload_code" : "DEPRECATED",
   "upload_url" : "DEPRECATED",
-  "workload_name" : "tpcc"
+  "workload_name" : "workload_name"
 }

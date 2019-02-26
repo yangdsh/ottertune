@@ -30,7 +30,6 @@ public class OracleCollector extends DBCollector {
 
   public OracleCollector(String oriDBUrl, String username, String password) {
     try {
-      // System.out.println(oriDBUrl);
       Connection conn = DriverManager.getConnection(oriDBUrl, username, password);
       Statement s = conn.createStatement();
 

@@ -3,9 +3,6 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
-'''
-Created on Feb 20, 2019
-'''
 
 import sys
 import json

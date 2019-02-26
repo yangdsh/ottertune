@@ -68,7 +68,10 @@ def check_memory_usage():
 def restart_database():
     if CONF['database_type'] == 'postgres':
         cmd = 'sudo service postgresql restart'
-    if CONF['database_type'] == 'oracle':
+    elif CONF['database_type'] == 'oracle':
+        cmd = "export oracle_sys={}".\
+              format(CONF['system_with_oracle'])
+        local(cmd)
         cmd = 'sh shutdownOracle.sh'
         local(cmd)
         cmd = 'sh startupOracle.sh'
@@ -102,7 +105,7 @@ def change_conf():
     next_conf = 'next_config'
     if CONF['database_type'] == 'postgres':
         cmd = 'sudo python3 PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
-    if CONF['database_type'] == 'postgres':
+    elif CONF['database_type'] == 'oracle':
         cmd = 'sudo python3 OracleConf.py {} {}'.format(next_conf, CONF['database_conf'])
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
