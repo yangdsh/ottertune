@@ -233,7 +233,7 @@ def _ready_to_start_controller():
 def _ready_to_shut_down_controller():
     pid_file_path = '../controller/pid.txt'
     return (os.path.exists(pid_file_path) and os.path.exists(CONF['oltpbench_log']) and
-            'Output into file' in open(CONF['oltpbench_log']).read())
+            'Output throughput samples into file' in open(CONF['oltpbench_log']).read())
 
 
 def clean_logs():
