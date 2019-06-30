@@ -101,9 +101,9 @@ def create_database():
 def change_conf():
     next_conf = 'next_config'
     if CONF['database_type'] == 'postgres':
-        cmd = 'sudo python PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
+        cmd = 'sudo python3 PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
     elif CONF['database_type'] == 'oracle':
-        cmd = 'sudo python OracleConf.py {} {}'.format(next_conf, CONF['database_conf'])
+        cmd = 'sudo python3 OracleConf.py {} {}'.format(next_conf, CONF['database_conf'])
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -135,7 +135,7 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
+    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
           format(CONF['controller_config'], CONF['controller_log'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
@@ -162,13 +162,13 @@ def save_dbms_result():
 
 @task
 def free_cache():
-    cmd = 'sudo sync; sudo bash -c "echo 1 > /proc/sys/vm/drop_caches"'
+    cmd = 'sync; sudo bash -c "echo 1 > /proc/sys/vm/drop_caches"'
     local(cmd)
 
 
 @task
 def upload_result():
-    cmd = 'python ../../server/website/script/upload/upload.py \
+    cmd = 'python3 ../../server/website/script/upload/upload.py \
            ../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
                                                            CONF['upload_url'])
     local(cmd)
@@ -176,20 +176,20 @@ def upload_result():
 
 @task
 def get_result():
-    cmd = 'python ../../script/query_and_get.py {} {} 5'.\
+    cmd = 'python3 ../../script/query_and_get.py {} {} 5'.\
           format(CONF['upload_url'], CONF['upload_code'])
     local(cmd)
 
 
 @task
 def add_udf():
-    cmd = 'sudo python ./LatencyUDF.py ../controller/output/'
+    cmd = 'sudo python3 ./LatencyUDF.py ../controller/output/'
     local(cmd)
 
 
 @task
 def upload_batch():
-    cmd = 'python ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
+    cmd = 'python3 ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
                                                                  CONF['upload_code'],
                                                                  CONF['upload_url'])
     local(cmd)
@@ -253,7 +253,7 @@ def _ready_to_start_controller():
 def _ready_to_shut_down_controller():
     pid_file_path = '../controller/pid.txt'
     return (os.path.exists(pid_file_path) and os.path.exists(CONF['oltpbench_log']) and
-            'Output into file' in open(CONF['oltpbench_log']).read())
+            'Output throughput samples into file' in open(CONF['oltpbench_log']).read())
 
 
 def clean_logs():
@@ -411,7 +411,7 @@ def run_lhs():
 
 
 @task
-def run_loops(max_iter=50):
+def run_loops(max_iter=1):
     # dump database if it's not done before.
     dump = dump_database()
 
