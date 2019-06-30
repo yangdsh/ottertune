@@ -21,7 +21,8 @@ from fabric.state import output as fabric_output
 
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
-Formatter = logging.Formatter("%(asctime)s [%(levelname)s]  %(message)s")  # pylint: disable=invalid-name
+Formatter = logging.Formatter(  # pylint: disable=invalid-name
+    "%(asctime)s [%(levelname)s]  %(message)s")
 
 # print the log
 ConsoleHandler = logging.StreamHandler(sys.stdout)  # pylint: disable=invalid-name
@@ -67,6 +68,10 @@ def check_memory_usage():
 def restart_database():
     if CONF['database_type'] == 'postgres':
         cmd = 'sudo service postgresql restart'
+    elif CONF['database_type'] == 'oracle':
+        cmd = 'sh shutdownOracle.sh'
+        local(cmd)
+        cmd = 'sh startupOracle.sh'
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -96,7 +101,9 @@ def create_database():
 def change_conf():
     next_conf = 'next_config'
     if CONF['database_type'] == 'postgres':
-        cmd = 'sudo python3 PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
+        cmd = 'sudo python PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
+    elif CONF['database_type'] == 'oracle':
+        cmd = 'sudo python OracleConf.py {} {}'.format(next_conf, CONF['database_conf'])
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -128,7 +135,7 @@ def run_oltpbench_bg():
 
 @task
 def run_controller():
-    cmd = 'sudo gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
+    cmd = 'gradle run -PappArgs="-c {} -d output/" --no-daemon > {}'.\
           format(CONF['controller_config'], CONF['controller_log'])
     with lcd("../controller"):  # pylint: disable=not-context-manager
         local(cmd)
@@ -155,13 +162,13 @@ def save_dbms_result():
 
 @task
 def free_cache():
-    cmd = 'sync; sudo bash -c "echo 1 > /proc/sys/vm/drop_caches"'
+    cmd = 'sudo sync; sudo bash -c "echo 1 > /proc/sys/vm/drop_caches"'
     local(cmd)
 
 
 @task
 def upload_result():
-    cmd = 'python3 ../../server/website/script/upload/upload.py \
+    cmd = 'python ../../server/website/script/upload/upload.py \
            ../controller/output/ {} {}/new_result/'.format(CONF['upload_code'],
                                                            CONF['upload_url'])
     local(cmd)
@@ -169,22 +176,22 @@ def upload_result():
 
 @task
 def get_result():
-    cmd = 'python3 ../../script/query_and_get.py {} {} 5'.\
+    cmd = 'python ../../script/query_and_get.py {} {} 5'.\
           format(CONF['upload_url'], CONF['upload_code'])
     local(cmd)
 
 
 @task
 def add_udf():
-    cmd = 'sudo python3 ./LatencyUDF.py ../controller/output/'
+    cmd = 'sudo python ./LatencyUDF.py ../controller/output/'
     local(cmd)
 
 
 @task
 def upload_batch():
-    cmd = 'python3 ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
-                                                                  CONF['upload_code'],
-                                                                  CONF['upload_url'])
+    cmd = 'python ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
+                                                                 CONF['upload_code'],
+                                                                 CONF['upload_url'])
     local(cmd)
 
 
@@ -196,23 +203,38 @@ def dump_database():
         return False
     else:
         LOG.info('Dump database %s to %s', CONF['database_name'], db_file_path)
-        cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
-                                                                   CONF['username'],
-                                                                   CONF['database_name'],
-                                                                   db_file_path)
+        # You must create a directory named dpdata through sqlplus in your Oracle database
+        if CONF['database_type'] == 'oracle':
+            cmd = 'expdp {}/{}@{} schemas={} dumpfile={}.dump DIRECTORY=dpdata'.format(
+                'c##tpcc', 'oracle', 'orcldb', 'c##tpcc', 'orcldb')
+        elif CONF['database_type'] == 'postgres':
+            cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
+                                                                       CONF['username'],
+                                                                       CONF['database_name'],
+                                                                       db_file_path)
+        else:
+            raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
         local(cmd)
         return True
 
 
 @task
 def restore_database():
-    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
-    drop_database()
-    create_database()
-    cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.format(CONF['password'],
-                                                                     CONF['username'],
-                                                                     CONF['database_name'],
-                                                                     db_file_path)
+    if CONF['database_type'] == 'oracle':
+        # You must create a directory named dpdata through sqlplus in your Oracle database
+        # The following script assumes such directory exists.
+        # You may want to modify the username, password, and dump file name in the script
+        cmd = 'sh restoreOracle.sh'
+    elif CONF['database_type'] == 'postgres':
+        db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
+        drop_database()
+        create_database()
+        cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.format(CONF['password'],
+                                                                         CONF['username'],
+                                                                         CONF['database_name'],
+                                                                         db_file_path)
+    else:
+        raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     LOG.info('Start restoring database')
     local(cmd)
     LOG.info('Finish restoring database')
@@ -233,7 +255,7 @@ def _ready_to_start_controller():
 def _ready_to_shut_down_controller():
     pid_file_path = '../controller/pid.txt'
     return (os.path.exists(pid_file_path) and os.path.exists(CONF['oltpbench_log']) and
-            'Output throughput samples into file' in open(CONF['oltpbench_log']).read())
+            'Output into file' in open(CONF['oltpbench_log']).read())
 
 
 def clean_logs():
@@ -318,18 +340,17 @@ def run_lhs():
     dump = dump_database()
 
     for i, sample in enumerate(samples):
-        LOG.info('\n\n Start %s-th sample %s \n\n', i, sample)
-
-        # free cache
-        free_cache()
-
+        # reload database periodically
         if RELOAD_INTERVAL > 0:
             if i % RELOAD_INTERVAL == 0:
                 if i == 0 and dump is False:
                     restore_database()
                 elif i > 0:
                     restore_database()
+        # free cache
+        free_cache()
 
+        LOG.info('\n\n Start %s-th sample %s \n\n', i, sample)
         # check memory usage
         # check_memory_usage()
 
@@ -337,6 +358,7 @@ def run_lhs():
         if check_disk_usage() > MAX_DISK_USAGE:
             LOG.WARN('Exceeds max disk usage %s', MAX_DISK_USAGE)
 
+        # copy lhs-sampled config to the to-be-used config
         cmd = 'cp {} next_config'.format(sample)
         local(cmd)
 
@@ -348,6 +370,10 @@ def run_lhs():
 
         # restart database
         restart_database()
+        # create snapshot for oracle AWR report
+        if CONF['database_type'] == 'oracle':
+            cmd = 'sh snapshotOracle.sh'
+            local(cmd)
 
         # run controller from another process
         p = Process(target=run_controller, args=())
@@ -378,9 +404,16 @@ def run_lhs():
         # upload result
         upload_result()
 
+        # create oracle AWR report for performance analysis
+        if CONF['database_type'] == 'oracle':
+            cmd = 'sh snapshotOracle.sh'
+            local(cmd)
+            cmd = 'sh awrReport/awrOracle.sh'
+            local(cmd)
+
 
 @task
-def run_loops(max_iter=1):
+def run_loops(max_iter=50):
     # dump database if it's not done before.
     dump = dump_database()
 
