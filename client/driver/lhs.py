@@ -8,8 +8,8 @@ import sys
 import json
 import os
 import numpy as np
-from pyDOE import lhs
 from scipy.stats import uniform
+from pyDOE import lhs
 from hurry.filesize import size
 
 

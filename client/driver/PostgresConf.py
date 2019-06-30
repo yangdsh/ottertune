@@ -15,7 +15,7 @@ from collections import OrderedDict
 
 def main():
     if (len(sys.argv) != 3):
-        raise Exception("Usage: python confparser.py [Next Config] [Current Config]")
+        raise Exception("Usage: python PostgresConf.py [Next Config] [Current Config]")
 
     with open(sys.argv[1], "r") as f:
         conf = json.load(f,
