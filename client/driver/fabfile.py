@@ -190,8 +190,8 @@ def add_udf():
 @task
 def upload_batch():
     cmd = 'python3 ./upload_batch.py {} {} {}/new_result/'.format(CONF['save_path'],
-                                                                 CONF['upload_code'],
-                                                                 CONF['upload_url'])
+                                                                  CONF['upload_code'],
+                                                                  CONF['upload_url'])
     local(cmd)
 
 
