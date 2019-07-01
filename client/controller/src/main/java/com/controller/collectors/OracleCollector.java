@@ -27,30 +27,28 @@ public class OracleCollector extends DBCollector {
   private static final String PARAMETERS_SQL = "select name, value from v$parameter";
   
   private static final String PARAMETERS_SQL_WITH_HIDDEN = 
-    "select x.ksppinm name, y.ksppstvl value from sys.x$ksppi x, sys.x$ksppcv y where 
-    x.inst_id = userenv('Instance') and y.inst_id = userenv('Instance') and x.indx = y.indx";
+    "select x.ksppinm name, y.ksppstvl value from sys.x$ksppi x, sys.x$ksppcv y where x.inst_id = userenv('Instance') and y.inst_id = userenv('Instance') and x.indx = y.indx";
 
   private static final String METRICS_SQL = "select name, value from v$sysstat";
 
   public OracleCollector(String oriDBUrl, String username, String password) {
     try {
       Connection conn = DriverManager.getConnection(oriDBUrl, username, password);
-      Statement s = conn.createStatement();
-
+      Statement statement = conn.createStatement();
       // Collect DBMS version
-      ResultSet out = s.executeQuery(VERSION_SQL);
+      ResultSet out = statement.executeQuery(VERSION_SQL);
       if (out.next()) {
         this.version.append(out.getString(1));
       }
 
       // Collect DBMS parameters
-      out = s.executeQuery(PARAMETERS_SQL_WITH_HIDDEN);
+      out = statement.executeQuery(PARAMETERS_SQL_WITH_HIDDEN);
       while (out.next()) {
         dbParameters.put(out.getString(1).toLowerCase(), out.getString(2));
       }
 
       // Collect DBMS internal metrics
-      out = s.executeQuery(METRICS_SQL);
+      out = statement.executeQuery(METRICS_SQL);
       while (out.next()) {
         dbMetrics.put(out.getString(1).toLowerCase(), out.getString(2));
       }
