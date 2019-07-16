@@ -28,7 +28,7 @@ public class OracleCollector extends DBCollector {
   
   private static final String PARAMETERS_SQL_WITH_HIDDEN = 
       "select x.ksppinm name, y.ksppstvl value from sys.x$ksppi x, sys.x$ksppcv y where"
-      + "x.inst_id = userenv('Instance') and y.inst_id = userenv('Instance') and x.indx = y.indx";
+      + " x.inst_id = userenv('Instance') and y.inst_id = userenv('Instance') and x.indx = y.indx";
 
   private static final String METRICS_SQL = "select name, value from v$sysstat";
 
