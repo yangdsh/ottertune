@@ -59,9 +59,9 @@ public class OracleCollector extends DBCollector {
       e.printStackTrace();
     } finally {
       if (conn != null) {
-        conn.close()
+        conn.close();
       }
-   }
+    }
   }
 
   @Override
