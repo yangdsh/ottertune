@@ -98,7 +98,7 @@ def create_database():
 @task
 def change_conf():
     next_conf = 'next_config'
-    cmd = "sudo python3 confParser.py {} {} {}".\
+    cmd = "sudo python3 ConfParser.py {} {} {}".\
           format(CONF['database_type'], next_conf, CONF['database_conf'])
     local(cmd)
 
@@ -224,7 +224,7 @@ def restore_database():
         drop_database()
         create_database()
         cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.\
-        format(CONF['password'], CONF['username'], CONF['database_name'], db_file_path)
+              format(CONF['password'], CONF['username'], CONF['database_name'], db_file_path)
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     LOG.info('Start restoring database')
@@ -362,11 +362,11 @@ def run_lhs():
 
         # restart database
         restart_database()
-        
+
         if CONF.get('oracle_awr_enabled', False):
-          # create snapshot for oracle AWR report
-          if CONF['database_type'] == 'oracle':
-              local('sh snapshotOracle.sh')
+            # create snapshot for oracle AWR report
+            if CONF['database_type'] == 'oracle':
+                local('sh snapshotOracle.sh')
 
         # run controller from another process
         p = Process(target=run_controller, args=())

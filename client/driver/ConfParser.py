@@ -1,5 +1,5 @@
 #
-# OtterTune - confParser.py
+# OtterTune - ConfParser.py
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
@@ -61,15 +61,15 @@ def change_oracle_conf(next_config, current_config):
 
 
 def main():
-    if (len(sys.argv) != 4):
-        raise Exception("Usage: python [database_type] PostgresConf.py [Next Config] [Current Config]")
+    if len(sys.argv) != 4:
+        raise Exception("Usage: python [DB type] ConfParser.py [Next Config] [Current Config]")
     database_type = sys.argv[1]
-    if (database_type == 'postgres'):
+    if database_type == 'postgres':
         change_postgres_conf(sys.argv[2], sys.argv[3])
-    else if (database_type == 'oracle'):
+    elif database_type == 'oracle':
         change_oracle_conf(sys.argv[2], sys.argv[3])
-    else
-        raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
+    else:
+        raise Exception("Database Type {} Not Implemented !".format(database_type))
 
 
 if __name__ == "__main__":
