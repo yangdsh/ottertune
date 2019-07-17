@@ -19,7 +19,7 @@ def main():
             line = line.replace("\n", "")
             pattern = re.compile(r"^\s+|\s+$")
             line = re.sub(pattern, '', line)
-            if len(line) <= 1:
+            if not line:
                 continue
             if line == 'NAME' or line[0] == '-':
                 continue
