@@ -69,9 +69,7 @@ def restart_database():
     if CONF['database_type'] == 'postgres':
         cmd = 'sudo service postgresql restart'
     elif CONF['database_type'] == 'oracle':
-        cmd = 'sh shutdownOracle.sh'
-        local(cmd)
-        cmd = 'sh startupOracle.sh'
+        cmd = 'sh oracleScripts/shutdownOracle.sh && sh oracleScripts/startupOracle.sh'
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -100,12 +98,8 @@ def create_database():
 @task
 def change_conf():
     next_conf = 'next_config'
-    if CONF['database_type'] == 'postgres':
-        cmd = 'sudo python3 PostgresConf.py {} {}'.format(next_conf, CONF['database_conf'])
-    elif CONF['database_type'] == 'oracle':
-        cmd = 'sudo python3 OracleConf.py {} {}'.format(next_conf, CONF['database_conf'])
-    else:
-        raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
+    cmd = "sudo python3 confParser.py {} {} {}".\
+          format(CONF['database_type'], next_conf, CONF['database_conf'])
     local(cmd)
 
 
@@ -224,7 +218,7 @@ def restore_database():
         # You must create a directory named dpdata through sqlplus in your Oracle database
         # The following script assumes such directory exists.
         # You may want to modify the username, password, and dump file name in the script
-        cmd = 'sh restoreOracle.sh'
+        cmd = 'sh oracleScripts/restoreOracle.sh'
     elif CONF['database_type'] == 'postgres':
         db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
         drop_database()
@@ -368,10 +362,11 @@ def run_lhs():
 
         # restart database
         restart_database()
-        # create snapshot for oracle AWR report
-        if CONF['database_type'] == 'oracle':
-            cmd = 'sh snapshotOracle.sh'
-            local(cmd)
+        
+        if CONF.get('oracle_awr_enabled', False):
+          # create snapshot for oracle AWR report
+          if CONF['database_type'] == 'oracle':
+              local('sh snapshotOracle.sh')
 
         # run controller from another process
         p = Process(target=run_controller, args=())
@@ -402,12 +397,10 @@ def run_lhs():
         # upload result
         upload_result()
 
-        # create oracle AWR report for performance analysis
-        if CONF['database_type'] == 'oracle':
-            cmd = 'sh snapshotOracle.sh'
-            local(cmd)
-            cmd = 'sh awrReport/awrOracle.sh'
-            local(cmd)
+        if CONF.get('oracle_awr_enabled', False):
+            # create oracle AWR report for performance analysis
+            if CONF['database_type'] == 'oracle':
+                local('sh oracleScripts/snapshotOracle.sh && sh awrReport/awrOracle.sh')
 
 
 @task

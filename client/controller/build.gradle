@@ -51,8 +51,8 @@ dependencies {
     // https://mvnrepository.com/artifact/org.postgresql/postgresql
     compile group: 'org.postgresql', name: 'postgresql', version: '9.4-1201-jdbc41'
 
-    //local jar packege for oracle
-    dependencies { compile files('lib/ojdbc8.jar')}
+    // This lib has to be manually downloaded from Oracle
+    dependencies {compile files('lib/ojdbc8.jar')}
 }
 
 run {

@@ -6,10 +6,10 @@
 import copy
 import numpy as np
 
-from sklearn.preprocessing import StandardScaler
 from celery.task import periodic_task
 from celery.utils.log import get_task_logger
 from django.utils.timezone import now
+from sklearn.preprocessing import StandardScaler
 
 from analysis.cluster import KMeansClusters, create_kselection_model
 from analysis.factor_analysis import FactorAnalysis
