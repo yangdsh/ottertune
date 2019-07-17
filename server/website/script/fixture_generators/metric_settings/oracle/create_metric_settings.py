@@ -21,7 +21,7 @@ def main():
             line = re.sub(pattern, '', line)
             if not line:
                 continue
-            if line == 'NAME' or line[0] == '-':
+            if line == 'NAME' or line.startswith('-'):
                 continue
             if odd == 0:
                 entry = {}
