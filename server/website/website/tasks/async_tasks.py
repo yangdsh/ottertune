@@ -7,10 +7,10 @@ import random
 import queue
 import numpy as np
 
-from sklearn.preprocessing import StandardScaler
 from celery.task import task, Task
 from celery.utils.log import get_task_logger
 from djcelery.models import TaskMeta
+from sklearn.preprocessing import StandardScaler
 
 from analysis.gp import GPRNP
 from analysis.gp_tf import GPRGD
