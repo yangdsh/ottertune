@@ -5,7 +5,6 @@
 #
 import json
 import shutil
-import re
 
 # Oracle Type:
 # 1 - Boolean
@@ -164,23 +163,18 @@ def main():
 
         lines = f.readlines()
         for line in lines:
-            line = line.replace("\n", "")
-            pattern = re.compile(r"^\s+|\s+$")
-            line = re.sub(pattern, '', line)
-            if len(line) <= 0:
+            line = line.strip().replace("\n", "")
+            if not line:
                 continue
-            if line == 'DESCRIPTION' or line == 'NAME'\
-                    or line == 'TYPE' or line[0] == '-':
+            if line in ['DESCRIPTION', 'NAME', 'TYPE'] or line.startswith('-'):
                 continue
             if num == 0:
                 entry = {}
                 entry['model'] = 'website.KnobCatalog'
                 fields = {}
                 fields['name'] = line
-                num = 1
-                continue
-            if num == 1:
-                if line == '3' or line == '6':
+            elif num == 1:
+                if line in ['3', '6']:
                     fields['vartype'] = 2
                     fields['default'] = 0
                 elif line == '1':
@@ -189,10 +183,7 @@ def main():
                 else:
                     fields['vartype'] = 1
                     fields['default'] = ''
-                num = 2
-                continue
-            if num == 2:
-                num = 0
+            elif num == 2:
                 fields['summary'] = line
                 fields['scope'] = 'global'
                 fields['dbms'] = 18       # oracle
@@ -209,6 +200,7 @@ def main():
                 fields['name'] = 'global.' + fields['name']
                 entry['fields'] = fields
                 final_metrics.append(entry)
+            num = (num + 1) % 3
     with open('oracle_knobs.json', 'w') as f:
         json.dump(final_metrics, f, indent=4)
     shutil.copy("oracle_knobs.json", "../../../../website/fixtures/oracle_knobs.json")

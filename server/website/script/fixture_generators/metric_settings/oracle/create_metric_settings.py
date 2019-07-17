@@ -4,7 +4,6 @@
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
 import json
-import re
 import shutil
 
 
@@ -16,9 +15,7 @@ def main():
         fields = {}
         lines = f.readlines()
         for line in lines:
-            line = line.replace("\n", "")
-            pattern = re.compile(r"^\s+|\s+$")
-            line = re.sub(pattern, '', line)
+            line = line.strip().replace("\n", "")
             if not line:
                 continue
             if line == 'NAME' or line.startswith('-'):
