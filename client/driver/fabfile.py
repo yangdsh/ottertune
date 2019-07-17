@@ -224,7 +224,7 @@ def restore_database():
         drop_database()
         create_database()
         cmd = 'PGPASSWORD={} pg_restore -U {} -j 8 -F c -d {} {}'.\
-        format(CONF['password'], CONF['username'], CONF['database_name'], db_file_path)
+              format(CONF['password'], CONF['username'], CONF['database_name'], db_file_path)
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     LOG.info('Start restoring database')
