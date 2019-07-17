@@ -61,7 +61,7 @@ public class OracleCollector extends DBCollector {
       if (conn != null) {
         conn.close()
       }
-   }
+    }
   }
 
   @Override
