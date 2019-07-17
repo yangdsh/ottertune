@@ -33,9 +33,8 @@ public class OracleCollector extends DBCollector {
   private static final String METRICS_SQL = "select name, value from v$sysstat";
 
   public OracleCollector(String oriDBUrl, String username, String password) {
-    Connection conn = null;
     try {
-      conn = DriverManager.getConnection(oriDBUrl, username, password);
+      Connection conn = DriverManager.getConnection(oriDBUrl, username, password);
       Statement statement = conn.createStatement();
       // Collect DBMS version
       ResultSet out = statement.executeQuery(VERSION_SQL);
@@ -54,13 +53,10 @@ public class OracleCollector extends DBCollector {
       while (out.next()) {
         dbMetrics.put(out.getString(1).toLowerCase(), out.getString(2));
       }
+      conn.close();
     } catch (SQLException e) {
       LOG.error("Error while collecting DB parameters: " + e.getMessage());
       e.printStackTrace();
-    } finally {
-      if (conn != null) {
-        conn.close();
-      }
     }
   }
 
