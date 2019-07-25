@@ -68,9 +68,6 @@ public class OracleCollector extends DBCollector {
       stringer.key(JSON_GLOBAL_KEY);
       JSONObject jobLocal = new JSONObject();
       JSONObject job = new JSONObject();
-      for (String k : dbParameters.keySet()) {
-        job.put(k, dbParameters.get(k));
-      }
       for (Map.Entry<String, String> entry : dbParameters.entrySet()) {
         job.put(entry.getKey(), entry.getValue());
       }
