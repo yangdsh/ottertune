@@ -400,7 +400,7 @@ def run_lhs():
         if CONF.get('oracle_awr_enabled', False):
             # create oracle AWR report for performance analysis
             if CONF['database_type'] == 'oracle':
-                local('sh oracleScripts/snapshotOracle.sh && sh awrReport/awrOracle.sh')
+                local('sh oracleScripts/snapshotOracle.sh && sh oracleScripts/awrOracle.sh')
 
 
 @task
