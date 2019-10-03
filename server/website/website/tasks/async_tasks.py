@@ -341,6 +341,7 @@ def configuration_recommendation(recommendation_input):
     if target_data['bad'] is True:
         target_data_res = {}
         target_data_res['status'] = 'bad'
+        target_data_res['result_id'] = target_data['newest_result_id']
         target_data_res['info'] = 'WARNING: no training data, the config is generated randomly'
         target_data_res['recommendation'] = target_data['config_recommend']
         return target_data_res
