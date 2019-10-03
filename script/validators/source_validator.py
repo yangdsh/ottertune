@@ -277,7 +277,7 @@ def check_java_checkstyle(file_path, config_path=None):
 
     if not os.path.exists(CHECKSTYLE_JAR_PATH):
         with lcd(os.path.join(OTTERTUNE_DIR, "client/controller")):  # pylint: disable=not-context-manager
-            local("sudo gradle downloadJars")
+            local("gradle downloadJars")
 
     options = '' if config_path is None else '-c ' + config_path
     with quiet():
