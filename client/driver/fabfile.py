@@ -248,7 +248,7 @@ def dump_database():
 
 @task
 def restore_database():
-    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], 'tpcc')
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
     if CONF['database_type'] == 'oracle':
         if CONF.get('database_docker', '') != '':
             # first recreate the user to delete the content
