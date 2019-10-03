@@ -8,6 +8,7 @@ Created on Mar 23, 2018
 
 @author: bohan
 '''
+import subprocess
 import sys
 import json
 import logging
@@ -110,11 +111,11 @@ def change_conf():
     # Therefore, we copy that pfile from docker and modify it locally.
     if CONF.get('database_docker', '') != '':
         database_conf = 'oracleScripts/oracle_pfile_example.ora'
-        cmd = 'sudo docker cp {}:{} {}'.format(CONF['database_docker'], CONF['database_conf'],
-                                               database_conf)
         try:
-            local(cmd)
-        except RuntimeError:
+            cmd = 'sudo docker cp {}:{} {}'.format(CONF['database_docker'], 
+                                                   CONF['database_conf'], database_conf)
+            subprocess.check_call([cmd, '2&>/dev/null'], shell=True)
+        except subprocess.CalledProcessError:
             LOG.info('Cannot find pfile in docker, using oracle_pfile_example.ora instead.')
     else:
         database_conf = CONF['database_conf']
