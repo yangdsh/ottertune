@@ -43,7 +43,7 @@ public class OracleCollector extends DBCollector {
       }
 
       // Collect DBMS parameters
-      out = statement.executeQuery(PARAMETERS_SQL_WITH_HIDDEN);
+      out = statement.executeQuery(PARAMETERS_SQL);
       while (out.next()) {
         dbParameters.put(out.getString(1).toLowerCase(), out.getString(2));
       }

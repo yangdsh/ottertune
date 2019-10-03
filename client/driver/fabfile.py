@@ -69,7 +69,15 @@ def restart_database():
     if CONF['database_type'] == 'postgres':
         cmd = 'sudo service postgresql restart'
     elif CONF['database_type'] == 'oracle':
-        cmd = 'sh oracleScripts/shutdownOracle.sh && sh oracleScripts/startupOracle.sh'
+        if CONF.get('database_docker', '') != '':
+            cmd = '''cat  <<EOF | sudo docker exec --interactive {} sh
+                     sqlplus / as sysdba
+                     shutdown immediate
+                     startup
+                     exit
+                     EOF'''.format(CONF['database_docker'])
+        else:
+            cmd = 'sh oracleScripts/shutdownOracle.sh && sh oracleScripts/startupOracle.sh'
     else:
         raise Exception("Database Type {} Not Implemented !".format(CONF['database_type']))
     local(cmd)
@@ -98,9 +106,28 @@ def create_database():
 @task
 def change_conf():
     next_conf = 'next_config'
+    # If we are using a docker, we can not modify the pfile in the docker directly
+    # Therefore, we copy that pfile from docker and modify it locally.
+    if CONF.get('database_docker', '') != '':
+        database_conf = 'oracleScripts/oracle_pfile_example.ora'
+        cmd = 'sudo docker cp {}:{} {}'.format(CONF['database_docker'], CONF['database_conf'],
+                                               database_conf)
+        try:
+            local(cmd)
+        except RuntimeError:
+            LOG.info('Cannot find pfile in docker, using oracle_pfile_example.ora instead.')
+    else:
+        database_conf = CONF['database_conf']
+
     cmd = "sudo python3 ConfParser.py {} {} {}".\
-          format(CONF['database_type'], next_conf, CONF['database_conf'])
+          format(CONF['database_type'], next_conf, database_conf)
     local(cmd)
+
+    # copy the config to docker
+    if CONF.get('database_docker', '') != '':
+        cmd = 'sudo docker cp {} {}:{}'.format(database_conf,
+                                               CONF['database_docker'], CONF['database_conf'])
+        local(cmd)
 
 
 @task
@@ -201,8 +228,12 @@ def dump_database():
         LOG.info('Dump database %s to %s', CONF['database_name'], db_file_path)
         # You must create a directory named dpdata through sqlplus in your Oracle database
         if CONF['database_type'] == 'oracle':
-            cmd = 'expdp {}/{}@{} schemas={} dumpfile={}.dump DIRECTORY=dpdata'.format(
-                'c##tpcc', 'oracle', 'orcldb', 'c##tpcc', 'orcldb')
+            if CONF.get('database_docker', '') != '':
+                cmd = 'exp {}/{}@//localhost:1521/{} file={}'.format(
+                    CONF['username'], CONF['password'], CONF['database_name'], db_file_path)
+            else:
+                cmd = 'expdp {}/{}@{} schemas={} dumpfile={}.dump DIRECTORY=dpdata'.format(
+                    'c##tpcc', 'oracle', 'orcldb', 'c##tpcc', 'orcldb')
         elif CONF['database_type'] == 'postgres':
             cmd = 'PGPASSWORD={} pg_dump -U {} -F c -d {} > {}'.format(CONF['password'],
                                                                        CONF['username'],
@@ -216,13 +247,30 @@ def dump_database():
 
 @task
 def restore_database():
+    db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], 'tpcc')
     if CONF['database_type'] == 'oracle':
+        if CONF.get('database_docker', '') != '':
+            # first recreate the user to delete the content
+            cmd = '''cat  <<EOF | sudo docker exec --interactive {} sh
+                     sqlplus / as sysdba
+                     drop user {} cascade;
+                     create user {} identified by oracle;
+                     grant connect, resource, dba to {};
+                     quit
+                     EOF'''.format(CONF['database_docker'],
+                                   CONF['username'], CONF['username'], CONF['username'])
+            local(cmd)
+
+            # then import the dump file
+            cmd = 'imp {}/{}@//localhost:1521/{} file={} FULL=Y'.format(
+                CONF['username'], CONF['password'], CONF['database_name'], db_file_path)
+
         # You must create a directory named dpdata through sqlplus in your Oracle database
         # The following script assumes such directory exists.
         # You may want to modify the username, password, and dump file name in the script
-        cmd = 'sh oracleScripts/restoreOracle.sh'
+        else:
+            cmd = 'sh oracleScripts/restoreOracle.sh'
     elif CONF['database_type'] == 'postgres':
-        db_file_path = '{}/{}.dump'.format(CONF['database_save_path'], CONF['database_name'])
         drop_database()
         create_database()
         cmd = 'PGPASSWORD={} pg_restore -U {} -n public -j 8 -F c -d {} {}'.\

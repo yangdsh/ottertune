@@ -45,7 +45,7 @@ def change_oracle_conf(recommendation, oracle_conf):
         oracle_conf.write(line)
 
     for (knob_name, knob_value) in list(recommendation.items()):
-        oracle_conf.write(str(knob_name) + " = " + str(knob_value).strip('B') + "\n")
+        oracle_conf.write("*." + str(knob_name) + " = " + str(knob_value).strip('B') + "\n")
 
 
 def main():
