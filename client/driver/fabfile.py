@@ -112,7 +112,7 @@ def change_conf():
     if CONF.get('database_docker', '') != '':
         database_conf = 'oracleScripts/oracle_pfile_example.ora'
         try:
-            cmd = 'sudo docker cp {}:{} {}'.format(CONF['database_docker'], 
+            cmd = 'sudo docker cp {}:{} {}'.format(CONF['database_docker'],
                                                    CONF['database_conf'], database_conf)
             subprocess.check_call([cmd, '2&>/dev/null'], shell=True)
         except subprocess.CalledProcessError:
