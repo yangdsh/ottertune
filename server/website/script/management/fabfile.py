@@ -13,8 +13,11 @@ import logging
 from collections import namedtuple
 from fabric.api import env, local, quiet, settings, task
 from fabric.state import output as fabric_output
-
-from website.settings import DATABASES, PROJECT_ROOT
+import os
+import sys
+sys.path.append("../../")
+from website.settings import DATABASES, PROJECT_ROOT  # pylint: disable=wrong-import-position
+os.chdir("../../")
 
 LOG = logging.getLogger(__name__)
 
@@ -115,7 +118,6 @@ def reset_website():
         user, passwd, name))
 
     # Reinitialize the website
-    local('python manage.py migrate website')
     local('python manage.py migrate')
 
 
