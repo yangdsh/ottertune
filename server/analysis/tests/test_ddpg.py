@@ -37,6 +37,6 @@ class TestDDPG(unittest.TestCase):
                 ddpg.update()
         cls.ypreds_round = ['%.4f' % ddpg.choose_action(x)[0] for x in X_test]
 
-    def test_ddpg_ypreds(self):  
+    def test_ddpg_ypreds(self):
         expected_ypreds = ['0.3169', '0.3240', '0.3934', '0.5787', '0.6988', '0.5163']
         self.assertEqual(self.ypreds_round, expected_ypreds)
