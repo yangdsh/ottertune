@@ -17,9 +17,9 @@ class TestDDPG(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        torch.manual_seed(0)
         random.seed(0)
         np.random.seed(0)
+        torch.manual_seed(0)
         super(TestDDPG, cls).setUpClass()
         boston = datasets.load_boston()
         data = boston['data']
@@ -38,5 +38,5 @@ class TestDDPG(unittest.TestCase):
         cls.ypreds_round = ['%.4f' % ddpg.choose_action(x)[0] for x in X_test]
 
     def test_ddpg_ypreds(self):  
-        expected_ypreds = ['0.1770', '0.3154', '0.3056', '0.4503', '0.5706', '0.4069']
+        expected_ypreds = ['0.3169', '0.3240', '0.3934', '0.5787', '0.6988', '0.5163']
         self.assertEqual(self.ypreds_round, expected_ypreds)
