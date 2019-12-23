@@ -30,7 +30,7 @@ example of JSON file format:
 
 
 def update_knobs(tunable_knob_file, knobs, num):
-    if num < 0:
+    if num <= 0:
         return
     cnt = 0
     with open(tunable_knob_file, 'r') as f:
@@ -42,15 +42,15 @@ def update_knobs(tunable_knob_file, knobs, num):
             name = ('global.' + field_list[0]).lower()
             if name in knobs:
                 knob = knobs[name]
+                if knob['tunable'] is True:
+                    continue
                 knob['tunable'] = True
                 if len(field_list[1]) > 0 and len(field_list[2]) > 0:
                     knob['minval'] = field_list[1]
                     knob['maxval'] = field_list[2]
-            else:
-                continue
-            cnt += 1
-            if cnt == num:
-                break
+                cnt += 1
+                if cnt == num:
+                    break
 
 
 class Command(BaseCommand):
@@ -73,6 +73,12 @@ class Command(BaseCommand):
             metavar='SOURCE',
             default='selected_knobs.csv',
             help='Name of the file to read the session knob tunability from. '
+                 'Default: selected_knobs.csv')
+        parser.add_argument(
+            '-o', '--output',
+            metavar='OUTPUT',
+            default='selected_knobs.csv',
+            help='Name of the file to write the updated session knob tunability to. '
                  'Default: selected_knobs.csv')
         parser.add_argument(
             '-d', '--file_dir',
@@ -106,26 +112,20 @@ class Command(BaseCommand):
         source_dir = options['source_dir'] or ''
         tunable_knob_file = os.path.join(source_dir, options['source'])
         target_tunable_knobs = int(options['num'])
-        iters = 0
-        total_tunable_knobs = 0
+
+        cur_tunable_knobs = 0
         for knob in knobs.values():
             if knob['tunable']:
-                total_tunable_knobs += 1
-        while total_tunable_knobs < target_tunable_knobs and iters < 10:
-            iters += 1
+                cur_tunable_knobs += 1
+        if cur_tunable_knobs < target_tunable_knobs:
+            update_knobs(tunable_knob_file, knobs, target_tunable_knobs - cur_tunable_knobs)
             cur_tunable_knobs = 0
             for knob in knobs.values():
                 if knob['tunable']:
                     cur_tunable_knobs += 1
 
-            update_knobs(tunable_knob_file, knobs, target_tunable_knobs - cur_tunable_knobs)
-
-            total_tunable_knobs = 0
-            for knob in knobs.values():
-                if knob['tunable']:
-                    total_tunable_knobs += 1
-
-        with open(path, 'w') as f:
+        out_path = os.path.join(file_dir, options['output'])
+        with open(out_path, 'w') as f:
             json.dump(knobs, f, indent=4)
         self.stdout.write(self.style.SUCCESS(
-            "After update, there are {} tunable session knobs.".format(total_tunable_knobs)))
+            "Writing {} tunable session knobs into {}.".format(cur_tunable_knobs, out_path)))
